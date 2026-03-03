@@ -1,5 +1,10 @@
 import "./globals.css";
 
+export const metadata = {
+  title: "Eventra",
+  description: "Plan your perfect event",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -7,7 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-[#f6f1ec] text-gray-900">
+      <body className="bg-[#F6F1EC] text-gray-900">
         {children}
       </body>
     </html>
