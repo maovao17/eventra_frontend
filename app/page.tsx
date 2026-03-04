@@ -1,19 +1,21 @@
-import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
-import Stats from "@/components/Stats";
-import Features from "@/components/Features";
-import CTA from "@/components/CTA";
-import Footer from "@/components/Footer";
+import Navbar from "@/components/market/Navbar";
+import Hero from "@/components/market/Hero";
+import Stats from "@/components/market/Stats";
+import Features from "@/components/market/Features";
+import CTA from "@/components/market/CTA";
+import Footer from "@/components/market/Footer";
+import HomeCarousel from "@/components/market/HomeCarousel";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <main>
+    <>
       <Navbar />
       <Hero />
+      <HomeCarousel /> 
       <Stats />
       <Features />
-      <CTA />
+      <CTA />ß
       <Footer />
-    </main>
+    </>
   );
 }
