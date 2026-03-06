@@ -37,7 +37,7 @@ export default function SignupPage() {
                 : "text-gray-500"
             }`}
           >
-            Individual
+            User
           </button>
           <button
             onClick={() => setRole("business")}

@@ -14,7 +14,7 @@ export default function HomePage() {
       <HomeCarousel /> 
       <Stats />
       <Features />
-      <CTA />ß
+      <CTA />
       <Footer />
     </>
   );
