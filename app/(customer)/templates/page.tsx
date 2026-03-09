@@ -1,35 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import TemplateCard from "@/components/customer/TemplateCard";
-
-const templates = [
-  { title: "Wedding", image: "/wedding.jpg", budget: "₹15L - ₹80L+" },
-  { title: "Birthday", image: "/birthday.jpg", budget: "₹15k - ₹3L+" },
-  { title: "Anniversary", image: "/anniversary.jpg", budget: "₹75k - ₹5L+" },
-  { title: "Corporate", image: "/corporate.jpg", budget: "₹2L - ₹20L+" },
-  { title: "Baby Shower", image: "/baby.jpg", budget: "₹40k - ₹2L+" },
-  { title: "Gala Dinner", image: "/gala.jpg", budget: "₹15L - ₹80L+" }
-];
+import { templates } from "@/app/lib/mock-data";
 
 export default function TemplatesPage() {
   return (
-    <div className="max-w-7xl mx-auto px-10 py-16">
-
-      <motion.h1
-        initial={{opacity:0,y:20}}
-        animate={{opacity:1,y:0}}
-        className="text-4xl font-bold text-center mb-10"
-      >
-        Your Event, Your Template
-      </motion.h1>
-
-      <div className="grid md:grid-cols-3 gap-8">
-        {templates.map((t, i) => (
-          <TemplateCard key={i} {...t}/>
-        ))}
+    <div className="mx-auto max-w-7xl space-y-8">
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex items-end justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-orange-500">Template gallery</p>
+          <h1 className="mt-2 text-4xl font-bold">Choose an event starter</h1>
+        </div>
+        <Link href="/events/create" className="rounded-xl bg-orange-500 px-4 py-2.5 text-sm text-white">Create Custom Event</Link>
+      </motion.div>
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {templates.map((template, index) => <TemplateCard key={template.title} {...template} index={index} />)}
       </div>
-
     </div>
   );
 }

@@ -1,12 +1,5 @@
-export default function Input({
-  placeholder,
-}: {
-  placeholder: string;
-}) {
-  return (
-    <input
-      placeholder={placeholder}
-      className="border rounded-lg px-4 py-2 w-full"
-    />
-  );
+import { InputHTMLAttributes } from "react";
+
+export default function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={`input ${className}`} {...props} />;
 }
