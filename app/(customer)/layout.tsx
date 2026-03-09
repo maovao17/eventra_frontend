@@ -1,24 +1,14 @@
 import Sidebar from "@/components/customer/CustomerSidebar";
 import Topbar from "@/components/customer/CustomerTopbar";
 
-export default function CustomerLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen bg-gray-50">
-
+    <div className="flex min-h-screen">
       <Sidebar />
-
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-1 flex-col">
         <Topbar />
-
-        <main className="p-8 overflow-y-auto">
-          {children}
-        </main>
+        <main className="flex-1 p-6 lg:p-8">{children}</main>
       </div>
-
     </div>
   );
 }

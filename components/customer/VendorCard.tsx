@@ -1,42 +1,24 @@
+"use client";
+
+import Image from "next/image";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
-export default function VendorCard() {
+type Props = { id: string; name: string; rating: number; priceRange: string; description: string; image: string; index: number };
+
+export default function VendorCard({ id, name, rating, priceRange, description, image, index }: Props) {
   return (
-    <Link href="/vendors/1">
-
-      <div className="bg-white rounded-xl shadow hover:shadow-lg transition">
-
-        <img
-          src="/vendors/vendor1.jpg"
-          className="h-40 w-full object-cover rounded-t-xl"
-        />
-
-        <div className="p-4 space-y-2">
-
-          <h3 className="font-semibold">
-            Velvet & Vine Productions
-          </h3>
-
-          <p className="text-sm text-gray-500">
-            Wedding Decor
-          </p>
-
-          <div className="flex justify-between items-center">
-
-            <span className="text-[#E87D5F] font-bold">
-              ₹85,000
-            </span>
-
-            <button className="bg-[#E87D5F] text-white px-4 py-1 rounded-full text-sm">
-              View
-            </button>
-
-          </div>
-
+    <motion.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.06 }} whileHover={{ y: -4 }} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div className="relative h-44 w-full"><Image src={image} alt={name} fill className="object-cover" /></div>
+      <div className="space-y-2 p-4">
+        <h3 className="font-semibold">{name}</h3>
+        <p className="text-xs text-slate-500">⭐ {rating} · {priceRange}</p>
+        <p className="text-sm text-slate-600">{description}</p>
+        <div className="flex gap-2 pt-1">
+          <Link href={`/vendors/${id}`} className="rounded-lg border border-slate-200 px-3 py-2 text-xs">View Profile</Link>
+          <Link href="/messages" className="rounded-lg bg-orange-500 px-3 py-2 text-xs text-white">Send Request</Link>
         </div>
-
       </div>
-
-    </Link>
+    </motion.article>
   );
 }
