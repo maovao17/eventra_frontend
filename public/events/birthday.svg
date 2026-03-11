@@ -1,0 +1,14 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F6EFEA"/>
+  <circle cx="1340" cy="180" r="210" fill="#3E7C78" fill-opacity="0.15"/>
+  <circle cx="260" cy="720" r="240" fill="#E87D5F" fill-opacity="0.14"/>
+  <rect x="176" y="158" width="1248" height="584" rx="36" fill="white"/>
+  <rect x="476" y="270" width="648" height="288" rx="144" fill="#E87D5F" fill-opacity="0.12"/>
+  <circle cx="640" cy="414" r="78" fill="#E87D5F"/>
+  <circle cx="800" cy="414" r="78" fill="#3E7C78"/>
+  <circle cx="960" cy="414" r="78" fill="#E87D5F" fill-opacity="0.85"/>
+  <path d="M800 258C816 236 834 218 850 206" stroke="#3E7C78" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="866" cy="190" r="20" fill="#E87D5F"/>
+  <text x="256" y="632" fill="#1F2937" font-family="Arial, sans-serif" font-size="88" font-weight="700">Birthday Setup</text>
+  <text x="256" y="708" fill="#6B7280" font-family="Arial, sans-serif" font-size="34">Swap this file anytime with your own artwork</text>
+</svg>

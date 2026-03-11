@@ -1,21 +1,32 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
+import { validateLogin } from "@/lib/validation/authValidation";
 
 export default function LoginPage() {
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleSendOtp = () => {
-    if (!phone) return alert("Enter phone number");
+    const validationErrors = validateLogin({ phone });
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
     // TODO: call backend API here
     console.log("Sending OTP to:", phone);
     setStep("otp");
   };
 
   const handleVerifyOtp = () => {
-    if (!otp) return alert("Enter OTP");
+    if (!otp) {
+      setErrors({ otp: "OTP is required" });
+      return;
+    }
     // TODO: call verify API
     console.log("Verifying OTP:", otp);
   };
@@ -30,9 +41,18 @@ export default function LoginPage() {
       {/* Card */}
       <div className="bg-white w-[400px] p-8 rounded-3xl shadow-xl relative z-10">
 
-        <h1 className="text-center text-[#E87D5F] font-semibold text-lg">
-          Eventra
-        </h1>
+        <div className="flex flex-col items-center">
+          <Image
+            src="/logo.jpeg"
+            alt="Eventra"
+            width={48}
+            height={48}
+            className="h-12 w-12 rounded-xl object-cover"
+          />
+          <h1 className="mt-3 text-center text-[#E87D5F] font-semibold text-lg">
+            Eventra
+          </h1>
+        </div>
 
         <h2 className="text-2xl font-bold text-center mt-2">
           {step === "phone" ? "Login with Phone" : "Verify OTP"}
@@ -53,8 +73,13 @@ export default function LoginPage() {
                 placeholder="+91 9876543210"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full mt-1 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E87D5F]"
+                className={`w-full mt-1 px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E87D5F] ${
+                  errors.phone ? "border-red-500" : ""
+                }`}
               />
+              {errors.phone && (
+                <p className="text-red-500 text-sm">{errors.phone}</p>
+              )}
             </div>
 
             <button
@@ -75,8 +100,13 @@ export default function LoginPage() {
                 placeholder="123456"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full mt-1 px-4 py-2 border rounded-xl text-center tracking-widest text-lg focus:outline-none focus:ring-2 focus:ring-[#E87D5F]"
+                className={`w-full mt-1 px-4 py-2 border rounded-xl text-center tracking-widest text-lg focus:outline-none focus:ring-2 focus:ring-[#E87D5F] ${
+                  errors.otp ? "border-red-500" : ""
+                }`}
               />
+              {errors.otp && (
+                <p className="text-red-500 text-sm">{errors.otp}</p>
+              )}
             </div>
 
             <button
@@ -96,7 +126,7 @@ export default function LoginPage() {
         )}
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <a href="/signup" className="text-[#E87D5F]">
             Sign up
           </a>

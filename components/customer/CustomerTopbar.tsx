@@ -2,17 +2,17 @@
 
 export default function CustomerTopbar() {
   return (
-    <div className="flex justify-between items-center bg-white border-b px-8 py-4">
+    <div className="theme-card flex items-center justify-between rounded-none border-x-0 border-t-0 px-8 py-4 shadow-none">
 
       <input
         type="text"
         placeholder="Search vendors..."
-        className="border rounded-lg px-4 py-2 w-80"
+        className="input w-80 px-4 py-2"
       />
 
       <div className="flex items-center gap-4">
 
-        <button className="text-gray-500">
+        <button className="theme-muted transition hover:text-[var(--primary)]">
           🔔
         </button>
 

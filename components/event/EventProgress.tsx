@@ -11,10 +11,10 @@ export default function EventProgress({
         <span>{progress}%</span>
       </div>
 
-      <div className="w-full bg-gray-200 h-2 rounded-full">
+      <div className="theme-progress-track h-2 w-full rounded-full">
 
         <div
-          className="bg-[#E87D5F] h-2 rounded-full"
+          className="h-2 rounded-full bg-[var(--primary)]"
           style={{ width: `${progress}%` }}
         ></div>
 

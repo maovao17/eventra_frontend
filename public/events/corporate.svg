@@ -1,0 +1,12 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F6EFEA"/>
+  <circle cx="1220" cy="180" r="230" fill="#E87D5F" fill-opacity="0.15"/>
+  <circle cx="320" cy="760" r="260" fill="#3E7C78" fill-opacity="0.12"/>
+  <rect x="170" y="150" width="1260" height="600" rx="36" fill="white"/>
+  <rect x="314" y="244" width="972" height="332" rx="28" fill="#3E7C78" fill-opacity="0.1"/>
+  <rect x="372" y="302" width="250" height="216" rx="20" fill="#E87D5F" fill-opacity="0.2"/>
+  <rect x="676" y="302" width="250" height="216" rx="20" fill="#3E7C78" fill-opacity="0.2"/>
+  <rect x="980" y="302" width="250" height="216" rx="20" fill="#E87D5F" fill-opacity="0.2"/>
+  <text x="248" y="646" fill="#1F2937" font-family="Arial, sans-serif" font-size="88" font-weight="700">Corporate Event</text>
+  <text x="248" y="720" fill="#6B7280" font-family="Arial, sans-serif" font-size="34">Production-friendly placeholder in /public/events</text>
+</svg>

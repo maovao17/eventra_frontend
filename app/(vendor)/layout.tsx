@@ -1,5 +1,5 @@
-import "@/app/globals.css";
-import VendorSidebar from "@/components/vendor/VendorSidebar";
+import VendorSidebar from "@/components/vendor/VendorSidebar copy";
+import VendorTopbar from "@/components/vendor/VendorTopbar copy";
 
 export default function VendorLayout({
   children,
@@ -7,13 +7,19 @@ export default function VendorLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="flex bg-[#F9F9F9]">
-        <VendorSidebar />
-        <main className="flex-1 p-10">
+    <div className="flex h-screen bg-[var(--background)]">
+
+      <VendorSidebar />
+
+      <div className="flex flex-col flex-1">
+
+        <VendorTopbar />
+
+        <main className="p-6 overflow-y-auto">
           {children}
         </main>
-      </body>
-    </html>
+
+      </div>
+    </div>
   );
 }

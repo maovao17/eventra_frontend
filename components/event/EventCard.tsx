@@ -10,13 +10,13 @@ export default function EventCard({
   progress: number;
 }) {
   return (
-    <div className="bg-white p-6 rounded-xl shadow space-y-4">
+    <div className="theme-card space-y-4 p-6">
 
       <h3 className="font-semibold text-lg">
         {title}
       </h3>
 
-      <p className="text-gray-500 text-sm">
+      <p className="theme-muted text-sm">
         Event Date: {date}
       </p>
 

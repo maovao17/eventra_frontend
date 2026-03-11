@@ -11,7 +11,7 @@ export default function BudgetTracker() {
   const progress = (spent / budget) * 100;
 
   return (
-    <div className="bg-white rounded-xl shadow p-6 w-full max-w-md">
+    <div className="theme-card w-full max-w-md p-6">
 
       <h2 className="text-lg font-semibold mb-4">
         Budget Overview
@@ -21,20 +21,20 @@ export default function BudgetTracker() {
       <div className="flex justify-between text-sm mb-3">
 
         <div>
-          <p className="text-gray-500">Total Budget</p>
+          <p className="theme-muted">Total Budget</p>
           <p className="font-semibold">₹{budget}</p>
         </div>
 
         <div>
-          <p className="text-gray-500">Spent</p>
-          <p className="font-semibold text-[#E87D5F]">
+          <p className="theme-muted">Spent</p>
+          <p className="theme-primary font-semibold">
             ₹{spent}
           </p>
         </div>
 
         <div>
-          <p className="text-gray-500">Remaining</p>
-          <p className="font-semibold text-green-600">
+          <p className="theme-muted">Remaining</p>
+          <p className="theme-secondary font-semibold">
             ₹{remaining}
           </p>
         </div>
@@ -43,16 +43,16 @@ export default function BudgetTracker() {
 
       {/* Progress Bar */}
 
-      <div className="w-full bg-gray-200 h-3 rounded-full">
+      <div className="theme-progress-track h-3 w-full rounded-full">
 
         <div
-          className="bg-[#E87D5F] h-3 rounded-full transition-all"
+          className="h-3 rounded-full bg-[var(--primary)] transition-all"
           style={{ width: `${progress}%` }}
         ></div>
 
       </div>
 
-      <p className="text-xs text-gray-500 mt-2">
+      <p className="theme-muted mt-2 text-xs">
         {Math.round(progress)}% of budget used
       </p>
 

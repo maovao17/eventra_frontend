@@ -2,14 +2,19 @@
 
 import { motion } from "framer-motion";
 
-export default function ServiceCard({service,removeService}:any){
+type ServiceCardProps = {
+service: string
+removeService: () => void
+}
+
+export default function ServiceCard({service,removeService}:ServiceCardProps){
 
 return(
 
 <motion.div
 initial={{opacity:0,y:10}}
 animate={{opacity:1,y:0}}
-className="bg-white shadow-md p-5 rounded-xl flex justify-between items-center"
+className="theme-card flex items-center justify-between p-5"
 >
 
 <div>
@@ -18,7 +23,7 @@ className="bg-white shadow-md p-5 rounded-xl flex justify-between items-center"
 {service}
 </h3>
 
-<p className="text-sm text-gray-500">
+<p className="theme-muted text-sm">
 Select vendors for this service
 </p>
 
@@ -26,7 +31,7 @@ Select vendors for this service
 
 <div className="flex gap-4">
 
-<button className="px-4 py-2 bg-[#E87D5F] text-white rounded-full">
+<button className="theme-button px-4 py-2">
 Find Vendors
 </button>
 

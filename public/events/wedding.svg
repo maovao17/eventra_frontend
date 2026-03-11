@@ -1,0 +1,11 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="900" fill="#F6EFEA"/>
+  <circle cx="1260" cy="160" r="220" fill="#E87D5F" fill-opacity="0.16"/>
+  <circle cx="320" cy="760" r="260" fill="#3E7C78" fill-opacity="0.14"/>
+  <rect x="180" y="164" width="1240" height="572" rx="36" fill="white"/>
+  <path d="M340 606C462 470 540 402 645 402C750 402 822 470 954 606" stroke="#E87D5F" stroke-width="26" stroke-linecap="round"/>
+  <path d="M540 286C540 250.654 568.654 222 604 222H996C1031.35 222 1060 250.654 1060 286V350H540V286Z" fill="#3E7C78" fill-opacity="0.12"/>
+  <path d="M800 268L828.961 326L892 335.161L846 379.768L857.922 442.839L800 412L742.078 442.839L754 379.768L708 335.161L771.039 326L800 268Z" fill="#E87D5F"/>
+  <text x="260" y="540" fill="#1F2937" font-family="Arial, sans-serif" font-size="88" font-weight="700">Wedding Experience</text>
+  <text x="260" y="620" fill="#6B7280" font-family="Arial, sans-serif" font-size="34">A replaceable placeholder image inside /public/events</text>
+</svg>

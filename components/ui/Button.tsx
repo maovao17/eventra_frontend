@@ -4,7 +4,7 @@ export default function Button({
   children: React.ReactNode;
 }) {
   return (
-    <button className="bg-[#E87D5F] text-white px-6 py-3 rounded-full hover:opacity-90 transition">
+    <button className="theme-button px-6 py-3">
       {children}
     </button>
   );
