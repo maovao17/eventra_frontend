@@ -2,12 +2,13 @@
 
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { notFound, useParams } from "next/navigation"
+import { notFound, useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useEvent } from "@/context/EventContext"
 
 export default function VendorProfilePage() {
   const params = useParams<{ vendorId: string }>()
+  const router = useRouter()
   const { vendors, currentEvent, sendVendorRequest, getRequestForVendor, formatCurrency } = useEvent()
   const vendor = vendors.find((item) => item.id === params.vendorId)
 
@@ -66,6 +67,7 @@ export default function VendorProfilePage() {
                 onClick={() => {
                   if (!currentEvent) return
                   sendVendorRequest(currentEvent.id, vendor.id)
+                  router.push("/checkout")
                 }}
                 className={`w-full rounded-xl py-3 ${
                   request ? "bg-[var(--primary-light)] text-[var(--primary)]" : "theme-button"
@@ -77,6 +79,16 @@ export default function VendorProfilePage() {
               <Link href={`/vendors?service=${encodeURIComponent(vendor.category)}`} className="block rounded-xl border px-4 py-3 text-center text-sm">
                 Explore Similar Vendors
               </Link>
+
+              {request ? (
+                <button
+                  type="button"
+                  onClick={() => router.push("/messages")}
+                  className="block w-full rounded-xl border px-4 py-3 text-center text-sm"
+                >
+                  Open Chat
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

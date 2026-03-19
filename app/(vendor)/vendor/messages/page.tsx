@@ -1,21 +1,36 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useEvent } from "@/context/EventContext"
+import {
+  getChatIdForRequest,
+  sendChatMessage,
+  subscribeToChatMessages,
+  type ChatMessage,
+} from "@/lib/chat"
 
 export default function MessagesPage() {
-const { requests, vendors, events, getMessagesForRequest, sendMessage } = useEvent()
+const { requests, vendors, events } = useEvent()
 const currentVendorId = "2"
-const vendorRequests = requests.filter(
-  (request) => request.vendorId === currentVendorId && request.status === "accepted"
-)
-const [activeRequestId, setActiveRequestId] = useState<string | null>(vendorRequests[0]?.id ?? null)
+const vendorSenderId = `vendor:${currentVendorId}`
+const vendorRequests = requests.filter((request) => request.vendorId === currentVendorId)
+const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
+const [messages, setMessages] = useState<ChatMessage[]>([])
 const [draft, setDraft] = useState("")
+const activeRequestId =
+selectedRequestId && vendorRequests.some((request) => request.id === selectedRequestId)
+? selectedRequestId
+: vendorRequests[0]?.id ?? null
 const activeRequest = vendorRequests.find((request) => request.id === activeRequestId) ?? vendorRequests[0]
 const activeVendor = vendors.find((vendor) => vendor.id === currentVendorId)
 const activeEvent = events.find((event) => event.id === activeRequest?.eventId)
-const messages = activeRequest ? getMessagesForRequest(activeRequest.id) : []
+
+useEffect(() => {
+if (!activeRequest) return
+
+return subscribeToChatMessages(getChatIdForRequest(activeRequest.id), setMessages)
+}, [activeRequest])
 
 return (
 activeRequest ? (
@@ -29,7 +44,7 @@ return (
 <button
 key={request.id}
 type="button"
-onClick={() => setActiveRequestId(request.id)}
+onClick={() => setSelectedRequestId(request.id)}
 className={`w-full rounded-xl p-4 text-left ${activeRequest?.id === request.id ? "bg-[var(--primary-light)]" : "theme-surface"}`}
 >
 <p className="font-medium">{request.clientName}</p>
@@ -53,7 +68,7 @@ className={`w-full rounded-xl p-4 text-left ${activeRequest?.id === request.id ?
 {messages.map((message) => (
 <div
 key={message.id}
-className={`max-w-sm rounded-2xl p-4 ${message.sender === "vendor" ? "ml-auto bg-[var(--primary)] text-white" : "theme-surface"}`}
+className={`max-w-sm rounded-2xl p-4 ${message.senderId === vendorSenderId ? "ml-auto bg-[var(--primary)] text-white" : "theme-surface"}`}
 >
 {message.text}
 </div>
@@ -71,7 +86,11 @@ className="input flex-1 p-3"
 type="button"
 onClick={() => {
 if (!activeRequest) return
-sendMessage(activeRequest.id, "vendor", draft)
+sendChatMessage({
+chatId: getChatIdForRequest(activeRequest.id),
+senderId: vendorSenderId,
+text: draft,
+})
 setDraft("")
 }}
 className="theme-button rounded-xl px-5"

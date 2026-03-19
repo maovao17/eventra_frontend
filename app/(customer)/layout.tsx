@@ -2,9 +2,11 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useEffect } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import type { ReactNode } from "react"
+import { useAuth } from "@/context/AuthContext"
 
 const links = [
   { href: "/templates", label: "Templates" },
@@ -17,6 +19,18 @@ const links = [
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { isAuthenticated, isLoading } = useAuth()
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login")
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  if (isLoading || !isAuthenticated) {
+    return null
+  }
 
   return (
     <div className="flex min-h-screen bg-[var(--background)]">

@@ -6,6 +6,13 @@ interface SignupData {
   [key: string]: unknown
 }
 
+const isValidPhone = (phone?: string) => {
+  if (!phone) return false
+
+  const digits = phone.replace(/\D/g, "")
+  return digits.length === 10 || (digits.length === 12 && digits.startsWith("91"))
+}
+
 interface LoginData {
   phone?: string
   email?: string
@@ -35,6 +42,12 @@ export function validateSignup(data: SignupData) {
 
   if (!data.phone || data.phone.trim() === "") {
     errors.phone = "Phone number is required"
+  } else if (!isValidPhone(data.phone)) {
+    errors.phone = "Enter a valid Indian phone number"
+  }
+
+  if ("businessName" in data && (!data.businessName || String(data.businessName).trim() === "")) {
+    errors.businessName = "Business name is required"
   }
 
   if (data.password !== undefined) {
@@ -54,6 +67,8 @@ export function validateLogin(data: LoginData) {
 
   if (!data.phone || data.phone.trim() === "") {
     errors.phone = "Phone number is required"
+  } else if (!isValidPhone(data.phone)) {
+    errors.phone = "Enter a valid Indian phone number"
   }
 
   if (data.email !== undefined) {

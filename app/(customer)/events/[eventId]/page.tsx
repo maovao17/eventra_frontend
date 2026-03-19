@@ -4,7 +4,7 @@ import Image from "next/image"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useEvent } from "@/context/EventContext"
 import { serviceCatalog } from "../../mockData"
 
@@ -30,32 +30,29 @@ export default function EventDetailPage() {
   const filteredServices = serviceCatalog.filter((service) =>
     service.toLowerCase().includes(query.toLowerCase())
   )
-  const timelineTasks = useMemo(
-    () => [
-      {
-        title: "6 Months Before",
-        detail: "Book Venue",
-        completed: event.services.some((service) =>
-          service.toLowerCase().includes("venue")
-        ),
-      },
-      {
-        title: "4 Months Before",
-        detail: "Photographer",
-        completed: event.services.some((service) =>
-          service.toLowerCase().includes("photo")
-        ),
-      },
-      {
-        title: "3 Months Before",
-        detail: "Catering",
-        completed: event.services.some((service) =>
-          service.toLowerCase().includes("cater")
-        ),
-      },
-    ],
-    [event.services]
-  )
+  const timelineTasks = [
+    {
+      title: "6 Months Before",
+      detail: "Book Venue",
+      completed: event.services.some((service) =>
+        service.toLowerCase().includes("venue")
+      ),
+    },
+    {
+      title: "4 Months Before",
+      detail: "Photographer",
+      completed: event.services.some((service) =>
+        service.toLowerCase().includes("photo")
+      ),
+    },
+    {
+      title: "3 Months Before",
+      detail: "Catering",
+      completed: event.services.some((service) =>
+        service.toLowerCase().includes("cater")
+      ),
+    },
+  ]
   const recommendedVendors = vendors.filter((vendor) =>
     event.services.some((service) =>
       vendor.category.toLowerCase().includes(service.toLowerCase()) ||

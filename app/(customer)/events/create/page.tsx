@@ -52,7 +52,7 @@ function CreateEventForm() {
       services: selectedServices,
     })
 
-    router.push("/events")
+    router.push("/vendors")
   }
 
   return (

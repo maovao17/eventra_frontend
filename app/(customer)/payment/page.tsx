@@ -1,7 +1,11 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
+import { openRazorpayCheckout } from "@/lib/payment"
 
 const paymentMethods = [
   "UPI",
@@ -10,8 +14,34 @@ const paymentMethods = [
 ]
 
 export default function PaymentsPage() {
+  const router = useRouter()
+  const { profile } = useAuth()
   const { checkoutTotal, formatCurrency } = useEvent()
   const total = checkoutTotal + 2500
+  const [error, setError] = useState("")
+
+  const handlePayment = async () => {
+    try {
+      setError("")
+      await openRazorpayCheckout({
+        amount: total,
+        customerName: profile?.name,
+        customerPhone: profile?.phone,
+        onSuccess: () => {
+          router.push("/confirmation")
+        },
+        onDismiss: () => {
+          setError("Payment was cancelled before completion.")
+        },
+      })
+    } catch (paymentError) {
+      setError(
+        paymentError instanceof Error
+          ? paymentError.message
+          : "Unable to start payment right now."
+      )
+    }
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
@@ -40,6 +70,10 @@ export default function PaymentsPage() {
             </button>
           ))}
         </div>
+
+        {error ? (
+          <p className="mt-4 text-sm text-red-500">{error}</p>
+        ) : null}
       </motion.div>
 
       <motion.div
@@ -59,7 +93,11 @@ export default function PaymentsPage() {
           </p>
         </div>
 
-        <button className="theme-button mt-8 rounded-xl px-6 py-3">
+        <button
+          type="button"
+          onClick={handlePayment}
+          className="theme-button mt-8 rounded-xl px-6 py-3"
+        >
           Confirm Payment
         </button>
       </motion.div>

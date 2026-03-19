@@ -1,34 +1,55 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
+import {
+  getChatIdForRequest,
+  sendChatMessage,
+  subscribeToChatMessages,
+  type ChatMessage,
+} from "@/lib/chat"
 
 export default function MessagesPage() {
-  const { requests, vendors, events, getMessagesForRequest, sendMessage } = useEvent()
-  const acceptedRequests = requests.filter((request) => request.status === "accepted")
-  const [activeRequestId, setActiveRequestId] = useState<string | null>(
-    acceptedRequests[0]?.id ?? null
-  )
+  const { user } = useAuth()
+  const { requests, vendors, events, currentEvent } = useEvent()
+  const eventRequests = currentEvent
+    ? requests.filter((request) => request.eventId === currentEvent.id)
+    : requests
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
+  const [activeMessages, setActiveMessages] = useState<ChatMessage[]>([])
+  const [draft, setDraft] = useState("")
+  const activeRequestId =
+    selectedRequestId && eventRequests.some((request) => request.id === selectedRequestId)
+      ? selectedRequestId
+      : eventRequests[0]?.id ?? null
   const activeRequest =
-    acceptedRequests.find((request) => request.id === activeRequestId) ?? acceptedRequests[0]
+    eventRequests.find((request) => request.id === activeRequestId) ?? eventRequests[0]
   const activeVendor = vendors.find((vendor) => vendor.id === activeRequest?.vendorId)
   const activeEvent = events.find((event) => event.id === activeRequest?.eventId)
-  const activeMessages = activeRequest ? getMessagesForRequest(activeRequest.id) : []
-  const [draft, setDraft] = useState("")
   const threads = useMemo(
     () =>
-      acceptedRequests.map((request) => {
+      eventRequests.map((request) => {
         const vendor = vendors.find((item) => item.id === request.vendorId)
         return {
           id: request.id,
           vendorName: vendor?.name ?? "Vendor",
-          preview: getMessagesForRequest(request.id).at(-1)?.text ?? "Chat unlocked",
+          preview: request.status === "pending" ? "Request sent" : "Chat unlocked",
           updatedAt: request.createdAt,
         }
       }),
-    [acceptedRequests, getMessagesForRequest, vendors]
+    [eventRequests, vendors]
   )
+
+  useEffect(() => {
+    if (!activeRequest) return
+
+    return subscribeToChatMessages(
+      getChatIdForRequest(activeRequest.id),
+      setActiveMessages
+    )
+  }, [activeRequest])
 
   return (
     <div className="space-y-8">
@@ -38,7 +59,7 @@ export default function MessagesPage() {
         </h1>
       </div>
 
-      {acceptedRequests.length === 0 ? (
+      {eventRequests.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
@@ -58,7 +79,7 @@ export default function MessagesPage() {
             {threads.map((thread) => (
               <button
                 type="button"
-                onClick={() => setActiveRequestId(thread.id)}
+                onClick={() => setSelectedRequestId(thread.id)}
                 key={thread.id}
                 className={`w-full rounded-xl p-4 text-left ${
                   activeRequest?.id === thread.id ? "bg-[var(--primary-light)]" : "theme-surface"
@@ -82,8 +103,7 @@ export default function MessagesPage() {
           <div>
             <h3 className="text-xl font-semibold">{activeVendor?.name}</h3>
             <p className="theme-muted mt-2 max-w-xl">
-              Chat unlocked for {activeEvent?.name}. This shell is ready for future
-              realtime transport and media attachments.
+              Chat unlocked for {activeEvent?.name}. Messages update in realtime.
             </p>
           </div>
 
@@ -92,7 +112,7 @@ export default function MessagesPage() {
               <div
                 key={message.id}
                 className={`max-w-sm rounded-2xl p-4 ${
-                  message.sender === "customer"
+                  message.senderId === user?.uid
                     ? "ml-auto bg-[var(--primary)] text-white"
                     : "theme-surface"
                 }`}
@@ -111,9 +131,13 @@ export default function MessagesPage() {
             />
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 if (!activeRequest) return
-                sendMessage(activeRequest.id, "customer", draft)
+                await sendChatMessage({
+                  chatId: getChatIdForRequest(activeRequest.id),
+                  senderId: user?.uid ?? "customer",
+                  text: draft,
+                })
                 setDraft("")
               }}
               className="theme-button rounded-xl px-5"

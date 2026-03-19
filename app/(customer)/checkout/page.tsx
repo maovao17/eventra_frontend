@@ -1,10 +1,11 @@
 "use client"
 
-import Link from "next/link"
 import { motion } from "framer-motion"
+import { useRouter } from "next/navigation"
 import { useEvent } from "@/context/EventContext"
 
 export default function CheckoutPage() {
+  const router = useRouter()
   const { checkoutSummary, checkoutTotal, formatCurrency } = useEvent()
   const subtotal = checkoutTotal
   const platformFee = 2500
@@ -61,9 +62,13 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <Link href="/payment" className="theme-button mt-8 inline-block w-full rounded-xl py-3 text-center">
+        <button
+          type="button"
+          onClick={() => router.push("/payment")}
+          className="theme-button mt-8 inline-block w-full rounded-xl py-3 text-center"
+        >
           Pay Now
-        </Link>
+        </button>
       </motion.aside>
     </div>
   )

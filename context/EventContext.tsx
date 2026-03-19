@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react"
@@ -45,14 +46,6 @@ export type RequestRecord = {
   clientName: string
 }
 
-export type ChatMessage = {
-  id: string
-  threadId: string
-  sender: "customer" | "vendor"
-  text: string
-  timestamp: string
-}
-
 type CreateEventInput = {
   name: string
   date: string
@@ -69,17 +62,18 @@ type EventContextValue = {
   requests: RequestRecord[]
   currentEvent: EventItem | null
   currentEventId: string | null
+  selectedServices: string[]
+  selectedVendors: Vendor[]
+  totalPrice: number
   createEvent: (event: CreateEventInput) => void
   setCurrentEventId: (eventId: string) => void
   addServiceToEvent: (eventId: string, service: string) => void
   removeServiceFromEvent: (eventId: string, service: string) => void
+  addVendorToEvent: (eventId: string, vendorId: string) => void
   sendVendorRequest: (eventId: string, vendorId: string) => void
   acceptRequest: (requestId: string) => void
   declineRequest: (requestId: string) => void
   getRequestForVendor: (eventId: string, vendorId: string) => RequestRecord | undefined
-  getChatThreadId: (requestId: string) => string
-  getMessagesForRequest: (requestId: string) => ChatMessage[]
-  sendMessage: (requestId: string, sender: "customer" | "vendor", text: string) => void
   recommendedVendors: Vendor[]
   checkoutTotal: number
   checkoutSummary: Array<{
@@ -115,50 +109,98 @@ const initialRequests: RequestRecord[] = initialEvents[0]
     }))
   : []
 
-const initialMessages: ChatMessage[] = [
-  {
-    id: "msg-1",
-    threadId: "thread-req-1-1",
-    sender: "vendor",
-    text: "We can hold your date for 48 hours while you review the quote.",
-    timestamp: "10:10 AM",
-  },
-  {
-    id: "msg-2",
-    threadId: "thread-req-1-1",
-    sender: "customer",
-    text: "Perfect. Please include candid coverage in the final package.",
-    timestamp: "10:12 AM",
-  },
-  {
-    id: "msg-3",
-    threadId: "thread-req-2-2",
-    sender: "customer",
-    text: "Can you share a sample tasting menu for 220 guests?",
-    timestamp: "11:05 AM",
-  },
-  {
-    id: "msg-4",
-    threadId: "thread-req-2-2",
-    sender: "vendor",
-    text: "Absolutely. I can send the curated menu and pricing slabs in the next hour.",
-    timestamp: "11:12 AM",
-  },
-]
-
 const EventContext = createContext<EventContextValue | null>(null)
+const EVENT_STORAGE_KEY = "eventra.events.state"
+
+const getStoredEventState = () => {
+  if (typeof window === "undefined") {
+    return {
+      events: initialEvents,
+      requests: initialRequests,
+      currentEventId: initialEvents[0]?.id ?? null,
+    }
+  }
+
+  const rawState = window.localStorage.getItem(EVENT_STORAGE_KEY)
+  if (!rawState) {
+    return {
+      events: initialEvents,
+      requests: initialRequests,
+      currentEventId: initialEvents[0]?.id ?? null,
+    }
+  }
+
+  try {
+    const parsedState = JSON.parse(rawState) as {
+      events?: EventItem[]
+      requests?: RequestRecord[]
+      currentEventId?: string | null
+    }
+
+    return {
+      events: parsedState.events?.length ? parsedState.events : initialEvents,
+      requests: parsedState.requests?.length ? parsedState.requests : initialRequests,
+      currentEventId: parsedState.currentEventId ?? initialEvents[0]?.id ?? null,
+    }
+  } catch {
+    window.localStorage.removeItem(EVENT_STORAGE_KEY)
+
+    return {
+      events: initialEvents,
+      requests: initialRequests,
+      currentEventId: initialEvents[0]?.id ?? null,
+    }
+  }
+}
 
 export const EventProvider = ({ children }: { children: ReactNode }) => {
+  const storedState = getStoredEventState()
   const [vendors] = useState<Vendor[]>(customerVendors)
-  const [events, setEvents] = useState<EventItem[]>(initialEvents)
-  const [requests, setRequests] = useState<RequestRecord[]>(initialRequests)
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const [events, setEvents] = useState<EventItem[]>(storedState.events)
+  const [requests, setRequests] = useState<RequestRecord[]>(storedState.requests)
   const [currentEventId, setCurrentEventId] = useState<string | null>(
-    initialEvents[0]?.id ?? null
+    storedState.currentEventId
   )
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    window.localStorage.setItem(
+      EVENT_STORAGE_KEY,
+      JSON.stringify({
+        events,
+        requests,
+        currentEventId,
+      })
+    )
+  }, [events, requests, currentEventId])
 
   const currentEvent =
     events.find((event) => event.id === currentEventId) ?? events[0] ?? null
+
+  const addVendorToEvent = (eventId: string, vendorId: string) => {
+    const vendor = vendors.find((item) => item.id === vendorId)
+    if (!vendor) return
+
+    setEvents((current) =>
+      current.map((event) =>
+        event.id === eventId
+          ? {
+              ...event,
+              vendorIds: event.vendorIds.includes(vendor.id)
+                ? event.vendorIds
+                : [...event.vendorIds, vendor.id],
+              services: event.services.includes(vendor.category)
+                ? event.services
+                : [...event.services, vendor.category],
+              spent: event.vendorIds.includes(vendor.id)
+                ? event.spent
+                : event.spent + vendor.price,
+            }
+          : event
+      )
+    )
+  }
 
   const createEvent = (event: CreateEventInput) => {
     const nextEvent: EventItem = {
@@ -221,6 +263,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       (request) => request.eventId === eventId && request.vendorId === vendorId
     )
 
+    addVendorToEvent(eventId, vendorId)
     if (existing) return
 
     const nextRequest: RequestRecord = {
@@ -282,33 +325,6 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       (request) => request.eventId === eventId && request.vendorId === vendorId
     )
 
-  const getChatThreadId = (requestId: string) => `thread-${requestId}`
-
-  const getMessagesForRequest = (requestId: string) =>
-    messages.filter((message) => message.threadId === getChatThreadId(requestId))
-
-  const sendMessage = (
-    requestId: string,
-    sender: "customer" | "vendor",
-    text: string
-  ) => {
-    if (!text.trim()) return
-
-    setMessages((current) => [
-      ...current,
-      {
-        id: `msg-${Date.now()}`,
-        threadId: getChatThreadId(requestId),
-        sender,
-        text: text.trim(),
-        timestamp: new Intl.DateTimeFormat("en-IN", {
-          hour: "numeric",
-          minute: "2-digit",
-        }).format(new Date()),
-      },
-    ])
-  }
-
   const recommendedVendors = useMemo(() => {
     if (!currentEvent) return vendors.slice(0, 3)
 
@@ -322,36 +338,41 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       .slice(0, 3)
   }, [currentEvent, vendors])
 
+  const selectedServices = currentEvent?.services ?? []
+
+  const selectedVendors = useMemo(
+    () =>
+      currentEvent
+        ? vendors.filter((vendor) => currentEvent.vendorIds.includes(vendor.id))
+        : [],
+    [currentEvent, vendors]
+  )
+
   const checkoutSummary = useMemo(
     () =>
-      requests
-        .filter((request) => request.status === "accepted")
-        .map((request) => {
-          const vendor = vendors.find((item) => item.id === request.vendorId)
-          return vendor
-            ? {
-                requestId: request.id,
-                vendorId: vendor.id,
-                vendorName: vendor.name,
-                category: vendor.category,
-                amount: vendor.price,
-              }
-            : null
-        })
-        .filter(Boolean) as Array<{
-        requestId: string
-        vendorId: string
-        vendorName: string
-        category: string
-        amount: number
-      }>,
-    [requests, vendors]
+      selectedVendors.map((vendor) => {
+        const request = requests.find(
+          (item) =>
+            item.eventId === currentEvent?.id && item.vendorId === vendor.id
+        )
+
+        return {
+          requestId: request?.id ?? `selected-${vendor.id}`,
+          vendorId: vendor.id,
+          vendorName: vendor.name,
+          category: vendor.category,
+          amount: vendor.price,
+        }
+      }),
+    [currentEvent?.id, requests, selectedVendors]
   )
 
   const checkoutTotal = checkoutSummary.reduce(
     (total, item) => total + item.amount,
     0
   )
+
+  const totalPrice = checkoutTotal
 
   return (
     <EventContext.Provider
@@ -361,17 +382,18 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         requests,
         currentEvent,
         currentEventId,
+        selectedServices,
+        selectedVendors,
+        totalPrice,
         createEvent,
         setCurrentEventId,
         addServiceToEvent,
         removeServiceFromEvent,
+        addVendorToEvent,
         sendVendorRequest,
         acceptRequest,
         declineRequest,
         getRequestForVendor,
-        getChatThreadId,
-        getMessagesForRequest,
-        sendMessage,
         recommendedVendors,
         checkoutTotal,
         checkoutSummary,
