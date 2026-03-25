@@ -24,27 +24,27 @@ export default function VendorSidebar() {
 
       <nav className="flex flex-col text-sm">
 
-        <Link href="#" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/dashboard" className="px-6 py-3 hover:theme-surface">
           Dashboard
         </Link>
 
-        <Link href="#" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/requests" className="px-6 py-3 hover:theme-surface">
           Booking Requests
         </Link>
 
-        <Link href="#" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/events" className="px-6 py-3 hover:theme-surface">
           Upcoming Events
         </Link>
 
-        <Link href="#" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/messages" className="px-6 py-3 hover:theme-surface">
           Messages
         </Link>
 
-        <Link href="#" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/earnings" className="px-6 py-3 hover:theme-surface">
           Earnings & Analytics
         </Link>
 
-        <Link href="#" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/ratings" className="px-6 py-3 hover:theme-surface">
           Reviews & Ratings
         </Link>
 
@@ -56,11 +56,11 @@ export default function VendorSidebar() {
           SETTINGS
         </p>
 
-        <Link href="#" className="block px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/businessProfile" className="block px-6 py-3 hover:theme-surface">
           Business Profile
         </Link>
 
-        <Link href="#" className="block px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/reminders" className="block px-6 py-3 hover:theme-surface">
           Notifications
         </Link>
 

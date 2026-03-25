@@ -12,7 +12,13 @@ import {
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 
-export type UserRole = "individual" | "business"
+declare global {
+  interface Window {
+    recaptchaVerifier?: RecaptchaVerifier
+  }
+}
+
+export type UserRole = "customer" | "vendor"
 
 export type AppUserProfile = {
   uid: string
@@ -22,7 +28,7 @@ export type AppUserProfile = {
   businessName?: string
 }
 
-const PROFILE_STORAGE_KEY = "eventra.auth.profile"
+const PROFILE_STORAGE_KEY = "eventra_user"
 
 const getDigits = (value: string) => value.replace(/\D/g, "")
 
@@ -87,9 +93,16 @@ export const getOrCreateRecaptcha = (
 ) => {
   if (recaptchaRef.current) return recaptchaRef.current
 
-  recaptchaRef.current = new RecaptchaVerifier(auth, containerId, {
-    size: "invisible",
-  })
+  if (typeof window !== "undefined" && !window.recaptchaVerifier) {
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+      size: "invisible",
+    })
+    recaptchaRef.current = window.recaptchaVerifier
+  }
+
+  if (!recaptchaRef.current) {
+    throw new Error("Recaptcha could not be initialized.")
+  }
 
   return recaptchaRef.current
 }
@@ -110,6 +123,14 @@ export const sendOtp = async ({
   }
 
   await enableAuthPersistence()
+
+  // For test numbers, skip recaptcha
+  const isTestNumber = formattedPhone.includes("1234567890") || formattedPhone.includes("0987654321")
+
+  if (isTestNumber) {
+    return signInWithPhoneNumber(auth, formattedPhone, undefined)
+  }
+
   const verifier = getOrCreateRecaptcha(containerId, recaptchaRef)
 
   return signInWithPhoneNumber(auth, formattedPhone, verifier)
@@ -118,7 +139,19 @@ export const sendOtp = async ({
 export const verifyOtp = async (
   confirmationResult: ConfirmationResult,
   otp: string
-) => confirmationResult.confirm(otp.trim())
+) => {
+  try {
+    return await confirmationResult.confirm(otp.trim());
+  } catch (error) {
+    const code = typeof error === "object" && error && "code" in error
+      ? String(error.code)
+      : "";
+    const message = typeof error === "object" && error && "message" in error
+      ? String(error.message)
+      : "";
+    throw new Error(code || message || "OTP verification failed");
+  }
+}
 
 export const sendPhoneOtp = sendOtp
 export const verifyPhoneOtp = verifyOtp

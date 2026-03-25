@@ -2,22 +2,27 @@
 
 import { motion } from "framer-motion"
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import {
   getChatIdForRequest,
+  initializeChatThread,
   sendChatMessage,
   subscribeToChatMessages,
   type ChatMessage,
 } from "@/lib/chat"
 
 export default function MessagesPage() {
-  const { user } = useAuth()
-  const { requests, vendors, events, currentEvent } = useEvent()
+  const searchParams = useSearchParams()
+  const { user, profile } = useAuth()
+  const { requests, vendors, events, bookings, currentEvent } = useEvent()
   const eventRequests = currentEvent
     ? requests.filter((request) => request.eventId === currentEvent.id)
     : requests
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    searchParams.get("requestId")
+  )
   const [activeMessages, setActiveMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState("")
   const activeRequestId =
@@ -28,6 +33,7 @@ export default function MessagesPage() {
     eventRequests.find((request) => request.id === activeRequestId) ?? eventRequests[0]
   const activeVendor = vendors.find((vendor) => vendor.id === activeRequest?.vendorId)
   const activeEvent = events.find((event) => event.id === activeRequest?.eventId)
+  const activeBooking = bookings.find((booking) => booking.requestId === activeRequest?.id)
   const threads = useMemo(
     () =>
       eventRequests.map((request) => {
@@ -35,8 +41,11 @@ export default function MessagesPage() {
         return {
           id: request.id,
           vendorName: vendor?.name ?? "Vendor",
-          preview: request.status === "pending" ? "Request sent" : "Chat unlocked",
+          preview: request.status === "pending" ? "Waiting for vendor response" : 
+                   request.status === "accepted" ? "Chat unlocked" : 
+                   "Request declined",
           updatedAt: request.createdAt,
+          status: request.status,
         }
       }),
     [eventRequests, vendors]
@@ -44,12 +53,20 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!activeRequest) return
+    if (!profile?.uid) return
+
+    void initializeChatThread({
+      chatId: getChatIdForRequest(activeRequest.id),
+      requestId: activeRequest.id,
+      bookingId: activeBooking?.id,
+      participantIds: [profile.uid, activeVendor?.userId ?? ""].filter(Boolean),
+    })
 
     return subscribeToChatMessages(
       getChatIdForRequest(activeRequest.id),
       setActiveMessages
     )
-  }, [activeRequest])
+  }, [activeBooking?.id, activeRequest, activeVendor?.userId, profile?.uid])
 
   return (
     <div className="space-y-8">
@@ -87,7 +104,13 @@ export default function MessagesPage() {
               >
                 <div className="flex items-center justify-between">
                   <p className="font-medium">{thread.vendorName}</p>
-                  <span className="theme-muted text-xs">{thread.updatedAt}</span>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    thread.status === 'accepted' ? 'bg-green-100 text-green-800' :
+                    thread.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {thread.status}
+                  </span>
                 </div>
                 <p className="theme-muted mt-2 text-sm">{thread.preview}</p>
               </button>
@@ -122,29 +145,39 @@ export default function MessagesPage() {
             ))}
           </div>
 
-          <div className="flex gap-3">
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Type a message"
-              className="input flex-1 p-3"
-            />
-            <button
-              type="button"
-              onClick={async () => {
-                if (!activeRequest) return
-                await sendChatMessage({
-                  chatId: getChatIdForRequest(activeRequest.id),
-                  senderId: user?.uid ?? "customer",
-                  text: draft,
-                })
-                setDraft("")
-              }}
-              className="theme-button rounded-xl px-5"
-            >
-              Send
-            </button>
-          </div>
+          {activeRequest?.status === 'accepted' ? (
+            <div className="flex gap-3">
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Type a message"
+                className="input flex-1 p-3"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!activeRequest) return
+                  await sendChatMessage({
+                    chatId: getChatIdForRequest(activeRequest.id),
+                    senderId: user?.uid ?? profile?.uid ?? "customer",
+                    text: draft,
+                  })
+                  setDraft("")
+                }}
+                className="theme-button rounded-xl px-5"
+              >
+                Send
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="text-muted text-sm">
+                {activeRequest?.status === 'pending' 
+                  ? 'Waiting for vendor approval.'
+                  : 'This request was rejected.'}
+              </p>
+            </div>
+          )}
         </motion.div>
       </div>
       )}

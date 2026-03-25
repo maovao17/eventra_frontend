@@ -1,36 +1,50 @@
-import StatsCards from "@/components/vendor/StatsCards";
-import RevenueChart from "@/components/vendor/RevenueChart";
-import QuickActions from "@/components/vendor/QuickActions";
-import UpcomingEventsTable from "@/components/vendor/UpcomingEventsTable";
+"use client"
 
-export default function VendorDashboard(){
-return(
+import { useEffect } from "react"
+import { useVendorData } from "@/context/VendorContext"
 
-<div>
+export default function VendorDashboardPage() {
+  const { dashboard, loadingDashboard, refreshDashboard } = useVendorData()
 
-<h1 className="text-3xl font-bold mb-2">
-Welcome back, Anthony D&apos;Souza Catering
-</h1>
+  useEffect(() => {
+    void refreshDashboard()
+  }, [refreshDashboard])
 
-<p className="text-gray-500 mb-6">
-Your business is growing! You have 4 new booking requests waiting for review.
-</p>
+  if (loadingDashboard && !dashboard) {
+    return (
+      <div className="grid grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="theme-card h-28 animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
-<StatsCards/>
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-semibold">Vendor Dashboard</h1>
 
-<div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-4 gap-6">
+        <div className="theme-card p-5">
+          <p>Total Bookings</p>
+          <h3 className="text-xl font-semibold">{Number(dashboard?.totalBookings || 0)}</h3>
+        </div>
 
-<div className="col-span-2">
-<RevenueChart/>
-</div>
+        <div className="theme-card p-5">
+          <p>Pending Requests</p>
+          <h3 className="text-xl font-semibold">{Number(dashboard?.pendingRequests || 0)}</h3>
+        </div>
 
-<QuickActions/>
+        <div className="theme-card p-5">
+          <p>Monthly Revenue</p>
+          <h3 className="text-xl font-semibold">₹{Number(dashboard?.monthlyRevenue || 0).toLocaleString("en-IN")}</h3>
+        </div>
 
-</div>
-
-<UpcomingEventsTable/>
-
-</div>
-
-)
+        <div className="theme-card p-5">
+          <p>Rating</p>
+          <h3 className="text-xl font-semibold">{Number(dashboard?.rating || 0).toFixed(1)}</h3>
+        </div>
+      </div>
+    </div>
+  )
 }

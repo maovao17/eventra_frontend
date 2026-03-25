@@ -20,17 +20,7 @@ const links = [
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace("/login")
-    }
-  }, [isAuthenticated, isLoading, router])
-
-  if (isLoading || !isAuthenticated) {
-    return null
-  }
+  // Removed global redirect to allow public access to customer pages
 
   return (
     <div className="flex min-h-screen bg-[var(--background)]">

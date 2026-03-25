@@ -10,6 +10,9 @@ export default function CheckoutPage() {
   const subtotal = checkoutTotal
   const platformFee = 2500
   const total = subtotal + platformFee
+  const paymentTarget = checkoutSummary.find(
+    (item) => item.bookingId && item.bookingStatus !== "confirmed"
+  )
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
@@ -20,7 +23,7 @@ export default function CheckoutPage() {
       >
         <h1 className="text-3xl font-bold mb-2">Checkout</h1>
         <p className="theme-muted mb-8">
-          Review selected vendors and lock your booking summary before payment.
+          Review accepted requests and move to payment only after vendor approval.
         </p>
 
         <div className="space-y-4">
@@ -64,11 +67,19 @@ export default function CheckoutPage() {
 
         <button
           type="button"
-          onClick={() => router.push("/payment")}
+          onClick={() =>
+            paymentTarget
+              ? router.push(`/payment?requestId=${paymentTarget.requestId}`)
+              : undefined
+          }
+          disabled={!paymentTarget}
           className="theme-button mt-8 inline-block w-full rounded-xl py-3 text-center"
         >
           Pay Now
         </button>
+        {!paymentTarget ? (
+          <p className="theme-muted mt-3 text-sm">Waiting for vendor approval.</p>
+        ) : null}
       </motion.aside>
     </div>
   )

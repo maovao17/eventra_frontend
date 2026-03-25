@@ -1,59 +1,112 @@
 "use client";
 
 import { Mail, MapPin, Phone, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "@/app/lib/api";
 
-const vendors = [
-  {
-    name: "Spice & Sol Catering",
-    category: "Catering",
-    location: "Anjuna Bardez Goa",
-    phone: "+91 9864690245",
-    email: "spicesol@gmail.com",
-    image: "/eventra_photos/culinary.jpg",
-  },
-  {
-    name: "Ivory Orchid Goa",
-    category: "Florist",
-    location: "Calangute Bardez Goa",
-    phone: "+91 9563429045",
-    email: "ivoryorchid@gmail.com",
-    image: "/eventra_photos/floral6.jpg",
-  },
-  {
-    name: "Coastal Lights Co.",
-    category: "Production",
-    location: "Porvorim Bardez Goa",
-    phone: "+91 7809456329",
-    email: "coastallights@gmail.com",
-    image: "/eventra_photos/event4.jpg",
-  },
-  {
-    name: "Golden Hour Photography",
-    category: "Photography",
-    location: "Cansaulim, Mormugao Goa",
-    phone: "+91 9754329067",
-    email: "goldenhr@gmail.com",
-    image: "/eventra_photos/photographer.jpg",
-  },
-  {
-    name: "Palm & Petals Decor",
-    category: "Decoration",
-    location: "Raia, Salcete Goa",
-    phone: "+91 9642903640",
-    email: "pandpdecor@gmail.com",
-    image: "/eventra_photos/floral10.jpg",
-  },
-  {
-    name: "The K Connexions",
-    category: "Entertainment",
-    location: "Panaji, Tiswadi Goa",
-    phone: "+91 9210832945",
-    email: "kconnexions@gmail.com",
-    image: "/eventra_photos/party5.jpg",
-  },
-];
+type VendorRecord = {
+  _id: string;
+  name?: string;
+  businessName?: string;
+  category?: string[];
+  location?: { city?: string; area?: string; address?: string };
+  phone?: string;
+  email?: string;
+  profileImage?: string;
+  image?: string;
+  isVerified?: boolean;
+  verified?: boolean;
+  status?: 'pending' | 'approved' | 'rejected';
+};
 
 export default function Vendors() {
+  const [vendors, setVendors] = useState<VendorRecord[]>([]);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState("");
+
+  const loadVendors = async () => {
+    setLoading(true);
+    const response = await apiFetch("/admin/vendors");
+    if (response?.error) {
+      setError(response.message || "Could not load vendors.");
+      setLoading(false);
+      return;
+    }
+
+    setVendors(Array.isArray(response) ? response : []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadVendors();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const filteredVendors = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return vendors;
+
+    return vendors.filter((vendor) => {
+      const locationLabel = [vendor.location?.city, vendor.location?.area, vendor.location?.address]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return (
+        String(vendor.businessName || vendor.name || "").toLowerCase().includes(term) ||
+        String((vendor.category || []).join(", ")).toLowerCase().includes(term) ||
+        locationLabel.includes(term)
+      );
+    });
+  }, [query, vendors]);
+
+  const approveVendor = async (vendorId: string) => {
+    setProcessingId(vendorId);
+    const response = await apiFetch(`/admin/vendors/${vendorId}/approve`, { method: "PATCH" });
+
+    if (response?.error) {
+      setError(response.message || "Approval failed.");
+      setProcessingId("");
+      return;
+    }
+
+    setVendors((current) =>
+      current.map((item) =>
+        item._id === vendorId
+          ? { ...item, isVerified: true, verified: true, status: 'approved' as const }
+          : item,
+      ),
+    );
+    setProcessingId("");
+  };
+
+  const rejectVendor = async (vendorId: string) => {
+    setProcessingId(vendorId);
+    const response = await apiFetch(`/admin/vendors/${vendorId}/reject`, { method: "PATCH" });
+
+    if (response?.error) {
+      setError(response.message || "Rejection failed.");
+      setProcessingId("");
+      return;
+    }
+
+    setVendors((current) =>
+      current.map((item) =>
+        item._id === vendorId
+          ? { ...item, status: 'rejected' as const }
+          : item,
+      ),
+    );
+    setProcessingId("");
+  };
+
+  if (loading) {
+    return <p>Loading vendors...</p>;
+  }
+
   return (
     <div>
 
@@ -65,10 +118,14 @@ export default function Vendors() {
         Review, filter, and organize your network of event partners.
       </p>
 
+      {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+
       {/* Search */}
       <div className="theme-card p-3 flex items-center gap-3 mb-8">
         <Search size={18} className="theme-muted" />
         <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Search vendors by name, service, or location..."
           className="w-full outline-none"
         />
@@ -88,41 +145,25 @@ export default function Vendors() {
             <label className="flex justify-between">
               <span>
                 <input type="checkbox" className="mr-2" />
-                Catering
+                Approved
               </span>
-              <span className="theme-primary">24</span>
+              <span className="theme-primary">{vendors.filter((v) => v.status === 'approved').length}</span>
             </label>
 
             <label className="flex justify-between">
               <span>
                 <input type="checkbox" className="mr-2" />
-                Decoration
+                Pending
               </span>
-              <span className="theme-primary">18</span>
+              <span className="theme-primary">{vendors.filter((v) => v.status === 'pending').length}</span>
             </label>
 
             <label className="flex justify-between">
               <span>
                 <input type="checkbox" className="mr-2" />
-                Photography
+                Rejected
               </span>
-              <span className="theme-primary">12</span>
-            </label>
-
-            <label className="flex justify-between">
-              <span>
-                <input type="checkbox" className="mr-2" />
-                Music & DJ
-              </span>
-              <span className="theme-primary">9</span>
-            </label>
-
-            <label className="flex justify-between">
-              <span>
-                <input type="checkbox" className="mr-2" />
-                Venues
-              </span>
-              <span className="theme-primary">31</span>
+              <span className="theme-primary">{vendors.filter((v) => v.status === 'rejected').length}</span>
             </label>
 
           </div>
@@ -136,59 +177,78 @@ export default function Vendors() {
           <h2 className="font-semibold mb-4">
             Available Vendors
             <span className="theme-muted text-sm ml-2">
-              (Showing {vendors.length} results)
+              (Showing {filteredVendors.length} results)
             </span>
           </h2>
 
           <div className="grid grid-cols-3 gap-6">
 
-            {vendors.map((vendor, index) => (
+            {filteredVendors.map((vendor) => {
+              const status = vendor.status || (vendor.isVerified || vendor.verified ? 'approved' : 'pending');
+              const statusColor = status === 'approved' ? 'bg-green-100 text-green-800' : status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
+              const isApproved = status === 'approved';
+              const location = [vendor.location?.city, vendor.location?.area, vendor.location?.address]
+                .filter(Boolean)
+                .join(" ") || "Location pending";
 
-              <div
-                key={index}
-                className="theme-card p-5"
-              >
+              return (
+                <div
+                  key={vendor._id}
+                  className="theme-card p-5"
+                >
 
-                <img
-                  src={vendor.image}
-                  className="rounded-lg mb-4 h-32 w-full object-cover"
-                />
+                  <img
+                    src={vendor.profileImage || vendor.image || "/eventra_photos/photographer.jpg"}
+                    className="rounded-lg mb-4 h-32 w-full object-cover"
+                  />
 
-                <span className="text-xs bg-[var(--primary-light)] theme-primary px-3 py-1 rounded-full">
-                  {vendor.category}
-                </span>
+                  <span className={`text-xs ${statusColor} px-3 py-1 rounded-full`}>
+                    {status.toUpperCase()}
+                  </span>
 
-                <h3 className="font-semibold mt-3">
-                  {vendor.name}
-                </h3>
+                  <h3 className="font-semibold mt-3">
+                    {vendor.businessName || vendor.name || "Vendor"}
+                  </h3>
 
-                <p className="theme-muted text-sm flex items-center gap-2 mt-2">
-                  <MapPin size={16} /> {vendor.location}
-                </p>
+                  <p className="theme-muted text-sm flex items-center gap-2 mt-2">
+                    <MapPin size={16} /> {location}
+                  </p>
 
-                <p className="theme-muted text-sm flex items-center gap-2">
-                  <Phone size={16} /> {vendor.phone}
-                </p>
+                  <p className="theme-muted text-sm flex items-center gap-2">
+                    <Phone size={16} /> {vendor.phone || "Phone pending"}
+                  </p>
 
-                <p className="theme-muted text-sm flex items-center gap-2">
-                  <Mail size={16} /> {vendor.email}
-                </p>
+                  <p className="theme-muted text-sm flex items-center gap-2">
+                    <Mail size={16} /> {vendor.email || "Email pending"}
+                  </p>
 
-                <div className="flex gap-3 mt-4">
-
-                  <button className="bg-[var(--primary)] text-white px-4 py-2 rounded-lg text-sm">
-                    Edit
-                  </button>
-
-                  <button className="border px-4 py-2 rounded-lg text-sm theme-muted">
-                    Delete
-                  </button>
+                  <div className="flex gap-3 mt-4">
+                    {status !== 'approved' && (
+                      <button
+                        onClick={() => void approveVendor(vendor._id)}
+                        disabled={processingId === vendor._id}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700"
+                      >
+                        {processingId === vendor._id ? "Approving..." : "Approve"}
+                      </button>
+                    )}
+                    {status !== 'rejected' && (
+                      <button
+                        onClick={() => void rejectVendor(vendor._id)}
+                        disabled={processingId === vendor._id}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"
+                      >
+                        {processingId === vendor._id ? "Rejecting..." : "Reject"}
+                      </button>
+                    )}
+                    <button className="border px-4 py-2 rounded-lg text-sm theme-muted">
+                      View
+                    </button>
+                  </div>
 
                 </div>
-
-              </div>
-
-            ))}
+              );
+            })}
 
           </div>
 

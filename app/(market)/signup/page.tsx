@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateSignup } from "@/lib/validation/authValidation";
 import { ConfirmationResult, RecaptchaVerifier } from "firebase/auth";
@@ -12,16 +12,16 @@ import {
   normalizePhoneInput,
   sendOtp,
   verifyOtp,
-  type AppUserProfile,
 } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/app/lib/api";
 
 export default function SignupPage() {
 
   const router = useRouter();
-  const { isAuthenticated, isLoading, setProfile } = useAuth();
+  const { refreshProfile } = useAuth();
 
-  const [role, setRole] = useState<"individual" | "business">("individual");
+  const [role, setRole] = useState<"customer" | "vendor">("customer");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -32,14 +32,12 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmationResult, setConfirmationResult] =
     useState<ConfirmationResult | null>(null);
-  const [, setPendingUser] = useState<AppUserProfile | null>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, router]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+
+  // Removed redirect on page load to allow signup form to render
 
   const handleSendOtp = async (e: React.FormEvent) => {
 
@@ -50,7 +48,7 @@ export default function SignupPage() {
       phone,
     };
 
-    if (role === "business") formData.businessName = businessName;
+    if (role === "vendor") formData.businessName = businessName;
 
     const validationErrors = validateSignup(formData);
 
@@ -79,37 +77,69 @@ export default function SignupPage() {
   };
 
   const handleVerifyOtp = async () => {
-
     if (!otp) {
       setErrors({ otp: "OTP is required" });
       return;
     }
 
-    try {
+    setIsLoading(true);
+    setApiError("");
 
+    try {
       if (!confirmationResult) {
         setErrors({ otp: "Request OTP first." });
         return;
       }
 
       const credential = await verifyOtp(confirmationResult, otp);
-      const nextProfile: AppUserProfile = {
-        uid: credential.user.uid,
-        name,
-        phone: formatPhoneNumber(phone),
-        role,
-        businessName: role === "business" ? businessName : undefined,
-      };
+      const formattedPhone = formatPhoneNumber(phone);
 
-      setPendingUser(nextProfile);
-      setProfile(nextProfile);
+      // Create user in backend
+      await apiFetch('/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          phoneNumber: formattedPhone,
+          userId: credential.user.uid,
+          role,
+          businessName: role === "vendor" ? businessName : undefined,
+        })
+      });
 
-      router.replace("/dashboard");
+      // Create vendor profile if vendor role
+      if (role === "vendor") {
+        await apiFetch('/vendors', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: businessName || name,
+            category: "Vendor Service",
+            businessName: businessName || name,
+            userId: credential.user.uid,
+            price: 0,
+            description: `${businessName || name} is now available on Eventra.`,
+            responseTime: "1 hour",
+          })
+        });
+      }
+
+      // Refresh profile and redirect
+      const nextProfile = await refreshProfile(credential.user.uid);
+      console.log("SIGNUP NEXT PROFILE:", nextProfile);
+
+      if (role === "vendor") {
+        router.replace("/vendor/dashboard");
+      } else {
+        router.replace("/dashboard");
+      }
 
     } catch (error) {
-      setErrors({ otp: getAuthErrorMessage(error) });
+      console.error('OTP verification error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setErrors({ otp: errorMessage });
+      setApiError(errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-
   };
 
   return (
@@ -141,26 +171,26 @@ export default function SignupPage() {
             <div className="flex bg-gray-100 rounded-full p-1">
               <button
                 type="button"
-                onClick={() => setRole("individual")}
+                onClick={() => setRole("customer")}
                 className={`flex-1 py-2 rounded-full text-sm transition ${
-                  role === "individual"
+                  role === "customer"
                     ? "bg-white shadow text-[#E87D5F]"
                     : "text-gray-500"
                 }`}
               >
-                User
+                Customer
               </button>
 
               <button
                 type="button"
-                onClick={() => setRole("business")}
+                onClick={() => setRole("vendor")}
                 className={`flex-1 py-2 rounded-full text-sm transition ${
-                  role === "business"
+                  role === "vendor"
                     ? "bg-white shadow text-[#E87D5F]"
                     : "text-gray-500"
                 }`}
               >
-                Business
+                Vendor
               </button>
             </div>
 
@@ -195,7 +225,7 @@ export default function SignupPage() {
               )}
             </div>
 
-            {role === "business" && (
+            {role === "vendor" && (
               <div>
                 <label className="text-sm text-gray-600">
                   Business Name
@@ -218,12 +248,19 @@ export default function SignupPage() {
 
             <button
               type="submit"
+              disabled={isLoading}
               className="w-full bg-[#E87D5F] text-white py-3 rounded-xl"
             >
               Send OTP →
             </button>
 
           </form>
+        )}
+
+        {apiError && (
+          <div className="text-red-500 text-sm mt-4">
+            {apiError}
+          </div>
         )}
 
         {step === "otp" && (
@@ -243,6 +280,7 @@ export default function SignupPage() {
 
             <button
               onClick={handleVerifyOtp}
+              disabled={isLoading}
               className="w-full bg-[#E87D5F] text-white py-3 rounded-xl"
             >
               Verify OTP →

@@ -1,12 +1,39 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import BookingCard from "@/components/vendor/BookingCard"
 import FilterBar from "@/components/vendor/FilterBar"
+import { apiFetch } from "@/app/lib/api"
+import { useAuth } from "@/context/AuthContext"
+import { useToast } from "@/context/ToastContext"
 
 type BookingStatus = "pending" | "accepted" | "declined"
 
-interface Booking {
+type VendorRequest = {
+  _id: string
+  status: "pending" | "accepted" | "rejected"
+  customerId: string
+  eventId: string
+  event?: {
+    name?: string
+    eventType?: string
+    eventDate?: string
+    location?: { label?: string }
+    guestCount?: number
+  }
+  customer?: {
+    name?: string
+  }
+  booking?: {
+    _id?: string
+    amount?: number
+  }
+}
+
+type BookingCardItem = {
+  requestId: string
+  bookingId?: string
   name: string
   event: string
   date: string
@@ -17,75 +44,115 @@ interface Booking {
   status: BookingStatus
 }
 
-const initialBookings: Booking[] = [
-  {
-    name: "John D'silva",
-    event: "50th Birthday Party",
-    date: "12 Dec 2025",
-    location: "Panaji, North Goa",
-    guests: 80,
-    price: "₹45,000",
-    avatar: "/eventra_photos/wedding8.jpg",
-    status: "pending",
-  },
-  {
-    name: "Nerissa Noronha",
-    event: "Roce Ceremony",
-    date: "15 Feb 2026",
-    location: "Margao, South Goa",
-    guests: 150,
-    price: "₹80,000",
-    avatar: "/eventra_photos/wedding2.jpg",
-    status: "pending",
-  },
-  {
-    name: "Clara Pereira",
-    event: "Housewarming",
-    date: "20 Dec 2025",
-    location: "Benaulim, South Goa",
-    guests: 45,
-    price: "₹25,000",
-    avatar: "/eventra_photos/party2.jpg",
-    status: "pending",
-  },
-  {
-    name: "Ryan Rodrigues",
-    event: "Baptism Lunch",
-    date: "05 Jan 2026",
-    location: "Old Goa",
-    guests: 60,
-    price: "₹35,000",
-    avatar: "/eventra_photos/bday4.jpg",
-    status: "pending",
-  },
-  {
-    name: "Shania Gonsalves",
-    event: "Engagement Ceremony",
-    date: "22 May 2026",
-    location: "Calangute, North Goa",
-    guests: 120,
-    price: "₹95,000",
-    avatar: "/eventra_photos/gala2.jpg",
-    status: "pending",
-  },
-]
-
 export default function BookingRequests() {
-const [bookings, setBookings] = useState(initialBookings)
+  const router = useRouter()
+  const { profile } = useAuth()
+  const { showToast } = useToast()
 
-const updateBookingStatus = (index: number, status: BookingStatus) => {
-  setBookings((current) =>
-    current.map((booking, bookingIndex) =>
-      bookingIndex === index ? { ...booking, status } : booking
+  const [requests, setRequests] = useState<VendorRequest[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [processingId, setProcessingId] = useState<string | null>(null)
+
+  const loadRequests = async () => {
+    if (!profile?.uid) return
+
+    setIsLoading(true)
+    setError("")
+
+    const response = await apiFetch(`/requests/vendor`)
+    if (response?.error) {
+      setError(response.message || "Failed to load booking requests")
+      setIsLoading(false)
+      return
+    }
+
+    setRequests(Array.isArray(response) ? response : [])
+    setIsLoading(false)
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadRequests()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [profile?.uid])
+
+  const vendorRequests = useMemo<BookingCardItem[]>(() => {
+    return requests.map((request) => ({
+      requestId: String(request._id),
+      bookingId: request.booking?._id,
+      name: request.customer?.name || "Customer",
+      event: request.event?.name || request.event?.eventType || "Event",
+      date: request.event?.eventDate || "Date pending",
+      location: request.event?.location?.label || "Location pending",
+      guests: Number(request.event?.guestCount || 0),
+      price: request.booking?.amount ? `₹${Number(request.booking.amount).toLocaleString("en-IN")}` : "Request-based",
+      avatar: "/eventra_photos/wedding8.jpg",
+      status:
+        request.status === "rejected"
+          ? "declined"
+          : request.status === "accepted"
+            ? "accepted"
+            : "pending",
+    }))
+  }, [requests])
+
+  const updateRequestStatus = async (index: number, status: "accepted" | "rejected") => {
+    if (!profile?.uid) return
+
+    const target = vendorRequests[index]
+    if (!target?.requestId) return
+
+    const previous = [...requests]
+    setProcessingId(target.requestId)
+    setError("")
+
+    setRequests((current) =>
+      current.map((item) =>
+        item._id === target.requestId
+          ? { ...item, status }
+          : item,
+      ),
     )
-  )
-}
 
-return (
+    const endpoint = status === "accepted"
+      ? `/requests/${target.requestId}/accept`
+      : `/requests/${target.requestId}/reject`
+
+    const response = await apiFetch(endpoint, {
+      method: "PATCH",
+      body: JSON.stringify({ actorUserId: profile.uid }),
+    })
+
+    if (response?.error) {
+      setRequests(previous)
+      setError(response.message || "Could not update request status")
+      showToast(response.message || "Request update failed", "error")
+      setProcessingId(null)
+      return
+    }
+
+    showToast(status === "accepted" ? "Booking accepted" : "Booking rejected", "success")
+    await loadRequests()
+    setProcessingId(null)
+  }
+
+  if (isLoading) {
+    return <div>Loading booking requests...</div>
+  }
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>
+  }
+
+  if (vendorRequests.length === 0) {
+    return <div>No booking requests yet</div>
+  }
+
+  return (
 
 <div className="space-y-6">
-
-{/* PAGE HEADER */}
 
 <div className="flex justify-between items-center">
 
@@ -95,7 +162,7 @@ Booking Requests
 </h1>
 
 <p className="text-gray-500 text-sm">
-You have <span className="text-orange-500 font-medium">5 new leads</span> for the 2025–2026 seasons.
+You have <span className="text-orange-500 font-medium">{vendorRequests.filter((item) => item.status === "pending").length} new leads</span> for the upcoming season.
 </p>
 </div>
 
@@ -103,40 +170,34 @@ You have <span className="text-orange-500 font-medium">5 new leads</span> for th
 
 </div>
 
-
-{/* BOOKING LIST */}
+{processingId && (
+  <p className="text-sm text-gray-500">Processing request...</p>
+)}
 
 <div className="space-y-5">
 
-{bookings.map((b,i)=>(
+{vendorRequests.map((b,i)=>(
 <BookingCard
-key={i}
-{...b}
-onAccept={() => updateBookingStatus(i, "accepted")}
-onDecline={() => updateBookingStatus(i, "declined")}
+key={b.requestId}
+name={b.name}
+event={b.event}
+date={b.date}
+location={b.location}
+guests={b.guests}
+price={b.price}
+avatar={b.avatar}
+status={b.status}
+onAccept={() => void updateRequestStatus(i, "accepted")}
+onDecline={() => void updateRequestStatus(i, "rejected")}
+onDetails={() => {
+  if (b.bookingId) {
+    router.push(`/vendor/bookedClientDetails?bookingId=${b.bookingId}`)
+    return
+  }
+  router.push(`/vendor/bookedClientDetails?requestId=${b.requestId}`)
+}}
 />
 ))}
-
-</div>
-
-
-{/* SEASONAL INSIGHTS */}
-
-<div className="bg-orange-50 border border-orange-200 rounded-lg p-5">
-
-<h3 className="text-orange-600 font-semibold mb-2">
-Seasonal Insights
-</h3>
-
-<p className="text-sm text-gray-600">
-
-Most upcoming requests are concentrated in the **December 2025**
-festive peak. We are also seeing a **20% increase in early bookings**
-for the **Feb–May 2026 wedding season**.
-
-Ensure your **Packages** are updated to reflect next year’s pricing.
-
-</p>
 
 </div>
 

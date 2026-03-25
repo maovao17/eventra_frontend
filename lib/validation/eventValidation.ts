@@ -10,19 +10,15 @@ export function validateEvent(data: EventData) {
   const errors: Record<string, string> = {}
 
   if (!data.name || data.name.trim() === "") {
-    errors.name = "Event name is required"
+    errors.name = "Name required"
   }
 
   if (!data.date || data.date.trim() === "") {
-    errors.date = "Date is required"
+    errors.date = "Date required"
   }
 
-  if (!data.location || data.location.trim() === "") {
-    errors.location = "Location is required"
-  }
-
-  if (data.budget === undefined || data.budget === "" || isNaN(Number(data.budget))) {
-    errors.budget = "Valid budget is required"
+  if (data.budget === undefined || data.budget === "" || isNaN(Number(data.budget)) || Number(data.budget) <= 0) {
+    errors.budget = "Valid budget required"
   }
 
   return errors

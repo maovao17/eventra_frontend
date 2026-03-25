@@ -1,10 +1,12 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function ConfirmationPage() {
+  const searchParams = useSearchParams()
   const router = useRouter()
+  const bookingId = searchParams.get("bookingId")
 
   return (
     <motion.div
@@ -14,7 +16,7 @@ export default function ConfirmationPage() {
     >
       <h1 className="text-3xl font-bold">Payment Confirmed</h1>
       <p className="theme-muted mt-4">
-        Your booking flow has been confirmed successfully.
+        Booking confirmed.
       </p>
       <div className="mt-8 flex justify-center gap-4">
         <button
@@ -26,10 +28,10 @@ export default function ConfirmationPage() {
         </button>
         <button
           type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push(bookingId ? `/review?bookingId=${bookingId}` : "/dashboard")}
           className="rounded-xl border px-6 py-3"
         >
-          Back to Dashboard
+          Leave Review
         </button>
       </div>
     </motion.div>

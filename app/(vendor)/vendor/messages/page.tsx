@@ -2,19 +2,24 @@
 
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
+import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import {
   getChatIdForRequest,
+  initializeChatThread,
   sendChatMessage,
   subscribeToChatMessages,
   type ChatMessage,
 } from "@/lib/chat"
 
 export default function MessagesPage() {
-const { requests, vendors, events } = useEvent()
-const currentVendorId = "2"
-const vendorSenderId = `vendor:${currentVendorId}`
-const vendorRequests = requests.filter((request) => request.vendorId === currentVendorId)
+const { profile } = useAuth()
+const { requests, vendors, events, bookings } = useEvent()
+const activeVendor = vendors.find((vendor) => vendor.userId === profile?.uid)
+const currentVendorId = activeVendor?.id
+const vendorRequests = currentVendorId
+? requests.filter((request) => request.vendorId === currentVendorId && request.status === "accepted")
+: []
 const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
 const [messages, setMessages] = useState<ChatMessage[]>([])
 const [draft, setDraft] = useState("")
@@ -23,14 +28,22 @@ selectedRequestId && vendorRequests.some((request) => request.id === selectedReq
 ? selectedRequestId
 : vendorRequests[0]?.id ?? null
 const activeRequest = vendorRequests.find((request) => request.id === activeRequestId) ?? vendorRequests[0]
-const activeVendor = vendors.find((vendor) => vendor.id === currentVendorId)
 const activeEvent = events.find((event) => event.id === activeRequest?.eventId)
+const activeBooking = bookings.find((booking) => booking.requestId === activeRequest?.id)
 
 useEffect(() => {
 if (!activeRequest) return
+if (!profile?.uid || !activeVendor?.userId) return
+
+void initializeChatThread({
+chatId: getChatIdForRequest(activeRequest.id),
+requestId: activeRequest.id,
+bookingId: activeBooking?.id,
+participantIds: [profile.uid, activeRequest.customerId],
+})
 
 return subscribeToChatMessages(getChatIdForRequest(activeRequest.id), setMessages)
-}, [activeRequest])
+}, [activeBooking?.id, activeRequest, activeVendor?.userId, profile?.uid])
 
 return (
 activeRequest ? (
@@ -68,7 +81,7 @@ className={`w-full rounded-xl p-4 text-left ${activeRequest?.id === request.id ?
 {messages.map((message) => (
 <div
 key={message.id}
-className={`max-w-sm rounded-2xl p-4 ${message.senderId === vendorSenderId ? "ml-auto bg-[var(--primary)] text-white" : "theme-surface"}`}
+className={`max-w-sm rounded-2xl p-4 ${message.senderId === profile?.uid ? "ml-auto bg-[var(--primary)] text-white" : "theme-surface"}`}
 >
 {message.text}
 </div>
@@ -88,7 +101,7 @@ onClick={() => {
 if (!activeRequest) return
 sendChatMessage({
 chatId: getChatIdForRequest(activeRequest.id),
-senderId: vendorSenderId,
+senderId: profile?.uid ?? "vendor",
 text: draft,
 })
 setDraft("")
@@ -102,7 +115,7 @@ Send
 </div>
 ) : (
 <div className="theme-card p-8">
-No client chats yet. Accept a booking request to unlock vendor messaging.
+No client chats yet. Accept a request to unlock vendor messaging.
 </div>
 )
 

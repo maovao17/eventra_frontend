@@ -1,6 +1,8 @@
 import "./globals.css"
 import { AuthProvider } from "@/context/AuthContext"
 import { EventProvider } from "@/context/EventContext"
+import { ToastProvider } from "@/context/ToastContext"
+import { VendorProvider } from "@/context/VendorContext"
 import type { ReactNode } from "react"
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -8,9 +10,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <AuthProvider>
-          <EventProvider>
-            {children}
-          </EventProvider>
+          <ToastProvider>
+            <VendorProvider>
+              <EventProvider>
+                {children}
+              </EventProvider>
+            </VendorProvider>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

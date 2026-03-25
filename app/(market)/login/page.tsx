@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { validateLogin } from "@/lib/validation/authValidation";
@@ -18,7 +18,7 @@ import { useAuth } from "@/context/AuthContext";
 export default function LoginPage() {
 
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { refreshProfile } = useAuth();
 
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
@@ -29,11 +29,7 @@ export default function LoginPage() {
   const [confirmationResult, setConfirmationResult] =
     useState<ConfirmationResult | null>(null);
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, router]);
+  // Removed redirect on page load to allow login form to render
 
   const handleSendOtp = async () => {
 
@@ -77,12 +73,22 @@ export default function LoginPage() {
         return;
       }
 
-      await verifyOtp(confirmationResult, otp);
+      const credential = await verifyOtp(confirmationResult, otp);
+      const nextProfile = await refreshProfile(credential.user.uid)
+      console.log("LOGIN NEXT PROFILE:", nextProfile)
 
-      router.replace("/dashboard");
+      if (nextProfile?.role === "vendor") {
+        router.replace("/vendor/dashboard")
+      } else {
+        router.replace("/dashboard")
+      }
 
     } catch (error) {
-      setErrors({ otp: getAuthErrorMessage(error) });
+      console.error('OTP verification error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      setErrors({
+        otp: errorMessage,
+      });
     }
 
   };

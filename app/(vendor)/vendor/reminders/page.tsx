@@ -1,68 +1,118 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/app/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { getVendorNotifications, markVendorNotificationRead } from "@/app/lib/vendorApi";
+
+type VendorNotification = {
+  _id: string;
+  message: string;
+  daysBefore?: number;
+  read?: boolean;
+};
+
 export default function Reminders() {
+  const { profile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notifications, setNotifications] = useState<VendorNotification[]>([]);
 
-const events = [
-{title:"Goa Beach Wedding - Royal Sands",days:1},
-{title:"Birthday Party",days:3},
-{title:"Engagement",days:3},
-{title:"Roe Ceremony",days:5},
-{title:"Wedding",days:7}
-]
+  useEffect(() => {
+    const loadReminders = async () => {
+      if (!profile?.uid) return;
+      setLoading(true);
+      setError("");
 
-return(
+      await apiFetch("/notifications/run-reminders", { method: "POST" });
 
-<div>
+      const response = await getVendorNotifications();
+      if (response?.error) {
+        setError(response.message || "Failed to load reminders.");
+        setLoading(false);
+        return;
+      }
 
-<h1 className="text-xl font-semibold mb-6">
-Upcoming Milestones
-</h1>
+      setNotifications(Array.isArray(response) ? response : []);
+      setLoading(false);
+    };
 
-<div className="grid grid-cols-3 gap-6">
+    void loadReminders();
+  }, [profile?.uid]);
 
-<div className="col-span-2 space-y-4">
+  if (loading) {
+    return <p>Loading reminders...</p>;
+  }
 
-{events.map((e,i)=>(
-<div key={i} className="theme-card p-4 flex justify-between">
+  if (error) {
+    return <p className="text-red-500">{error}</p>;
+  }
 
-<div className="flex gap-4">
+  const handleMarkRead = async (notificationId: string) => {
+    if (!profile?.uid) return;
 
-<div className="bg-green-100 w-10 h-10 flex items-center justify-center rounded">
-{e.days}d
-</div>
+    const previous = [...notifications];
+    setNotifications((current) =>
+      current.map((item) => (item._id === notificationId ? { ...item, read: true } : item)),
+    );
 
-<p>{e.title}</p>
+    const response = await markVendorNotificationRead(notificationId);
+    if (response?.error) {
+      setNotifications(previous);
+      setError(response.message || "Could not mark reminder as read.");
+    }
+  };
 
-</div>
+  return (
+    <div>
+      <h1 className="text-xl font-semibold mb-6">
+        Upcoming Milestones
+      </h1>
 
-<button className="border px-3 py-1 rounded text-sm">
-Details
-</button>
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2 space-y-4">
+          {notifications.length === 0 ? (
+            <div className="theme-card p-4">
+              No reminders yet.
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <div key={notification._id} className="theme-card p-4 flex justify-between">
+                <div className="flex gap-4">
+                  <div className="bg-green-100 w-10 h-10 flex items-center justify-center rounded">
+                    {notification.daysBefore ? `${notification.daysBefore}d` : "•"}
+                  </div>
 
-</div>
-))}
+                  <p>{notification.message} {notification.read ? "(Read)" : ""}</p>
+                </div>
 
-</div>
+                <button
+                  onClick={() => void handleMarkRead(notification._id)}
+                  className="border px-3 py-1 rounded text-sm"
+                >
+                  Details
+                </button>
+              </div>
+            ))
+          )}
+        </div>
 
-<div className="theme-card p-5 rounded-lg shadow">
+        <div className="theme-card p-5 rounded-lg shadow">
+          <h3 className="font-semibold mb-3">
+            Automation Panel
+          </h3>
 
-<h3 className="font-semibold mb-3">
-Automation Panel
-</h3>
+          <label className="flex justify-between mb-2">
+            SMS Reminders
+            <input type="checkbox" defaultChecked />
+          </label>
 
-<label className="flex justify-between mb-2">
-SMS Reminders
-<input type="checkbox"/>
-</label>
-
-<label className="flex justify-between">
-Email Alerts
-<input type="checkbox"/>
-</label>
-
-</div>
-
-</div>
-
-</div>
-
-)
+          <label className="flex justify-between">
+            Email Alerts
+            <input type="checkbox" defaultChecked />
+          </label>
+        </div>
+      </div>
+    </div>
+  );
 }

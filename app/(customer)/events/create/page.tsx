@@ -1,58 +1,99 @@
 "use client"
 
+import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
-import { Suspense, useState } from "react"
-import { serviceCatalog } from "../../mockData"
+import { Suspense, useState, useEffect } from "react"
 import { validateEvent } from "@/lib/validation/eventValidation"
+import { getServicesForTemplate } from "@/lib/templates"
 
 function CreateEventForm() {
+  const { profile } = useAuth()
   const { createEvent } = useEvent()
   const router = useRouter()
   const params = useSearchParams()
   const type = params.get("type")
-  const [name, setName] = useState("")
-  const [date, setDate] = useState("")
-  const [location, setLocation] = useState("")
+
+  // State for form fields
+  const [eventName, setEventName] = useState("")
+  const [eventDate, setEventDate] = useState("")
   const [budget, setBudget] = useState("")
-  const [guests, setGuests] = useState("")
+  const [services, setServices] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [selectedServices, setSelectedServices] = useState<string[]>(["Photographer", "Catering"])
-  const [showServiceModal, setShowServiceModal] = useState(false)
-  const [serviceQuery, setServiceQuery] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  const toggleService = (service: string) => {
-    setSelectedServices((current) =>
-      current.includes(service)
-        ? current.filter((item) => item !== service)
-        : [...current, service]
-    )
-  }
+  // Initialize services based on template type
+  useEffect(() => {
+    const templateServices = getServicesForTemplate(type)
+    setServices(templateServices)
+  }, [type])
 
-  const filteredServices = serviceCatalog.filter((service) =>
-    service.toLowerCase().includes(serviceQuery.toLowerCase())
-  )
+  const handleCreate = async () => {
+    // Validate budget before creating payload
+    const budgetNum = Number(budget)
+    if (isNaN(budgetNum) || budgetNum <= 0) {
+      setErrors({ budget: "Valid budget required" })
+      return
+    }
 
-  const handleCreate = () => {
-    const validationErrors = validateEvent({ name, date, location, budget })
-    if (Object.keys(validationErrors).length > 0) {
+    const payload = {
+      name: eventName,
+      date: eventDate,
+      budget: budgetNum,
+      services,
+    }
+
+    const validationErrors = validateEvent(payload)
+
+    // ✅ Only block if REAL errors exist
+    if (validationErrors && Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors)
       return
     }
 
-    // Reserved for future API / Firebase event persistence.
-    createEvent({
-      name: name || `${type ?? "Custom"} Event`,
-      date,
-      location,
-      budget,
-      type,
-      guests,
-      services: selectedServices,
-    })
+    setErrors({})
+    setApiError(null)
+    setSuccess(null)
+    setLoading(true)
 
-    router.push("/vendors")
+    try {
+      const res = await fetch("http://localhost:3002/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setApiError(data.message || "Failed to create event")
+        return;
+      }
+
+      setSuccess("Event created successfully!")
+      setTimeout(() => {
+        router.push('/events')
+      }, 800)
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : 'Failed to create event')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const addService = (serviceName: string) => {
+    if (!services.includes(serviceName)) {
+      setServices([...services, serviceName])
+    }
+  }
+
+  const removeService = (serviceName: string) => {
+    setServices(services.filter(s => s !== serviceName))
   }
 
   return (
@@ -81,7 +122,8 @@ function CreateEventForm() {
             <input
               placeholder="Sunset wedding at Goa"
               className={`input p-3 ${errors.name ? "border-red-500" : ""}`}
-              onChange={(e) => setName(e.target.value)}
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
             />
             {errors.name && (
               <p className="text-red-500 text-sm">{errors.name}</p>
@@ -93,31 +135,11 @@ function CreateEventForm() {
             <input
               type="date"
               className={`input p-3 ${errors.date ? "border-red-500" : ""}`}
-              onChange={(e) => setDate(e.target.value)}
+              value={eventDate}
+              onChange={(e) => setEventDate(e.target.value)}
             />
             {errors.date && (
               <p className="text-red-500 text-sm">{errors.date}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium">Guest Count</label>
-            <input
-              placeholder="220"
-              className="input p-3"
-              onChange={(e) => setGuests(e.target.value)}
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium">Location</label>
-            <input
-              placeholder="North Goa beachfront venue"
-              className={`input p-3 ${errors.location ? "border-red-500" : ""}`}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-            {errors.location && (
-              <p className="text-red-500 text-sm">{errors.location}</p>
             )}
           </div>
 
@@ -126,52 +148,74 @@ function CreateEventForm() {
             <input
               placeholder="850000"
               className={`input p-3 ${errors.budget ? "border-red-500" : ""}`}
+              value={budget}
               onChange={(e) => setBudget(e.target.value)}
             />
             {errors.budget && (
               <p className="text-red-500 text-sm">{errors.budget}</p>
             )}
           </div>
-        </div>
 
-        <div className="mt-8">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Planning Modules</h2>
-            <button
-              type="button"
-              onClick={() => setShowServiceModal(true)}
-              className="theme-button rounded-full px-4 py-2 text-sm"
-            >
-              Add Service
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {selectedServices.map((service) => {
-              const selected = selectedServices.includes(service)
-
-              return (
-                <button
+          {/* Services Section */}
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-medium">
+              Services {type ? `(Pre-filled for ${type})` : '(Add services)'}
+            </label>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {services.map((service) => (
+                <span
                   key={service}
-                  type="button"
-                  onClick={() => toggleService(service)}
-                  className={`rounded-full px-4 py-2 text-sm transition ${
-                    selected
-                      ? "bg-[var(--primary)] text-white"
-                      : "theme-surface text-[var(--text-main)]"
-                  }`}
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-800 transition-all duration-300 ease-in-out"
                 >
                   {service}
-                </button>
-              )
-            })}
+                  <button
+                    type="button"
+                    onClick={() => removeService(service)}
+                    className="ml-1 text-blue-600 transition-all duration-300 ease-in-out hover:text-blue-800"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {/* Quick add buttons for common services */}
+            {!type && (
+              <div className="flex flex-wrap gap-2">
+                {['Catering', 'Decoration', 'Photography', 'DJ', 'Cake', 'Entertainment'].map((service) => (
+                  !services.includes(service) && (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => addService(service)}
+                      className="rounded-full border border-gray-300 px-3 py-1 text-sm transition-all duration-300 ease-in-out hover:bg-gray-50"
+                    >
+                      + {service}
+                    </button>
+                  )
+                ))}
+              </div>
+            )}
           </div>
         </div>
+
+        {apiError && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{apiError}</p>
+          </div>
+        )}
+        {success && (
+          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
+            <p className="text-sm text-green-600">{success}</p>
+          </div>
+        )}
 
         <button
           onClick={handleCreate}
-          className="theme-button mt-8 rounded-lg px-6 py-3"
+          disabled={loading}
+          className="theme-button mt-8 rounded-lg px-6 py-3 transition-all duration-300 ease-in-out hover:opacity-90 disabled:opacity-50"
         >
-          Create Event
+          {loading ? 'Processing...' : 'Create Event'}
         </button>
       </motion.div>
 
@@ -186,76 +230,40 @@ function CreateEventForm() {
             Preview
           </p>
           <h2 className="mt-3 text-2xl font-semibold">
-            {name || `${type ?? "Custom"} Celebration`}
+            {eventName || `${type ?? "Custom"} Celebration`}
           </h2>
           <p className="theme-muted mt-3">
-            {location || "Location pending"} • {date || "Date pending"}
-          </p>
-          <p className="mt-4 text-sm font-medium">
-            Guests: {guests || "TBD"}
+            Date: {eventDate || "Date pending"}
           </p>
           <p className="mt-2 text-sm font-medium">
             Budget: {budget ? `₹${budget}` : "To be defined"}
           </p>
+          {services.length > 0 && (
+            <div className="mt-3">
+              <p className="text-sm font-medium mb-1">Services:</p>
+              <div className="flex flex-wrap gap-1">
+                {services.map((service) => (
+                  <span key={service} className="px-2 py-1 bg-gray-100 rounded text-xs">
+                    {service}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="theme-card p-6">
-          
+          <p className="theme-primary text-sm font-semibold uppercase tracking-[0.2em]">
+            Next Steps
+          </p>
+          <ul className="mt-3 space-y-2 text-sm theme-muted">
+            <li>• Select services for your event</li>
+            <li>• Browse and request vendors</li>
+            <li>• Confirm bookings after approval</li>
+            <li>• Manage payments and finalize</li>
+          </ul>
         </div>
       </motion.aside>
-
-      {showServiceModal ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-        >
-          <motion.div
-            initial={{ scale: 0.96, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="theme-card w-full max-w-xl p-6"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold">Select Services</h3>
-              <button
-                type="button"
-                onClick={() => setShowServiceModal(false)}
-                className="theme-muted text-sm"
-              >
-                Close
-              </button>
-            </div>
-
-            <input
-              value={serviceQuery}
-              onChange={(e) => setServiceQuery(e.target.value)}
-              placeholder="Search services"
-              className="input mt-5 p-3"
-            />
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {filteredServices.map((service) => {
-                const selected = selectedServices.includes(service)
-
-                return (
-                  <button
-                    key={service}
-                    type="button"
-                    onClick={() => toggleService(service)}
-                    className={`rounded-2xl border px-4 py-4 text-left transition ${
-                      selected
-                        ? "bg-[var(--primary-light)] text-[var(--primary)]"
-                        : "theme-surface"
-                    }`}
-                  >
-                    <span className="font-medium">{service}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </motion.div>
-        </motion.div>
-      ) : null}
     </div>
   )
 }

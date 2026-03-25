@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 import DashboardCard from "@/components/dashboard/DashboardCard"
 import DashboardContainer from "@/components/dashboard/DashboardContainer"
 import DashboardGrid from "@/components/dashboard/DashboardGrid"
@@ -10,12 +11,22 @@ import { useEvent } from "@/context/EventContext"
 export default function DashboardPage() {
   const router = useRouter()
   const { profile } = useAuth()
-  const { currentEvent, selectedVendors, selectedServices, totalPrice, formatCurrency } = useEvent()
+const { currentEvent, selectedVendors, selectedServices, totalPrice, formatCurrency, bookings } = useEvent()
+
+  useEffect(() => {
+    if (!profile) {
+      router.replace("/login");
+      return;
+    }
+    if (profile?.role === "vendor") {
+      router.replace("/vendor/requests")
+    }
+  }, [profile, router])
 
   return (
     <DashboardContainer
       title={`Welcome${profile?.name ? `, ${profile.name}` : ""}`}
-      subtitle="Manage event setup, vendor coordination, payments, and chat from one place."
+      subtitle={`Role: ${profile?.role || "User"} | Phone: ${profile?.phone || "N/A"} - Manage event setup, vendor coordination, payments, and chat from one place.`}
     >
       <DashboardGrid>
         <DashboardCard href="/templates" title="Start Planning">
@@ -60,7 +71,27 @@ export default function DashboardPage() {
         </DashboardCard>
       </DashboardGrid>
 
+      <h3 className="text-xl font-semibold mt-8">Completed Bookings</h3>
+      {bookings.filter((b: any) => b.status === "completed").length === 0 ? (
+        <p className="theme-muted text-center py-8">No completed bookings available for review.</p>
+      ) : (
+        <DashboardGrid>
+          {bookings.filter((b: any) => b.status === "completed").map((booking: any) => (
+            <DashboardCard key={booking.id} title={`Vendor Booking - ${booking.vendorId?.slice(-4)}`}>
+              <p className="theme-muted text-sm mb-3">Amount: {formatCurrency(booking.amount)}</p>
+              <button
+                onClick={() => router.push(`/review?bookingId=${booking.id}`)}
+                className="w-full theme-button py-2 rounded-lg"
+              >
+                Submit Review
+              </button>
+            </DashboardCard>
+          ))}
+        </DashboardGrid>
+      )}
+
       <div className="flex gap-4">
+
         <button
           type="button"
           onClick={() => router.push("/templates")}

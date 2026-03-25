@@ -1,58 +1,172 @@
-export default function Ratings(){
+"use client";
 
-return(
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "@/app/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { getVendorReviews } from "@/app/lib/vendorApi";
 
-<div>
+type VendorReview = {
+  _id: string;
+  rating: number;
+  comment: string;
+  reply?: string;
+};
 
-<h1 className="text-2xl font-semibold mb-6">
-Reputation Dashboard
-</h1>
+export default function Ratings() {
+  const { profile } = useAuth();
+  const [vendorId, setVendorId] = useState<string>("");
+  const [reviews, setReviews] = useState<VendorReview[]>([]);
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState<string>("");
+  const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-<div className="grid grid-cols-3 gap-6">
+  useEffect(() => {
+    const run = async () => {
+      if (!profile?.uid) return;
+      setError("");
 
-<div className="col-span-2">
+      const reviewResponse = await getVendorReviews();
+      if (reviewResponse?.error) {
+        setError(reviewResponse.message || "Failed to fetch reviews.");
+        setLoading(false);
+        return;
+      }
 
-<div className="theme-card mb-4 p-6">
+      const vendorResponse = await apiFetch(`/vendors/me`);
+      if (!vendorResponse?.error && vendorResponse?._id) {
+        setVendorId(String(vendorResponse._id));
+      }
 
-<h2 className="text-4xl font-bold theme-primary">
-4.8
-</h2>
+      setReviews(Array.isArray(reviewResponse) ? reviewResponse : []);
+      setLoading(false);
+    };
 
-<p className="theme-muted">
-Average Rating (1206)
-</p>
+    void run();
+  }, [profile?.uid, refreshKey]);
 
-</div>
+  const averageRating = useMemo(() => {
+    if (!reviews.length) return 0;
+    return reviews.reduce((sum, item) => sum + Number(item.rating || 0), 0) / reviews.length;
+  }, [reviews]);
 
-<div className="theme-card p-6">
+  const distribution = useMemo(() => {
+    const buckets: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach((review) => {
+      const rating = Number(review.rating || 0);
+      if (rating >= 1 && rating <= 5) buckets[rating] += 1;
+    });
+    return buckets;
+  }, [reviews]);
 
-<h3 className="font-medium">
-Sarah D&apos;Souza
-</h3>
+  const handleReply = async (reviewId: string) => {
+    const text = replyText[reviewId]?.trim();
+    if (!text || !profile?.uid) return;
+    setSending(reviewId);
+    setError("");
 
-<p className="theme-muted text-sm">
-The decor was absolutely stunning!
-</p>
+    const response = await apiFetch("/reviews/reply", {
+      method: "POST",
+      body: JSON.stringify({
+        reviewId,
+        actorUserId: profile.uid,
+        reply: text,
+      }),
+    });
 
-</div>
+    if (response?.error) {
+      setError(response.message || "Reply failed.");
+      setSending("");
+      return;
+    }
 
-</div>
+    setReplyText((prev) => ({ ...prev, [reviewId]: "" }));
+    setLoading(true);
+    setRefreshKey((prev) => prev + 1);
+    setSending("");
+  };
 
-<div className="theme-card p-6">
+  if (loading) return <p>Loading ratings...</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
 
-<h3 className="font-semibold mb-4">
-Rating Distribution
-</h3>
+  return (
+    <div>
+      <h1 className="text-2xl font-semibold mb-6">
+        Reputation Dashboard
+      </h1>
 
-<p>5 ★ 85%</p>
-<p>4 ★ 10%</p>
-<p>3 ★ 5%</p>
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2">
+          <div className="theme-card mb-4 p-6">
+            <h2 className="text-4xl font-bold theme-primary">
+              {averageRating.toFixed(1)}
+            </h2>
 
-</div>
+            <p className="theme-muted">
+              Average Rating ({reviews.length})
+            </p>
+          </div>
 
-</div>
+          <div className="space-y-3">
+            {reviews.length === 0 ? (
+              <div className="theme-card p-6">No reviews yet.</div>
+            ) : (
+              reviews.map((review) => (
+                <div key={review._id} className="theme-card p-6">
+                  <h3 className="font-medium">
+                    Rating: {review.rating} ★
+                  </h3>
 
-</div>
+                  <p className="theme-muted text-sm">
+                    {review.comment}
+                  </p>
 
-)
+                  {review.reply ? (
+                    <p className="text-sm mt-2 text-green-700">Reply: {review.reply}</p>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <input
+                        value={replyText[review._id] || ""}
+                        onChange={(e) => setReplyText((prev) => ({ ...prev, [review._id]: e.target.value }))}
+                        placeholder="Write a reply"
+                        className="w-full border rounded-md p-2 text-sm"
+                      />
+                      <button
+                        onClick={() => void handleReply(review._id)}
+                        disabled={sending === review._id}
+                        className="border px-3 py-1 rounded text-sm"
+                      >
+                        {sending === review._id ? "Sending..." : "Reply"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="theme-card p-6">
+          <h3 className="font-semibold mb-4">
+            Rating Distribution
+          </h3>
+
+          {[5, 4, 3, 2, 1].map((star) => {
+            const count = distribution[star] || 0;
+            const percentage = reviews.length ? Math.round((count / reviews.length) * 100) : 0;
+            return (
+              <p key={star}>
+                {star} ★ {percentage}%
+              </p>
+            );
+          })}
+
+          <p className="text-xs text-gray-500 mt-3">
+            Vendor ID: {vendorId || "N/A"}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
