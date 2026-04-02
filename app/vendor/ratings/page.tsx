@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
 import { useAuth } from "@/context/AuthContext";
 import { getVendorReviews } from "@/app/lib/vendorApi";
+import { useToast } from "@/context/ToastContext";
 
 type VendorReview = {
   _id: string;
@@ -14,6 +16,7 @@ type VendorReview = {
 
 export default function Ratings() {
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const [vendorId, setVendorId] = useState<string>("");
   const [reviews, setReviews] = useState<VendorReview[]>([]);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
@@ -27,20 +30,20 @@ export default function Ratings() {
       if (!profile?.uid) return;
       setError("");
 
-      const reviewResponse = await getVendorReviews();
-      if (reviewResponse?.error) {
-        setError(reviewResponse.message || "Failed to fetch reviews.");
+      try {
+        const reviewResponse = await getVendorReviews();
+        const vendorResponse = await apiFetch(`/vendors/me`);
+        if (vendorResponse?._id) {
+          setVendorId(String(vendorResponse._id));
+        }
+        setReviews(Array.isArray(reviewResponse) ? reviewResponse : []);
+      } catch (fetchError) {
+        const message = fetchError instanceof Error ? fetchError.message : "Failed to fetch reviews.";
+        setError(message);
+        showToast(message, "error");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      const vendorResponse = await apiFetch(`/vendors/me`);
-      if (!vendorResponse?.error && vendorResponse?._id) {
-        setVendorId(String(vendorResponse._id));
-      }
-
-      setReviews(Array.isArray(reviewResponse) ? reviewResponse : []);
-      setLoading(false);
     };
 
     void run();
@@ -87,8 +90,17 @@ export default function Ratings() {
     setSending("");
   };
 
-  if (loading) return <p>Loading ratings...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  if (loading) return <PageCardSkeleton count={3} className="md:grid-cols-1" />;
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load ratings."
+        description={error}
+        onRetry={() => setRefreshKey((prev) => prev + 1)}
+        retryLabel="Retry"
+      />
+    );
+  }
 
   return (
     <div>
@@ -110,7 +122,10 @@ export default function Ratings() {
 
           <div className="space-y-3">
             {reviews.length === 0 ? (
-              <div className="theme-card p-6">No reviews yet.</div>
+              <EmptyState
+                title="No reviews yet"
+                description="Reviews will appear here once customers complete their events."
+              />
             ) : (
               reviews.map((review) => (
                 <div key={review._id} className="theme-card p-6">

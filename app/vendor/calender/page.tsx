@@ -1,18 +1,22 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useAuth } from "@/context/AuthContext"
 import { getVendorMe, updateVendorAvailability } from "@/app/lib/vendorApi"
+import { useToast } from "@/context/ToastContext"
 
 const toIsoDate = (value: Date) => value.toISOString().slice(0, 10)
 
 export default function Calendar(){
   const { profile } = useAuth()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [blockedDates, setBlockedDates] = useState<string[]>([])
+  const [bookedDates, setBookedDates] = useState<string[]>([])
   const [startHour, setStartHour] = useState("09:00")
   const [endHour, setEndHour] = useState("18:00")
 
@@ -27,21 +31,26 @@ export default function Calendar(){
       if (!profile?.uid) return
 
       setLoading(true)
-      const response = await getVendorMe()
-      if (response?.error) {
-        setError(response.message || "Could not load availability")
+      try {
+        const response = await getVendorMe()
+        const nextBlocked = Array.isArray(response?.availability?.blockedDates)
+          ? response.availability.blockedDates.map((value: string) => String(value).slice(0, 10))
+          : []
+        const nextBooked = Array.isArray(response?.availability?.bookedDates)
+          ? response.availability.bookedDates.map((value: string) => String(value).slice(0, 10))
+          : []
+
+        setBlockedDates(nextBlocked)
+        setBookedDates(nextBooked)
+        setStartHour(response?.availability?.workingHours?.start || "09:00")
+        setEndHour(response?.availability?.workingHours?.end || "18:00")
+      } catch (fetchError) {
+        const message = fetchError instanceof Error ? fetchError.message : "Could not load availability"
+        setError(message)
+        showToast(message, "error")
+      } finally {
         setLoading(false)
-        return
       }
-
-      const nextBlocked = Array.isArray(response?.availability?.blockedDates)
-        ? response.availability.blockedDates.map((value: string) => String(value).slice(0, 10))
-        : []
-
-      setBlockedDates(nextBlocked)
-      setStartHour(response?.availability?.workingHours?.start || "09:00")
-      setEndHour(response?.availability?.workingHours?.end || "18:00")
-      setLoading(false)
     }
 
     void loadAvailability()
@@ -72,6 +81,7 @@ export default function Calendar(){
 
   const toggleBlockedDate = (date: string | null) => {
     if (!date) return
+    if (bookedDates.includes(date)) return
 
     setBlockedDates((current) =>
       current.includes(date)
@@ -87,26 +97,38 @@ export default function Calendar(){
     setError("")
     setSuccess("")
 
-    const response = await updateVendorAvailability({
-      blockedDates,
-      workingHours: {
-        start: startHour,
-        end: endHour,
-      },
-    })
-
-    if (response?.error) {
-      setError(response.message || "Could not save availability")
+    try {
+      await updateVendorAvailability({
+        blockedDates,
+        workingHours: {
+          start: startHour,
+          end: endHour,
+        },
+      })
+      setSuccess("Availability updated")
+      showToast("Availability updated.", "success")
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : "Could not save availability"
+      setError(message)
+      showToast(message, "error")
+    } finally {
       setSaving(false)
-      return
     }
-
-    setSuccess("Availability updated")
-    setSaving(false)
   }
 
   if (loading) {
-    return <p>Loading availability...</p>
+    return <PageCardSkeleton count={2} className="md:grid-cols-1" />
+  }
+
+  if (error && !blockedDates.length && !bookedDates.length) {
+    return (
+      <ErrorState
+        title="We couldn't load availability."
+        description={error}
+        onRetry={() => window.location.reload()}
+        retryLabel="Retry"
+      />
+    )
   }
 
 return(
@@ -125,6 +147,10 @@ return(
 </button>
 </div>
 
+<p className="theme-muted text-sm">
+Booked dates are blocked automatically and cannot be edited here.
+</p>
+
 {error && <p className="text-red-500 text-sm">{error}</p>}
 {success && <p className="text-green-600 text-sm">{success}</p>}
 
@@ -134,12 +160,29 @@ return(
 <div
 key={`${entry.date || "empty"}-${i}`}
 onClick={() => toggleBlockedDate(entry.date)}
-className={`theme-card h-24 flex items-center justify-center rounded ${entry.date && blockedDates.includes(entry.date) ? "border-2 border-red-400" : ""}`}
+className={`theme-card h-24 flex items-center justify-center rounded ${
+  entry.date && bookedDates.includes(entry.date)
+    ? "bg-[var(--primary)] text-white"
+    : entry.date && blockedDates.includes(entry.date)
+      ? "border-2 border-red-400"
+      : ""
+}`}
 >
 {entry.day ?? ""}
 </div>
 ))}
 
+</div>
+
+<div className="flex gap-6 text-sm">
+<div className="flex items-center gap-2">
+<span className="inline-block h-3 w-3 rounded-full border-2 border-red-400" />
+<span>Blocked</span>
+</div>
+<div className="flex items-center gap-2">
+<span className="inline-block h-3 w-3 rounded-full bg-[var(--primary)]" />
+<span>Booked automatically</span>
+</div>
 </div>
 
 </div>

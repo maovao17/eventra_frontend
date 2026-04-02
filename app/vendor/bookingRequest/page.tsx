@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import BookingCard from "@/components/vendor/BookingCard"
 import FilterBar from "@/components/vendor/FilterBar"
 import { apiFetch } from "@/app/lib/api"
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useAuth } from "@/context/AuthContext"
 import { useToast } from "@/context/ToastContext"
 
@@ -61,15 +62,16 @@ export default function BookingRequests() {
     setIsLoading(true)
     setError("")
 
-    const response = await apiFetch(`/requests`)
-    if (response?.error) {
-      setError(response.message || "Failed to load booking requests")
+    try {
+      const response = await apiFetch(`/requests`)
+      setRequests(Array.isArray(response) ? response : [])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load booking requests"
+      setError(message)
+      showToast(message, "error")
+    } finally {
       setIsLoading(false)
-      return
     }
-
-    setRequests(Array.isArray(response) ? response : [])
-    setIsLoading(false)
   }
 
   useEffect(() => {
@@ -106,18 +108,14 @@ const vendorRequests = useMemo<BookingCardItem[]>(() => {
         method: "PATCH",
       })
 
-      if (!response?.error) {
-        showToast(status === "accepted" ? "Request accepted" : "Request rejected", "success")
-        if (status === "accepted") {
-          const bookingId = String(response?.booking?._id || "")
-          if (bookingId) {
-            router.push(`/vendor/bookedClientDetails?bookingId=${bookingId}`)
-          }
+      showToast(status === "accepted" ? "Request accepted" : "Request rejected", "success")
+      if (status === "accepted") {
+        const bookingId = String(response?.booking?._id || "")
+        if (bookingId) {
+          router.push(`/vendor/bookedClientDetails?bookingId=${bookingId}`)
         }
-        await loadRequests()
-      } else {
-        showToast(response.message || "Update failed", "error")
       }
+      await loadRequests()
     } catch {
       showToast("Update failed", "error")
     } finally {
@@ -126,15 +124,27 @@ const vendorRequests = useMemo<BookingCardItem[]>(() => {
   }
 
   if (isLoading) {
-    return <div>Loading booking requests...</div>
+    return <PageCardSkeleton count={3} className="md:grid-cols-1" />
   }
 
   if (error) {
-    return <div className="text-red-500">{error}</div>
+    return (
+      <ErrorState
+        title="We couldn't load booking requests."
+        description={error}
+        onRetry={() => void loadRequests()}
+        retryLabel="Retry"
+      />
+    )
   }
 
   if (vendorRequests.length === 0) {
-    return <div>No booking requests yet</div>
+    return (
+      <EmptyState
+        title="No booking requests yet"
+        description="New customer requests will show up here as soon as they arrive."
+      />
+    )
   }
 
   return (

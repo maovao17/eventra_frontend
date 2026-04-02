@@ -75,7 +75,7 @@ export const updateVendorBookingStatus = async (
     ? `/bookings/${bookingId}/accept`
     : `/bookings/${bookingId}/reject`
     
-  const res = await apiFetch(endpoint, {
+  await apiFetch(endpoint, {
     method: "PATCH",
     body: JSON.stringify(
       actorUserId
@@ -83,18 +83,12 @@ export const updateVendorBookingStatus = async (
         : {}
     ),
   })
-  
-  return !res?.error
+
+  return true
 }
 
 export const getVendorDashboard = async () => {
-  const res = await apiFetch(`/vendors/dashboard`);
-
-  if (res && res.error === true) {
-    return null;
-  }
-
-  return res;
+  return apiFetch(`/vendors/dashboard`)
 };
 
 export const getVendorReviews = async () => {
@@ -114,3 +108,13 @@ export const markVendorNotificationRead = async (notificationId: string) => {
 export const getAllServices = async () => {
   return apiFetch("/services?limit=1000&offset=0")
 }
+
+export const getVendorPayouts = async () => {
+  return apiFetch("/payouts");
+};
+
+export const simulatePayout = async (payoutId: string) => {
+  return apiFetch(`/payouts/${payoutId}/simulate`, {
+    method: "POST",
+  });
+};

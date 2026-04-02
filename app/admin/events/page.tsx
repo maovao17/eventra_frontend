@@ -1,99 +1,96 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { Ellipsis, Filter, MapPin, Search, Users } from "lucide-react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react"
+import { MapPin, Search, Users } from "lucide-react"
+import Link from "next/link"
+import { apiFetch } from "@/app/lib/api"
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
+import { useToast } from "@/context/ToastContext"
+import type { EventItem } from "@/app/types/eventra"
 
-const eventsData = [
-  {
-    title: "Luxe Wedding Showcase 2024",
-    status: "Upcoming",
-    date: "24",
-    month: "AUG",
-    description:
-      "A premier gathering of top-tier wedding vendors and luxury bridal fashion designers.",
-    location: "Grand Ballroom, Ritz Carlton",
-    attendees: "450 Registered",
-    organizer: "Elegance Events Co.",
-  },
-  {
-    title: "Tech Innovation Summit",
-    status: "Ongoing",
-    date: "12",
-    month: "SEP",
-    description:
-      "Exploring the next frontier of AI and sustainable technology.",
-    location: "Silicon Valley Hub",
-    attendees: "1200 Registered",
-    organizer: "Future Works",
-  },
-  {
-    title: "Artisanal Food & Wine Festival",
-    status: "Upcoming",
-    date: "05",
-    month: "OCT",
-    description:
-      "Celebrate the finest local produce and wines in a weekend of tastings.",
-    location: "Bordeaux Vineyards",
-    attendees: "300 Registered",
-    organizer: "Savory Group",
-  },
-  {
-    title: "Corporate Leadership Retreat",
-    status: "Completed",
-    date: "18",
-    month: "JUL",
-    description:
-      "A three-day retreat focused on emotional intelligence and leadership.",
-    location: "Serene Lake Lodge",
-    attendees: "85 Registered",
-    organizer: "Sarah Mitchell",
-  },
-  {
-    title: "Global Eco-Conservation Forum",
-    status: "Upcoming",
-    date: "22",
-    month: "NOV",
-    description:
-      "Environmental scientists discussing climate action strategies.",
-    location: "United Nations Plaza",
-    attendees: "900 Registered",
-    organizer: "Green Planet Org",
-  },
-  {
-    title: "Modern Architecture Expo",
-    status: "Ongoing",
-    date: "30",
-    month: "AUG",
-    description:
-      "Showcasing modern sustainable architecture and design.",
-    location: "Design Museum",
-    attendees: "620 Registered",
-    organizer: "Design Frontiers",
-  },
-];
+const toDisplayStatus = (status?: string) => {
+  switch (status) {
+    case "ongoing":
+      return "Ongoing"
+    case "completed":
+      return "Completed"
+    default:
+      return "Upcoming"
+  }
+}
 
 export default function EventsPage() {
+  const { showToast } = useToast()
+  const [events, setEvents] = useState<EventItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [filter, setFilter] = useState("All")
+  const [search, setSearch] = useState("")
+  const [deletingId, setDeletingId] = useState("")
 
-  const [filter, setFilter] = useState("All");
-  const [search, setSearch] = useState("");
+  const loadEvents = async () => {
+    setLoading(true)
+    setError("")
 
-  const filteredEvents = eventsData.filter((event) => {
+    try {
+      const response = await apiFetch("/admin/events")
+      setEvents(Array.isArray(response) ? response : [])
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Could not load events."
+      setError(message)
+      showToast(message, "error")
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    const matchesStatus =
-      filter === "All" || event.status === filter;
+  useEffect(() => {
+    void loadEvents()
+  }, [])
 
-    const matchesSearch =
-      event.title.toLowerCase().includes(search.toLowerCase()) ||
-      event.organizer.toLowerCase().includes(search.toLowerCase());
+  const filteredEvents = useMemo(
+    () =>
+      events.filter((event) => {
+        const status = toDisplayStatus(event.status)
+        const matchesStatus = filter === "All" || status === filter
+        const haystack = `${event.name || ""} ${event.eventType || ""}`.toLowerCase()
+        return matchesStatus && haystack.includes(search.toLowerCase())
+      }),
+    [events, filter, search],
+  )
 
-    return matchesStatus && matchesSearch;
-  });
+  const removeEvent = async (eventId: string) => {
+    setDeletingId(eventId)
+    try {
+      await apiFetch(`/admin/events/${eventId}`, { method: "DELETE" })
+      setEvents((current) =>
+        current.filter((event) => String(event._id || event.id) !== String(eventId)),
+      )
+      showToast("Event removed.", "success")
+    } catch (fetchError) {
+      showToast(fetchError instanceof Error ? fetchError.message : "Could not remove event.", "error")
+    } finally {
+      setDeletingId("")
+    }
+  }
+
+  if (loading) {
+    return <PageCardSkeleton />
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load events."
+        description="Retry to manage the live event catalog."
+        onRetry={() => void loadEvents()}
+        retryLabel="Retry"
+      />
+    )
+  }
 
   return (
     <div>
-
-      {/* Title */}
       <p className="theme-primary text-sm font-semibold mb-1">
         ADMIN OVERVIEW
       </p>
@@ -103,174 +100,121 @@ export default function EventsPage() {
       </h1>
 
       <p className="theme-muted mb-6">
-        Monitor and manage all active, upcoming, and past events across
-        the Eventra network.
+        Monitor and manage all active, upcoming, and past events across the Eventra network.
       </p>
 
-
-      {/* Top Bar */}
-      <div className="flex justify-between items-center mb-6">
-
-        {/* Search */}
-        <div className="theme-card shadow-sm rounded-xl flex items-center gap-3 px-4 py-3 w-[380px]">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="theme-card flex w-[380px] items-center gap-3 rounded-xl px-4 py-3 shadow-sm">
           <Search size={18} className="theme-muted" />
           <input
-            placeholder="Search events, organizers..."
-            className="outline-none w-full"
+            placeholder="Search events or categories..."
+            className="w-full outline-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
-
-        {/* Filters + Create Button */}
         <div className="flex items-center gap-3">
-
-          <button
-            onClick={() => setFilter("All")}
-            className={`px-4 py-2 rounded-full text-sm ${
-              filter === "All"
-                ? "bg-[var(--primary-light)] theme-primary"
-                : "theme-muted"
-            }`}
-          >
-            All
-          </button>
-
-          <button
-            onClick={() => setFilter("Upcoming")}
-            className={`px-4 py-2 rounded-full text-sm ${
-              filter === "Upcoming"
-                ? "theme-pill"
-                : "theme-muted"
-            }`}
-          >
-            Upcoming
-          </button>
-
-          <button
-            onClick={() => setFilter("Ongoing")}
-            className={`px-4 py-2 rounded-full text-sm ${
-              filter === "Ongoing"
-                ? "theme-surface text-[var(--text-main)]"
-                : "theme-muted"
-            }`}
-          >
-            Ongoing
-          </button>
-
-          <button
-            onClick={() => setFilter("Completed")}
-            className={`px-4 py-2 rounded-full text-sm ${
-              filter === "Completed"
-                ? "bg-[var(--surface)] theme-muted"
-                : "theme-muted"
-            }`}
-          >
-            Completed
-          </button>
-
-          <button className="border rounded-lg p-2">
-            <Filter size={18} />
-          </button>
-
-          <Link href="/admin/events/create">
-            <button className="bg-[var(--primary)] text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-              + Create Event
+          {["All", "Upcoming", "Ongoing", "Completed"].map((value) => (
+            <button
+              key={value}
+              onClick={() => setFilter(value)}
+              className={`rounded-full px-4 py-2 text-sm ${
+                filter === value ? "theme-pill" : "theme-muted"
+              }`}
+            >
+              {value}
             </button>
+          ))}
+
+          <Link href="/admin/events/create" className="bg-[var(--primary)] text-white px-5 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+            + Create Event
           </Link>
-
         </div>
-
       </div>
 
+      {filteredEvents.length === 0 ? (
+        <EmptyState
+          title="No events found"
+          description="Create an event or adjust your filters to see more results."
+          actionLabel="Create Event"
+          actionHref="/admin/events/create"
+        />
+      ) : (
+        <div className="grid grid-cols-2 gap-6">
+          {filteredEvents.map((event, index) => {
+            const eventDate = event.eventDate
+              ? new Date(event.eventDate)
+              : event.date
+                ? new Date(event.date)
+                : null
+            const month =
+              eventDate?.toLocaleDateString("en-US", { month: "short" }).toUpperCase() || "TBD"
+            const day =
+              eventDate?.toLocaleDateString("en-US", { day: "2-digit" }) || "--"
+            const status = toDisplayStatus(event.status)
 
-      {/* Event Grid */}
-      <div className="grid grid-cols-2 gap-6">
-
-        {filteredEvents.map((event, index) => (
-
-          <div
-            key={index}
-            className="theme-card flex"
-          >
-
-            {/* Date */}
-            <div className="bg-[var(--primary-light)] w-20 flex flex-col items-center justify-center rounded-l-xl">
-
-              <h2 className="text-2xl font-bold theme-primary">
-                {event.date}
-              </h2>
-
-              <p className="text-xs theme-muted">
-                {event.month}
-              </p>
-
-            </div>
-
-
-            {/* Content */}
-            <div className="p-5 flex-1">
-
-              <span
-                className={`text-xs px-3 py-1 rounded-full ${
-                  event.status === "Upcoming"
-                    ? "theme-pill"
-                    : event.status === "Ongoing"
-                    ? "theme-surface text-[var(--text-main)]"
-                    : "bg-[var(--surface)] theme-muted"
-                }`}
+            return (
+              <div
+                key={event._id || event.id || index}
+                className="theme-card flex"
               >
-                {event.status}
-              </span>
+                <div className="bg-[var(--primary-light)] w-20 rounded-l-xl flex flex-col items-center justify-center">
+                  <h2 className="text-2xl font-bold theme-primary">{day}</h2>
+                  <p className="text-xs theme-muted">{month}</p>
+                </div>
 
-              <div className="flex justify-between items-start mt-2">
-
-                <h3 className="font-semibold text-lg">
-                  {event.title}
-                </h3>
-
-                <Ellipsis size={18} className="theme-muted" />
-
-              </div>
-
-              <p className="theme-muted text-sm mt-2">
-                {event.description}
-              </p>
-
-              <div className="flex items-center gap-2 theme-muted text-sm mt-3">
-
-                <MapPin size={16} />
-                <p>{event.location}</p>
-
-                <Users size={16} />
-                <p>{event.attendees}</p>
-
-              </div>
-
-              <div className="flex justify-between items-center mt-4">
-
-                <p className="text-sm theme-muted">
-                  Organized by
-                  <span className="font-medium text-[var(--text-main)] ml-1">
-                    {event.organizer}
+                <div className="flex-1 p-5">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs ${
+                      status === "Upcoming"
+                        ? "theme-pill"
+                        : status === "Ongoing"
+                          ? "theme-surface text-[var(--text-main)]"
+                          : "bg-[var(--surface)] theme-muted"
+                    }`}
+                  >
+                    {status}
                   </span>
-                </p>
 
-                <button className="theme-button px-4 py-2 text-sm">
-                  View Details
-                </button>
+                  <div className="mt-2 flex items-start justify-between">
+                    <h3 className="text-lg font-semibold">{event.name || "Untitled Event"}</h3>
+                  </div>
 
+                  <p className="theme-muted mt-2 text-sm">
+                    {event.eventType || "Custom Event"} planning workflow running in Eventra.
+                  </p>
+
+                  <div className="theme-muted mt-3 flex items-center gap-2 text-sm">
+                    <MapPin size={16} />
+                    <p>{event.location?.label || event.location?.address || "Location pending"}</p>
+                    <Users size={16} />
+                    <p>{Number(event.guestCount || 0)} guests</p>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-sm theme-muted">
+                      Owned by
+                      <span className="ml-1 font-medium text-[var(--text-main)]">
+                        {event.customerId || "Admin"}
+                      </span>
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => void removeEvent(String(event._id || event.id))}
+                      disabled={deletingId === String(event._id || event.id)}
+                      className="theme-button px-4 py-2 text-sm"
+                    >
+                      {deletingId === String(event._id || event.id) ? "Removing..." : "Remove"}
+                    </button>
+                  </div>
+                </div>
               </div>
-
-            </div>
-
-          </div>
-
-        ))}
-
-      </div>
-
+            )
+          })}
+        </div>
+      )}
     </div>
-  );
+  )
 }

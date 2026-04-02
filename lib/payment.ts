@@ -39,11 +39,7 @@ export const createRazorpayOrder = async (bookingId: string) => {
     method: 'POST',
     body: JSON.stringify({ bookingId }),
   });
-  
-  if (response?.error) {
-    throw new Error(response.message || 'Failed to create order');
-  }
-  
+
   return {
     orderId: response.orderId,
     amount: response.amount,
@@ -111,11 +107,7 @@ export const openRazorpayCheckout = async ({
             amount,
           }),
         });
-        
-        if (verifyResponse?.error) {
-          throw new Error(verifyResponse.message || 'Payment verification failed');
-        }
-        
+
         onSuccess({
           ...response,
           orderId: order.orderId,
@@ -138,6 +130,7 @@ export const openRazorpayCheckout = async ({
     },
     notes: {
       orderReference: order.orderId,
+      bookingId,
     },
     theme: {
       color: '#E87D5F',

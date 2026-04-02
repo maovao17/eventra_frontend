@@ -15,6 +15,7 @@ import {
   normalizePhoneInput,
   sendOtp,
   signInWithGoogle,
+  storeAuthToken,
   syncAuthToken,
   verifyOtp,
 } from "@/lib/auth"
@@ -130,6 +131,8 @@ export default function SignupPage() {
 
     try {
       const credential = await verifyOtp(confirmationResult, otp)
+      const token = await credential.user.getIdToken()
+      storeAuthToken(token)
       await syncAuthToken(credential.user)
       setStatusMessage("Creating your profile...")
 
@@ -137,14 +140,7 @@ export default function SignupPage() {
       const formattedPhone = String(formatPhoneNumber(phoneInput).trim())
       const authProvider = "phone"
 
-      console.log({
-        name,
-        phoneNumber: formattedPhone,
-        authProvider,
-        role,
-      })
-
-      const userCreateResult = await apiFetch("/users", {
+      await apiFetch("/users", {
         method: "POST",
         body: JSON.stringify({
           name,
@@ -156,12 +152,8 @@ export default function SignupPage() {
         }),
       })
 
-      if (userCreateResult?.error) {
-        throw new Error(String(userCreateResult.message || "Could not create user profile."))
-      }
-
       if (role === "vendor") {
-        const vendorCreateResult = await apiFetch("/vendors", {
+        await apiFetch("/vendors", {
           method: "POST",
           body: JSON.stringify({
             name: businessName || name,
@@ -173,10 +165,6 @@ export default function SignupPage() {
             responseTime: "1 hour",
           }),
         })
-
-        if (vendorCreateResult?.error) {
-          throw new Error(String(vendorCreateResult.message || "Could not create vendor profile."))
-        }
       }
 
       setStatusMessage("Fetching your account...")

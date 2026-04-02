@@ -6,6 +6,7 @@ import VendorSidebar from "@/components/vendor/VendorSidebar copy"
 import VendorTopbar from "@/components/vendor/VendorTopbar copy"
 import { useAuth } from "@/context/AuthContext"
 import { getVendorMe } from "@/app/lib/vendorApi"
+import { ProtectedLayoutLoading } from "@/components/ui/PageState"
 import { getDashboardPathForRole } from "@/lib/routes"
 
 export default function VendorLayout({
@@ -50,9 +51,10 @@ export default function VendorLayout({
 
   if (loading || checkingProfile) {
     return (
-      <div className="flex h-screen bg-[var(--background)] items-center justify-center">
-        <p className="text-sm theme-muted">Loading vendor workspace...</p>
-      </div>
+      <ProtectedLayoutLoading
+        title="Preparing your vendor workspace"
+        subtitle="We're checking access, profile completion, and your latest bookings."
+      />
     )
   }
 

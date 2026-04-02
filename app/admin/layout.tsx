@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { CalendarDays, LayoutGrid, LogOut, User, Users } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { ProtectedLayoutLoading } from "@/components/ui/PageState";
 import { useAuth } from "@/context/AuthContext";
 import { getDashboardPathForRole } from "@/lib/routes";
 
@@ -40,7 +41,12 @@ export default function AdminLayout({
   }, [loading, profile, router]);
 
   if (loading || !profile || profile.role !== "admin") {
-    return <div className="flex min-h-screen items-center justify-center">Loading admin workspace...</div>;
+    return (
+      <ProtectedLayoutLoading
+        title="Preparing the admin workspace"
+        subtitle="We're checking your permissions and loading platform controls."
+      />
+    );
   }
 
   return (

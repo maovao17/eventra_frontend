@@ -3,6 +3,8 @@
 import { Mail, MapPin, Phone, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
+import { useToast } from "@/context/ToastContext";
 
 type VendorRecord = {
   _id: string;
@@ -20,6 +22,7 @@ type VendorRecord = {
 };
 
 export default function Vendors() {
+  const { showToast } = useToast();
   const [vendors, setVendors] = useState<VendorRecord[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
@@ -28,15 +31,18 @@ export default function Vendors() {
 
   const loadVendors = async () => {
     setLoading(true);
-    const response = await apiFetch("/admin/vendors");
-    if (response?.error) {
-      setError(response.message || "Could not load vendors.");
+    setError("");
+    try {
+      const response = await apiFetch("/admin/vendors");
+      setVendors(Array.isArray(response) ? response : []);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Could not load vendors.";
+      setError(message);
+      setVendors([]);
+      showToast(message, "error");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setVendors(Array.isArray(response) ? response : []);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -65,46 +71,61 @@ export default function Vendors() {
 
   const approveVendor = async (vendorId: string) => {
     setProcessingId(vendorId);
-    const response = await apiFetch(`/admin/vendors/${vendorId}/approve`, { method: "PATCH" });
-
-    if (response?.error) {
-      setError(response.message || "Approval failed.");
+    setError("");
+    try {
+      await apiFetch(`/admin/vendors/${vendorId}/approve`, { method: "PATCH" });
+      setVendors((current) =>
+        current.map((item) =>
+          item._id === vendorId
+            ? { ...item, isVerified: true, verified: true, status: 'approved' as const }
+            : item,
+        ),
+      );
+      showToast("Vendor approved.", "success");
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Approval failed.";
+      setError(message);
+      showToast(message, "error");
+    } finally {
       setProcessingId("");
-      return;
     }
-
-    setVendors((current) =>
-      current.map((item) =>
-        item._id === vendorId
-          ? { ...item, isVerified: true, verified: true, status: 'approved' as const }
-          : item,
-      ),
-    );
-    setProcessingId("");
   };
 
   const rejectVendor = async (vendorId: string) => {
     setProcessingId(vendorId);
-    const response = await apiFetch(`/admin/vendors/${vendorId}/reject`, { method: "PATCH" });
-
-    if (response?.error) {
-      setError(response.message || "Rejection failed.");
+    setError("");
+    try {
+      await apiFetch(`/admin/vendors/${vendorId}/reject`, { method: "PATCH" });
+      setVendors((current) =>
+        current.map((item) =>
+          item._id === vendorId
+            ? { ...item, status: 'rejected' as const }
+            : item,
+        ),
+      );
+      showToast("Vendor rejected.", "success");
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Rejection failed.";
+      setError(message);
+      showToast(message, "error");
+    } finally {
       setProcessingId("");
-      return;
     }
-
-    setVendors((current) =>
-      current.map((item) =>
-        item._id === vendorId
-          ? { ...item, status: 'rejected' as const }
-          : item,
-      ),
-    );
-    setProcessingId("");
   };
 
   if (loading) {
-    return <p>Loading vendors...</p>;
+    return <PageCardSkeleton />;
+  }
+
+  if (error && vendors.length === 0) {
+    return (
+      <ErrorState
+        title="We couldn't load vendors."
+        description="Retry to review and manage vendor accounts."
+        onRetry={() => void loadVendors()}
+        retryLabel="Retry"
+      />
+    );
   }
 
   return (
@@ -118,7 +139,11 @@ export default function Vendors() {
         Review, filter, and organize your network of event partners.
       </p>
 
-      {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+      {error ? (
+        <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      ) : null}
 
       {/* Search */}
       <div className="theme-card p-3 flex items-center gap-3 mb-8">
@@ -181,6 +206,21 @@ export default function Vendors() {
             </span>
           </h2>
 
+          {filteredVendors.length === 0 ? (
+            <EmptyState
+              title="No vendors found"
+              description="No vendors found. Try another search or retry after new vendors apply."
+              secondaryAction={
+                <button
+                  type="button"
+                  onClick={() => void loadVendors()}
+                  className="rounded-full border px-5 py-2 text-sm font-medium"
+                >
+                  Retry
+                </button>
+              }
+            />
+          ) : (
           <div className="grid grid-cols-3 gap-6">
 
             {filteredVendors.map((vendor) => {
@@ -251,6 +291,7 @@ export default function Vendors() {
             })}
 
           </div>
+          )}
 
         </div>
 

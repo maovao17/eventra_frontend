@@ -1,18 +1,21 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import DashboardCard from "@/components/dashboard/DashboardCard"
 import DashboardContainer from "@/components/dashboard/DashboardContainer"
 import DashboardGrid from "@/components/dashboard/DashboardGrid"
+import { EmptyState, ErrorState, PageCardSkeleton, PageIntroSkeleton } from "@/components/ui/PageState"
+import { apiFetch } from "@/app/lib/api"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import { getDashboardPathForRole } from "@/lib/routes"
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { profile } = useAuth()
-  const { currentEvent, selectedVendors, selectedServices, totalPrice, formatCurrency, bookings } = useEvent()
+  const { profile, loading: authLoading } = useAuth()
+  const { currentEvent, selectedVendors, selectedServices, totalPrice, formatCurrency, bookings, isLoading, error, refreshData } = useEvent()
+  const [notifications, setNotifications] = useState<any[]>([])
 
   useEffect(() => {
     if (!profile) {
@@ -23,6 +26,41 @@ export default function DashboardPage() {
       router.replace(getDashboardPathForRole(profile.role))
     }
   }, [profile, router])
+
+  useEffect(() => {
+    if (!profile?.uid || profile.role !== "customer") return
+
+    const loadNotifications = async () => {
+      try {
+        const response = await apiFetch("/notifications")
+        setNotifications(Array.isArray(response) ? response.slice(0, 4) : [])
+      } catch {
+        setNotifications([])
+      }
+    }
+
+    void loadNotifications()
+  }, [profile?.uid, profile?.role])
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="space-y-8">
+        <PageIntroSkeleton />
+        <PageCardSkeleton />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load your dashboard."
+        description="Retry to refresh your events, bookings, and planning summary."
+        onRetry={() => void refreshData()}
+        retryLabel="Retry"
+      />
+    )
+  }
 
   return (
     <DashboardContainer
@@ -72,9 +110,44 @@ export default function DashboardPage() {
         </DashboardCard>
       </DashboardGrid>
 
+      <div className="theme-card p-6">
+        <h3 className="text-xl font-semibold">Recent Updates</h3>
+        {notifications.length === 0 ? (
+          <p className="theme-muted mt-3 text-sm">
+            Booking updates and event reminders will appear here.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {notifications.map((notification) => (
+              <div key={notification._id} className="theme-surface rounded-2xl p-4">
+                <p className="text-sm font-medium">{notification.message}</p>
+                <p className="theme-muted mt-1 text-xs">
+                  {notification.type}
+                  {notification.daysBefore ? ` • ${notification.daysBefore} day reminder` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <h3 className="text-xl font-semibold mt-8">My Bookings</h3>
       {bookings.length === 0 ? (
-        <p className="theme-muted text-center py-8">No bookings yet. Send vendor requests to get started!</p>
+        <EmptyState
+          title="Add your first event"
+          description="Create an event, choose services, and send vendor requests to start receiving bookings."
+          actionLabel="Create Event"
+          actionHref="/customer/events/create"
+          secondaryAction={
+            <button
+              type="button"
+              onClick={() => router.push("/customer/vendors")}
+              className="rounded-full border px-5 py-2 text-sm font-medium"
+            >
+              Explore Vendors
+            </button>
+          }
+        />
       ) : (
         <div className="space-y-4">
           {bookings.map((booking: any) => (
@@ -101,6 +174,11 @@ export default function DashboardPage() {
                 <div>Date: {booking.eventDate || 'TBD'}</div>
               </div>
               <div className="flex flex-wrap gap-2">
+                {booking.completionImages && booking.completionImages.length > 0 && (
+                  <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                    Proof uploaded
+                  </div>
+                )}
                 {['accepted', 'confirmed'].includes(booking.status) && (
                   <button
                     onClick={() => router.push(`/customer/messages?bookingId=${booking.id}`)}

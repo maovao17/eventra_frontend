@@ -13,7 +13,7 @@ import {
   type Auth,
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
-import { apiFetch } from "@/app/lib/api"
+import { ApiFetchError, apiFetch } from "@/app/lib/api"
 
 declare global {
   interface Window {
@@ -28,6 +28,15 @@ export type AppUserProfile = {
   name: string
   phone: string
   role: UserRole | "admin"
+  businessName?: string
+}
+
+type BackendUserPayload = {
+  name: string
+  authProvider: "phone" | "google"
+  role?: UserRole
+  phoneNumber?: string
+  email?: string
   businessName?: string
 }
 
@@ -162,41 +171,75 @@ export const verifyOtp = async (
 export const sendPhoneOtp = sendOtp
 export const verifyPhoneOtp = verifyOtp
 
+const mapBackendProfile = (data: any, uid: string): AppUserProfile => ({
+  uid: String(data.userId || uid),
+  name: String(data.name || "Eventra User"),
+  phone: String(data.phoneNumber || ""),
+  role: (data.role || "customer") as AppUserProfile["role"],
+  businessName: data.businessName ? String(data.businessName) : undefined,
+})
+
+export const fetchBackendProfile = async (uid: string) => {
+  try {
+    const data = await apiFetch("/users/me")
+    return data ? mapBackendProfile(data, uid) : null
+  } catch (error) {
+    if (error instanceof ApiFetchError && error.status === 404) {
+      return null
+    }
+
+    throw error
+  }
+}
+
+export const ensureBackendProfile = async (
+  user: User,
+  payload?: BackendUserPayload
+) => {
+  await syncAuthToken(user)
+
+  let profile = await fetchBackendProfile(user.uid)
+  if (profile) {
+    return profile
+  }
+
+  if (!payload) {
+    throw new Error("Could not load your Eventra account.")
+  }
+
+  await apiFetch("/users", {
+    method: "POST",
+    body: JSON.stringify({
+      name: payload.name,
+      phoneNumber: payload.phoneNumber,
+      email: payload.email,
+      userId: user.uid,
+      authProvider: payload.authProvider,
+      role: payload.role ?? "customer",
+      businessName: payload.businessName,
+    }),
+  })
+
+  profile = await fetchBackendProfile(user.uid)
+  if (!profile) {
+    throw new Error("Could not load your Eventra account.")
+  }
+
+  return profile
+}
+
 export const signInWithGoogle = async () => {
   await enableAuthPersistence()
 
   const result = await signInWithPopup(auth, googleProvider)
   const user = result.user
 
-  await syncAuthToken(user)
-
-  const profile = await apiFetch("/users/me")
-
-  if (!profile || profile?.error) {
-    const createUserResult = await apiFetch("/users", {
-      method: "POST",
-      body: JSON.stringify({
-        name: user.displayName || "Eventra User",
-        email: user.email || undefined,
-        userId: user.uid,
-        authProvider: "google",
-        role: "customer",
-      }),
-    })
-
-    if (createUserResult?.error) {
-      throw new Error(
-        String(createUserResult.message || "Could not create your Eventra account.")
-      )
-    }
-  }
-
-  const updatedProfile = await apiFetch("/users/me")
-  if (!updatedProfile || updatedProfile?.error || !updatedProfile?.role) {
-    throw new Error("Could not load your Eventra account.")
-  }
-
-  return updatedProfile as AppUserProfile
+  return ensureBackendProfile(user, {
+    name: user.displayName || "Eventra User",
+    email: user.email || undefined,
+    authProvider: "google",
+    role: "customer",
+  })
 }
 
 export const subscribeToAuthState = (

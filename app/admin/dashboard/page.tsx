@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
+import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
+import { useToast } from "@/context/ToastContext";
 import Card from "@/components/ui/Card";
 import { Users, UserCheck, Calendar, CreditCard } from "lucide-react";
 
 export default function AdminDashboard() {
+  const { showToast } = useToast();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalVendors: 0,
@@ -13,10 +16,13 @@ export default function AdminDashboard() {
     totalPayments: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const loadStats = async () => {
-      setLoading(true);
+  const loadStats = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
       const [usersRes, vendorsRes, bookingsRes, paymentsRes] = await Promise.all([
         apiFetch("/admin/users"),
         apiFetch("/admin/vendors"),
@@ -29,13 +35,33 @@ export default function AdminDashboard() {
         totalBookings: Array.isArray(bookingsRes) ? bookingsRes.length : 0,
         totalPayments: Array.isArray(paymentsRes) ? paymentsRes.length : 0,
       });
+    } catch (fetchError) {
+      const message =
+        fetchError instanceof Error ? fetchError.message : "Could not load dashboard.";
+      setError(message);
+      showToast(message, "error");
+    } finally {
       setLoading(false);
-    };
-    loadStats();
+    }
+  };
+
+  useEffect(() => {
+    void loadStats();
   }, []);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64">Loading dashboard...</div>;
+    return <PageCardSkeleton count={4} className="md:grid-cols-2 xl:grid-cols-4" />;
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load the admin dashboard."
+        description="Retry to fetch the latest platform totals."
+        onRetry={() => void loadStats()}
+        retryLabel="Retry"
+      />
+    );
   }
 
   return (

@@ -35,12 +35,15 @@ function MessagesPageContent() {
   const activeVendor = vendors.find((vendor) => vendor.id === activeRequest?.vendorId)
   const activeEvent = events.find((event) => event.id === activeRequest?.eventId)
   const activeBooking = bookings.find((booking) => booking.requestId === activeRequest?.id)
+  const activeBookingId = activeBooking?.id ?? bookingForParam?.id ?? null
   const threads = useMemo(
     () =>
       eventRequests.map((request) => {
         const vendor = vendors.find((item) => item.id === request.vendorId)
+        const threadBooking = bookings.find((item) => item.requestId === request.id)
         return {
           id: request.id,
+          bookingId: threadBooking?.id ?? null,
           vendorName: vendor?.name ?? "Vendor",
           preview: request.status === "pending" ? "Waiting for vendor response" : 
                    request.status === "accepted" ? "Chat unlocked" : 
@@ -55,20 +58,26 @@ function MessagesPageContent() {
   useEffect(() => {
     if (!activeRequest) return
     if (!profile?.uid) return
-
-    if (activeRequest && bookingId) {
-      void initializeChatThread({
-        chatId: getChatIdForRequest(bookingId),
-        bookingId,
-        participantIds: [profile.uid, activeVendor?.userId ?? ""].filter(Boolean),
-      })
-
-      return subscribeToChatMessages(
-        getChatIdForRequest(bookingId),
-        setActiveMessages
-      )
+    if (activeRequest.status !== "accepted") {
+      setActiveMessages([])
+      return
     }
-  }, [bookingId, activeRequest, activeVendor?.userId, profile?.uid])
+    if (!activeBookingId) {
+      setActiveMessages([])
+      return
+    }
+
+    void initializeChatThread({
+      chatId: getChatIdForRequest(activeBookingId),
+      bookingId: activeBookingId,
+      participantIds: [profile.uid, activeVendor?.userId ?? ""].filter(Boolean),
+    })
+
+    return subscribeToChatMessages(
+      getChatIdForRequest(activeBookingId),
+      setActiveMessages
+    )
+  }, [activeBookingId, activeRequest, activeVendor?.userId, profile?.uid])
 
   return (
     <div className="space-y-8">
@@ -158,9 +167,9 @@ function MessagesPageContent() {
               <button
                 type="button"
                 onClick={async () => {
-                  if (!activeRequest || !bookingId) return
+                  if (!activeRequest || !activeBookingId) return
                   await sendChatMessage({
-                    chatId: getChatIdForRequest(bookingId),
+                    chatId: getChatIdForRequest(activeBookingId),
                     senderId: user?.uid ?? profile?.uid ?? "customer",
                     text: draft,
                   })

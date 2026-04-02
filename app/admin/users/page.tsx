@@ -2,29 +2,61 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
+import { useToast } from "@/context/ToastContext";
 import Card from "@/components/ui/Card";
-import { Search, User } from "lucide-react";
 
 export default function AdminUsers() {
+  const { showToast } = useToast();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState("");
+
+  const loadUsers = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await apiFetch("/admin/users");
+      setUsers(Array.isArray(res) ? res : []);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Could not load users.";
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadUsers = async () => {
-      const res = await apiFetch("/admin/users");
-      if (res?.error) {
-        setError(res.message);
-      } else {
-        setUsers(Array.isArray(res) ? res : []);
-      }
-      setLoading(false);
-    };
-    loadUsers();
+    void loadUsers();
   }, []);
 
-  if (loading) return <div>Loading users...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  const removeUser = async (userId: string) => {
+    setDeletingId(userId);
+    try {
+      await apiFetch(`/admin/users/${userId}`, { method: "DELETE" });
+      setUsers((current) => current.filter((user) => String(user._id || user.userId) !== String(userId)));
+      showToast("User removed.", "success");
+    } catch (fetchError) {
+      showToast(fetchError instanceof Error ? fetchError.message : "Could not remove user.", "error");
+    } finally {
+      setDeletingId("");
+    }
+  };
+
+  if (loading) return <PageCardSkeleton />;
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load users."
+        description="Retry to fetch customer and vendor accounts."
+        onRetry={() => void loadUsers()}
+        retryLabel="Retry"
+      />
+    );
+  }
 
   return (
     <div>
@@ -48,17 +80,32 @@ export default function AdminUsers() {
               <div className="text-xs bg-gray-100 px-3 py-1 rounded-full">
                 ID: {user._id || user.userId}
               </div>
+              <button
+                type="button"
+                onClick={() => void removeUser(String(user._id || user.userId))}
+                disabled={deletingId === String(user._id || user.userId)}
+                className="mt-4 rounded-full border border-red-200 px-4 py-2 text-sm text-red-700"
+              >
+                {deletingId === String(user._id || user.userId) ? "Removing..." : "Remove User"}
+              </button>
             </div>
           </Card>
         ))}
       </div>
       {users.length === 0 && (
-        <Card>
-          <div className="p-12 text-center theme-muted">
-            <User className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No users found</p>
-          </div>
-        </Card>
+        <EmptyState
+          title="No users found"
+          description="Users will appear here after they sign up for Eventra."
+          secondaryAction={
+            <button
+              type="button"
+              onClick={() => void loadUsers()}
+              className="rounded-full border px-5 py-2 text-sm font-medium"
+            >
+              Retry
+            </button>
+          }
+        />
       )}
     </div>
   );

@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext"
 import { apiFetch } from "@/app/lib/api"
 import { useEvent } from "@/context/EventContext"
 import { openRazorpayCheckout, PLATFORM_FEE } from "@/lib/payment"
+import type { Booking } from "@/app/types/eventra"
 
 const paymentMethods = [
   "UPI",
@@ -18,15 +19,16 @@ function PaymentsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { profile } = useAuth()
-  const { getBookingForRequest, formatCurrency, refreshData } = useEvent()
+  const { formatCurrency, refreshData } = useEvent()
   const requestId = searchParams.get("requestId")
-  const [request, setRequest] = useState<any>(null)
+  const [request, setRequest] = useState<null | { status?: string }>(null)
+  const [booking, setBooking] = useState<null | Booking>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    const fetchRequest = async () => {
+    const fetchData = async () => {
       if (!requestId) {
         setError("No request selected for payment.")
         setLoading(false)
@@ -35,21 +37,24 @@ function PaymentsPageContent() {
 
       try {
         const requestData = await apiFetch(`/requests/${requestId}`)
-        if (requestData?.error) {
-          setError(requestData.message || "Could not load payment details")
-          return
-        }
         setRequest(requestData)
-      } catch {
+
+        const bookingData = await apiFetch(`/bookings?requestId=${requestId}`)
+        if (Array.isArray(bookingData) && bookingData.length > 0) {
+          setBooking(bookingData[0])
+        } else {
+          setBooking(null)
+        }
+      } catch (err) {
+        console.error('Payment data fetch failed', err)
         setError('Could not load payment details')
       } finally {
         setLoading(false)
       }
     }
-    void fetchRequest()
+    void fetchData()
   }, [requestId])
 
-  const booking = requestId ? getBookingForRequest(requestId) : undefined
   const total = booking?.amount ?? 0
   const finalTotal = total + PLATFORM_FEE
 
@@ -61,7 +66,7 @@ function PaymentsPageContent() {
       if (request.status !== 'accepted') {
         throw new Error('Waiting for vendor approval')
       }
-      if (!booking?.id) {
+      if (!booking || !booking.id) {
         throw new Error('Booking is not ready for payment')
       }
       if (booking.status !== 'accepted') {
@@ -112,7 +117,9 @@ function PaymentsPageContent() {
   if (!request || !booking) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted">{error || "No accepted booking is available for payment."}</p>
+        <p className="text-muted">
+          {error || "No booking found for this request. Please check status or try again."}
+        </p>
       </div>
     )
   }

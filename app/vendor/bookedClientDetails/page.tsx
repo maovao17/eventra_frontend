@@ -5,6 +5,7 @@ import { ChangeEvent, Fragment, Suspense, useEffect, useMemo, useState } from "r
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/app/lib/api";
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { useVendorData } from "@/context/VendorContext";
@@ -64,57 +65,50 @@ function BookingDetailsPageContent() {
 
     let resolvedBooking: BookingDetails | null = null;
 
-    if (bookingId) {
-      const bookingResponse = await apiFetch(`/bookings/${bookingId}`);
-      if (bookingResponse?.error) {
-        setError(bookingResponse.message || "Booking not found.");
+    try {
+      if (bookingId) {
+        resolvedBooking = (await apiFetch(`/bookings/${bookingId}`)) as BookingDetails;
+      } else if (requestId) {
+        const allBookings = await apiFetch(`/bookings`);
+        resolvedBooking = Array.isArray(allBookings)
+          ? (allBookings.find((item: BookingDetails) => String(item.requestId) === String(requestId)) as BookingDetails)
+          : null;
+        if (!resolvedBooking) {
+          setError("Booking is not created yet for this request.");
+          setLoading(false);
+          return;
+        }
+      } else {
+        setError("Booking ID is missing.");
         setLoading(false);
         return;
       }
-      resolvedBooking = bookingResponse;
-    } else if (requestId) {
-      const allBookings = await apiFetch(`/bookings`);
-      if (allBookings?.error) {
-        setError(allBookings.message || "Could not load booking details.");
-        setLoading(false);
-        return;
-      }
-      resolvedBooking = Array.isArray(allBookings)
-        ? allBookings.find((item: BookingDetails) => String(item.requestId) === String(requestId))
-        : null;
+
       if (!resolvedBooking) {
-        setError("Booking is not created yet for this request.");
+        setError("Booking details not found.");
         setLoading(false);
         return;
       }
-    } else {
-      setError("Booking ID is missing.");
+
+      setBooking(resolvedBooking);
+
+      const requestResponse = await apiFetch(`/requests`);
+      if (Array.isArray(requestResponse)) {
+        const matchingRequest = requestResponse.find(
+          (item: { _id?: string }) => String(item?._id) === String(resolvedBooking?.requestId),
+        ) as {
+          event?: EventDetails;
+          customer?: ClientDetails;
+        } | undefined;
+
+        if (matchingRequest?.event) setEvent(matchingRequest.event);
+        if (matchingRequest?.customer) setClient(matchingRequest.customer);
+      }
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : "Could not load booking details.")
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (!resolvedBooking) {
-      setError("Booking details not found.");
-      setLoading(false);
-      return;
-    }
-
-    setBooking(resolvedBooking);
-
-    const requestResponse = await apiFetch(`/requests`);
-    if (!requestResponse?.error && Array.isArray(requestResponse)) {
-      const matchingRequest = requestResponse.find(
-        (item: { _id?: string }) => String(item?._id) === String(resolvedBooking?.requestId),
-      ) as {
-        event?: EventDetails;
-        customer?: ClientDetails;
-      } | undefined;
-
-      if (matchingRequest?.event) setEvent(matchingRequest.event);
-      if (matchingRequest?.customer) setClient(matchingRequest.customer);
-    }
-
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -136,12 +130,13 @@ function BookingDetailsPageContent() {
         method: "POST",
         body: formData,
       });
-      if (response?.error) {
-        setError(String(response.message || "Failed to upload proof."));
-      } else {
-        setSuccess("Completion proof uploaded.Thank you!");
-        setBooking(response as BookingDetails);
-      }
+      setSuccess("Completion proof uploaded! Booking auto-marked complete.");
+      setBooking(response as BookingDetails);
+      // Auto-mark complete after upload success
+      await apiFetch(`/bookings/${booking._id}/complete`, {
+        method: "PATCH",
+        body: JSON.stringify({ actorUserId: profile.uid }),
+      });
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
     } finally {
@@ -151,24 +146,27 @@ function BookingDetailsPageContent() {
 
   const markCompleted = async () => {
     if (!booking?._id || !profile?.uid) return;
-    setError(""); 
+    setError("");
     setSuccess("");
 
-    const response = await apiFetch(`/bookings/${booking._id}/complete`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        actorUserId: profile.uid,
-      }),
-    });
+    try {
+      const response = await apiFetch(`/bookings/${booking._id}/complete`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          actorUserId: profile.uid,
+        }),
+      });
 
-    if (response?.error) {
-      setError(response.message || "Could not mark booking completed.");
-      return;
+      setSuccess("Booking marked as completed.");
+      showToast("Booking marked as completed.", "success");
+      setBooking(response as BookingDetails);
+    } catch (completionError) {
+      setError(
+        completionError instanceof Error
+          ? completionError.message
+          : "Could not mark booking completed.",
+      );
     }
-
-    setSuccess("Booking marked as completed.");
-    showToast("Booking marked as completed.", "success");
-    setBooking(response);
   };
 
   const handleAccept = async () => {
@@ -229,9 +227,27 @@ function BookingDetailsPageContent() {
     return `${String(status).charAt(0).toUpperCase()}${String(status).slice(1)} booking`;
   }, [booking?.status, booking?.payoutStatus]);
 
-  if (loading) return <p>Loading booking details...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
-  if (!booking) return <p>No booking selected.</p>;
+  if (loading) return <PageCardSkeleton count={3} className="md:grid-cols-1" />;
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load booking details."
+        description={error}
+        onRetry={() => void fetchDetails()}
+        retryLabel="Retry"
+      />
+    );
+  }
+  if (!booking) {
+    return (
+      <EmptyState
+        title="No booking selected"
+        description="Open a booking request or event booking to view client details here."
+        actionLabel="View Booking Requests"
+        actionHref="/vendor/bookingRequest"
+      />
+    );
+  }
 
   return (
     <div className="grid grid-cols-3 gap-6">
@@ -339,7 +355,7 @@ function BookingDetailsPageContent() {
 
         <div className="bg-white border rounded-xl p-5 space-y-3">
           {['pending', 'accepted', 'confirmed'].includes(booking.status) && (
-            <button 
+            <button
               onClick={() => router.push(`/vendor/messages?bookingId=${booking._id}`)}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg transition-colors"
             >

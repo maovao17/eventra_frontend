@@ -9,9 +9,10 @@ import {
 } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { apiFetch } from "@/app/lib/api";
+import { useToast } from "@/context/ToastContext";
 import {
   clearStoredUserProfile,
+  fetchBackendProfile,
   storeUserProfile,
   syncAuthToken,
 } from "@/lib/auth";
@@ -36,6 +37,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,25 +45,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 🔄 Fetch user from backend
   const fetchUserProfile = async (uid: string) => {
     try {
-      const data = await apiFetch("/users/me");
-
-      if (data?.error) {
-        return null;
-      }
-
-      if (data) {
-        return {
-          uid: String(data.userId || uid),
-          name: data.name || "Eventra User",
-          phone: data.phoneNumber || "",
-          role: data.role || "customer",
-          businessName: data.businessName || "",
-        };
-      }
-
-      return null;
+      return await fetchBackendProfile(uid);
     } catch (err) {
       console.error("Fetch user failed:", err);
+      showToast("We couldn't load your account details. Please retry.", "error");
       return null;
     }
   };
@@ -110,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [showToast]);
 
   return (
     <AuthContext.Provider

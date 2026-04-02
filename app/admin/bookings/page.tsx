@@ -2,29 +2,49 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
+import { useToast } from "@/context/ToastContext";
 import Card from "@/components/ui/Card";
 import { Calendar, DollarSign } from "lucide-react";
+import type { Booking } from "@/app/types/eventra";
 
 export default function AdminBookings() {
-  const [bookings, setBookings] = useState<any[]>([]);
+  const { showToast } = useToast();
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const loadBookings = async () => {
+  const loadBookings = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
       const res = await apiFetch("/admin/bookings");
-      if (res?.error) {
-        setError(res.message);
-      } else {
-        setBookings(Array.isArray(res) ? res : []);
-      }
+      setBookings(Array.isArray(res) ? res : []);
+    } catch (fetchError) {
+      const message = fetchError instanceof Error ? fetchError.message : "Could not load bookings.";
+      setError(message);
+      showToast(message, "error");
+    } finally {
       setLoading(false);
-    };
-    loadBookings();
+    }
+  };
+
+  useEffect(() => {
+    void loadBookings();
   }, []);
 
-  if (loading) return <div>Loading bookings...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
+  if (loading) return <PageCardSkeleton count={4} className="md:grid-cols-1" />;
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load bookings."
+        description="Retry to fetch platform booking activity."
+        onRetry={() => void loadBookings()}
+        retryLabel="Retry"
+      />
+    );
+  }
 
   return (
     <div>
@@ -51,12 +71,19 @@ export default function AdminBookings() {
         ))}
       </div>
       {bookings.length === 0 && (
-        <Card>
-          <div className="p-12 text-center theme-muted">
-            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No bookings found</p>
-          </div>
-        </Card>
+        <EmptyState
+          title="No bookings found"
+          description="Bookings will appear here after customers start confirming vendors."
+          secondaryAction={
+            <button
+              type="button"
+              onClick={() => void loadBookings()}
+              className="rounded-full border px-5 py-2 text-sm font-medium"
+            >
+              Retry
+            </button>
+          }
+        />
       )}
     </div>
   );

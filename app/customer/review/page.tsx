@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { useRouter, useSearchParams } from "next/navigation"
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import { apiFetch } from "@/app/lib/api"
@@ -92,11 +93,18 @@ function ReviewPageContent() {
   }
 
   if (loading) {
-    return <div className="theme-card p-8">Loading review details...</div>
+    return <PageCardSkeleton count={2} className="md:grid-cols-1" />
   }
 
   if (!booking) {
-    return <div className="theme-card p-8">{error || "Booking not found."}</div>
+    return (
+      <ErrorState
+        title="We couldn't load review details."
+        description={error || "Booking not found."}
+        onRetry={() => router.refresh()}
+        retryLabel="Retry"
+      />
+    )
   }
 
   return (
@@ -112,6 +120,27 @@ function ReviewPageContent() {
       <p className="theme-muted mt-1">
         Review is available only after event completion.
       </p>
+
+      <div className="mt-6 rounded-2xl bg-[var(--surface)] p-5">
+        <h2 className="text-lg font-semibold">Service Completion Proof</h2>
+        {(booking.completionImages || []).length === 0 ? (
+          <EmptyState
+            title="No completion proof yet"
+            description="Your vendor hasn't uploaded completion images yet."
+          />
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {(booking.completionImages || []).map((image: string, index: number) => (
+              <img
+                key={`${image}-${index}`}
+                src={image}
+                alt={`Completion proof ${index + 1}`}
+                className="h-48 w-full rounded-2xl object-cover"
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
@@ -156,7 +185,7 @@ function ReviewPageContent() {
 
 export default function ReviewPage() {
   return (
-    <Suspense fallback={<div className="theme-card p-8">Loading review details...</div>}>
+    <Suspense fallback={<PageCardSkeleton count={2} className="md:grid-cols-1" />}>
       <ReviewPageContent />
     </Suspense>
   )

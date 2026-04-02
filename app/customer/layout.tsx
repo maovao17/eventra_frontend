@@ -2,9 +2,13 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { useEffect } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import type { ReactNode } from "react"
+import { ProtectedLayoutLoading } from "@/components/ui/PageState"
+import { useAuth } from "@/context/AuthContext"
+import { getDashboardPathForRole } from "@/lib/routes"
 
 const links = [
   { href: "/customer/dashboard", label: "Dashboard" },
@@ -18,6 +22,30 @@ const links = [
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { profile, loading } = useAuth()
+
+  useEffect(() => {
+    if (loading) return
+
+    if (!profile) {
+      router.replace("/login")
+      return
+    }
+
+    if (profile.role !== "customer") {
+      router.replace(getDashboardPathForRole(profile.role))
+    }
+  }, [loading, profile, router])
+
+  if (loading || !profile || profile.role !== "customer") {
+    return (
+      <ProtectedLayoutLoading
+        title="Preparing your planning workspace"
+        subtitle="We're checking your account and loading your latest event activity."
+      />
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-[var(--background)]">

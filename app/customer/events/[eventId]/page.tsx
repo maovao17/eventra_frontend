@@ -6,6 +6,8 @@ import { useParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { useEffect, useMemo, useState } from "react"
 import { apiFetch } from "@/app/lib/api"
+import EventProgress from "@/components/event/EventProgress"
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useEvent, type Vendor } from "@/context/EventContext"
 import { useToast } from "@/context/ToastContext"
 import { getSuggestedServices, searchServiceCatalog } from "@/lib/serviceCatalog"
@@ -100,6 +102,8 @@ export default function EventDetailPage() {
     services,
     addServiceToEvent,
     isLoading,
+    refreshData,
+    error,
   } = useEvent()
 
   const [showServiceModal, setShowServiceModal] = useState(false)
@@ -294,25 +298,28 @@ export default function EventDetailPage() {
   }
 
   if (isLoading) {
+    return <PageCardSkeleton />
+  }
+
+  if (error) {
     return (
-      <div className="space-y-8">
-        <div className="theme-card p-8">
-          <div className="h-8 w-64 animate-pulse rounded bg-gray-200" />
-          <div className="mt-4 h-4 w-80 animate-pulse rounded bg-gray-200" />
-          <div className="mt-6 h-48 animate-pulse rounded bg-gray-100" />
-        </div>
-      </div>
+      <ErrorState
+        title="We couldn't load this event."
+        description="Retry to refresh event details, vendor requests, and payment progress."
+        onRetry={() => void refreshData()}
+        retryLabel="Retry"
+      />
     )
   }
 
   if (!event) {
     return (
-      <div className="theme-card p-8">
-        <h1 className="text-4xl font-bold">Event not found</h1>
-        <p className="theme-muted mt-3">
-          This event could not be loaded. Go back to your event list and open another plan.
-        </p>
-      </div>
+      <EmptyState
+        title="Add your first event"
+        description="This event could not be loaded. Return to your events list or create a new plan."
+        actionLabel="Create Event"
+        actionHref="/customer/events/create"
+      />
     )
   }
 
@@ -433,12 +440,8 @@ export default function EventDetailPage() {
           <div className="space-y-6">
             <div className="theme-surface rounded-3xl p-6">
               <p className="theme-muted text-sm">Progress Breakdown</p>
-              <p className="mt-3 text-3xl font-bold">{progress}%</p>
-              <div className="theme-progress-track mt-4 h-3 rounded-full">
-                <div
-                  className="h-3 rounded-full bg-[var(--primary)]"
-                  style={{ width: `${progress}%` }}
-                />
+              <div className="mt-4">
+                <EventProgress progress={progress} />
               </div>
               <div className="mt-4 grid gap-3 text-sm">
                 <div className="flex justify-between">
@@ -516,22 +519,35 @@ export default function EventDetailPage() {
               </div>
               <div className="mt-4 space-y-3">
                 {!event.services.length ? (
-                  <p className="theme-muted text-sm">
-                    Add a service to see vendors tailored to this event.
-                  </p>
+                  <EmptyState
+                    title="Add your first service"
+                    description="Add services to this event to unlock matching vendor recommendations."
+                    secondaryAction={
+                      <button
+                        type="button"
+                        onClick={() => setShowServiceModal(true)}
+                        className="rounded-full border px-5 py-2 text-sm font-medium"
+                      >
+                        Add Service
+                      </button>
+                    }
+                  />
                 ) : vendorsLoading ? (
-                  Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="rounded-2xl bg-white/70 p-4">
-                      <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
-                      <div className="mt-2 h-3 w-24 animate-pulse rounded bg-gray-100" />
-                    </div>
-                  ))
+                  <PageCardSkeleton count={2} className="md:grid-cols-1" />
                 ) : vendorError ? (
-                  <p className="text-sm text-red-500">{vendorError}</p>
+                  <ErrorState
+                    title="We couldn't load vendor matches."
+                    description={vendorError}
+                    onRetry={() => void refreshData()}
+                    retryLabel="Retry"
+                  />
                 ) : matchingVendors.length === 0 ? (
-                  <p className="theme-muted text-sm">
-                    No vendors matched these services yet. Try adding a broader service or search the vendor directory.
-                  </p>
+                  <EmptyState
+                    title="No vendors found"
+                    description="No vendors found. Try another service or search the vendor directory."
+                    actionLabel="Explore All Vendors"
+                    actionHref="/customer/vendors"
+                  />
                 ) : (
                   matchingVendors.slice(0, 4).map((vendor) => (
                     <Link

@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { apiFetch } from "@/app/lib/api"
 import { useEffect, useState } from "react"
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useEvent } from "@/context/EventContext"
 import { useToast } from "@/context/ToastContext"
 
@@ -15,13 +16,23 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
   const [requesting, setRequesting] = useState(false)
   const [reviewsLoading, setReviewsLoading] = useState(true)
   const [reviews, setReviews] = useState<any[]>([])
+  const [error, setError] = useState("")
 
   useEffect(() => {
     const loadVendor = async () => {
       setLoading(true)
-      const data = await apiFetch(`/vendors/${params.vendorId}`)
-      setVendor(data?.error ? null : data)
-      setLoading(false)
+      setError("")
+      try {
+        const data = await apiFetch(`/vendors/${params.vendorId}`)
+        setVendor(data ?? null)
+      } catch (fetchError) {
+        const message = fetchError instanceof Error ? fetchError.message : "Vendor not found"
+        setError(message)
+        setVendor(null)
+        showToast(message, "error")
+      } finally {
+        setLoading(false)
+      }
     }
     void loadVendor()
   }, [params.vendorId])
@@ -42,11 +53,29 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
   }, [params.vendorId])
 
   if (loading) {
-    return <p className="theme-muted text-lg">Loading vendor...</p>
+    return <PageCardSkeleton />
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load this vendor."
+        description={error}
+        onRetry={() => window.location.reload()}
+        retryLabel="Retry"
+      />
+    )
   }
 
   if (!vendor) {
-    return <p className="theme-muted text-lg">Vendor not found</p>
+    return (
+      <EmptyState
+        title="No vendors found"
+        description="This vendor profile is unavailable. Try another service or browse the full directory."
+        actionLabel="Browse Vendors"
+        actionHref="/customer/vendors"
+      />
+    )
   }
 
   return (
@@ -102,9 +131,12 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
           <div className="mt-8">
             <h2 className="text-xl font-semibold mb-4">Customer Reviews</h2>
             {reviewsLoading ? (
-              <p className="theme-muted">Loading reviews...</p>
+              <PageCardSkeleton count={2} className="md:grid-cols-1" />
             ) : reviews.length === 0 ? (
-              <p className="theme-muted">No reviews yet. Be the first to review!</p>
+              <EmptyState
+                title="No reviews yet"
+                description="No reviews yet. Be the first to book this vendor and leave feedback."
+              />
             ) : (
               <div className="space-y-4">
                 {reviews.map((review: any, index: number) => (

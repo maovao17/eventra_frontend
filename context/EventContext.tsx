@@ -2,14 +2,19 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react"
 import { API_URL, apiFetch } from "@/app/lib/api"
+import { onBookingStatusUpdated, onNotificationCreated, offAll, getSocket } from "@/app/lib/socket"
 import { useAuth } from "@/context/AuthContext"
+import { useToast } from "@/context/ToastContext"
+import type { Booking, Request, Vendor, Notification } from "@/app/types/eventra"
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -28,25 +33,13 @@ export type Service = {
   price: number
   pricingModel?: string
   description?: string
-  location: Record<string, any>
+  location: Record<string, string>
   image?: string
   vendor_Id: string
 }
 
-export type Vendor = {
-  id: string
-  userId: string
-  name: string
-  category: string
-  location: string
-  price: number
-  rating: number
-  responseTime: string
-  image: string
-  description: string
-  services: string[]
-  portfolio: string[]
-}
+// core vendor type comes from shared types
+export type VendorType = Vendor
 
 export type EventItem = {
   id: string
@@ -69,26 +62,9 @@ export type EventItem = {
   services: string[]
 }
 
-export type RequestRecord = {
-  id: string
-  eventId: string
-  vendorId: string
-  customerId: string
-  status: "pending" | "accepted" | "rejected"
-  createdAt: string
-  clientName: string
-}
+export type RequestRecord = Request
 
-export type BookingRecord = {
-  id: string
-  requestId: string
-  eventId: string
-  vendorId: string
-  customerId: string
-  status: "pending" | "accepted" | "rejected" | "confirmed" | "completed" | "cancelled"
-  amount: number
-  paymentStatus?: "pending" | "partial" | "paid"
-}
+export type BookingRecord = Booking
 
 type CreateEventInput = {
   name: string
@@ -135,6 +111,7 @@ type EventContextValue = {
     paymentStatus?: BookingRecord["paymentStatus"]
   }>
   formatCurrency: (value: number) => string
+  error: string | null
 }
 
 const EventContext = createContext<EventContextValue | null>(null)
@@ -167,8 +144,146 @@ const buildChecklist = (event: { services?: string[] }, hasAcceptedRequests: boo
   hasConfirmedBookings ? "Booking confirmed" : "Complete payment after approval",
 ]
 
+const getEntityId = (value: unknown, fallback = "") => {
+  if (!value || typeof value !== "object") return fallback
+  const record = value as Record<string, unknown>
+  return String(record._id ?? record.id ?? fallback)
+}
+
+const dedupeById = <T extends Record<string, unknown>>(items: T[], getId: (item: T) => string) => {
+  const map = new Map<string, T>()
+  items.forEach((item) => {
+    const id = getId(item)
+    if (id) {
+      map.set(id, item)
+    }
+  })
+  return Array.from(map.values())
+}
+
+const normalizeVendor = (vendor: Record<string, unknown>, reviews: Array<Record<string, unknown>>) => {
+  const vendorId = getEntityId(vendor)
+  const vendorReviews = reviews.filter((review) => String(review.vendorId ?? "") === vendorId)
+  const rating = vendorReviews.length
+    ? vendorReviews.reduce((sum, review) => sum + Number(review.rating ?? 0), 0) / vendorReviews.length
+    : Number(vendor.rating ?? 0)
+  const categories = Array.isArray(vendor.category)
+    ? (vendor.category as unknown[])
+        .map((item) => String(item))
+        .filter(Boolean)
+    : [String(vendor.category ?? vendor.businessType ?? "Vendor Service")].filter(Boolean)
+  const portfolioFromItems = Array.isArray(vendor.portfolio)
+    ? (vendor.portfolio as Array<string | { url?: string }>)
+        .map((item) =>
+          resolveMediaUrl(typeof item === "string" ? item : item?.url),
+        )
+        .filter(Boolean)
+    : []
+  const portfolioFromGallery = Array.isArray(vendor.gallery)
+    ? (vendor.gallery as string[])
+        .map((item) => resolveMediaUrl(item))
+        .filter(Boolean)
+    : []
+  const portfolio = Array.from(new Set([...portfolioFromItems, ...portfolioFromGallery]))
+  const primaryImage = resolveMediaUrl(vendor.image) || portfolio[0] || DEFAULT_VENDOR_IMAGE
+
+  return {
+    id: vendorId,
+    userId: String(vendor.userId ?? ""),
+    name: String(vendor.name ?? vendor.businessName ?? "Vendor"),
+    category: categories[0] ?? "Vendor Service",
+    location: buildLocationLabel(vendor.location),
+    price: Number(vendor.price ?? 0),
+    rating,
+    responseTime: String(vendor.responseTime ?? "1 hour"),
+    image: primaryImage,
+    description: String(vendor.description ?? vendor.businessType ?? "Professional event vendor"),
+    services: Array.isArray(vendor.servicesOffered) && (vendor.servicesOffered as unknown[]).length
+      ? (vendor.servicesOffered as unknown[]).map((item) => String(item))
+      : categories.length
+        ? categories
+        : ["Vendor Service"],
+    portfolio,
+  } satisfies Vendor
+}
+
+const normalizeBooking = (booking: Record<string, unknown>) => ({
+  id: getEntityId(booking),
+  requestId: String(booking.requestId ?? ""),
+  eventId: String(booking.eventId ?? ""),
+  vendorId: String(booking.vendorId ?? ""),
+  customerId: String(booking.customerId ?? ""),
+  status: String(booking.status ?? "pending") as BookingRecord["status"],
+  amount: Number(booking.amount ?? booking.price ?? 0),
+  paymentStatus: booking.paymentStatus
+    ? (String(booking.paymentStatus) as BookingRecord["paymentStatus"])
+    : undefined,
+} satisfies BookingRecord)
+
+const normalizeRequest = (
+  request: Record<string, unknown>,
+  eventNameMap: Map<string, string>,
+) => ({
+  id: getEntityId(request),
+  eventId: String(request.eventId ?? getEntityId(request.event) ?? ""),
+  vendorId: String(request.vendorId ?? ""),
+  customerId: String(request.customerId ?? ""),
+  status: String(request.status ?? "pending") as RequestRecord["status"],
+  createdAt: String(request.createdAt ?? ""),
+  clientName: String(
+    request.customer?.name ??
+      eventNameMap.get(String(request.eventId ?? getEntityId(request.event) ?? "")) ??
+      "Event request",
+  ),
+} satisfies RequestRecord)
+
+const normalizeEvent = (
+  event: Record<string, unknown>,
+  requestList: RequestRecord[],
+  bookingList: BookingRecord[],
+) => {
+  const eventId = getEntityId(event)
+  const eventRequests = requestList.filter((request) => request.eventId === eventId)
+  const eventBookings = bookingList.filter((booking) => booking.eventId === eventId)
+  const acceptedVendorIds = eventRequests
+    .filter((request) => request.status === "accepted")
+    .map((request) => request.vendorId)
+
+  return {
+    id: eventId,
+    name: String(event.name ?? event.eventType ?? "Untitled Event"),
+    type: String(event.eventType ?? "Custom"),
+    date: String(event.eventDate ?? event.date ?? ""),
+    location: buildLocationLabel(event.location),
+    status: String(event.status ?? "draft"),
+    guests: Number(event.guestCount ?? event.guests ?? 0),
+    budget: Number(event.budget ?? 0),
+    spent: eventBookings.reduce((total, booking) => total + booking.amount, 0),
+    coverImage: String(event.coverImage ?? DEFAULT_EVENT_IMAGE),
+    notes: acceptedVendorIds.length
+      ? "Track vendor responses, confirmed bookings, and payment status from this event."
+      : "Create your event, send vendor requests, and wait for approval before payment.",
+    checklist: buildChecklist(
+      event,
+      acceptedVendorIds.length > 0,
+      eventBookings.some(
+        (booking) =>
+          booking.status === "confirmed" || booking.paymentStatus === "paid"
+      )
+    ),
+    vendorIds: acceptedVendorIds,
+    timeline: [
+      { title: "Request", detail: "Send vendor requests from the discovery flow." },
+      { title: "Approval", detail: "Wait for vendor acceptance before payment." },
+      { title: "Booking", detail: "Complete payment to confirm the booking." },
+    ],
+    services: asArray<string>(event.services).map((service) => String(service)),
+  } satisfies EventItem
+}
+
 export const EventProvider = ({ children }: { children: ReactNode }) => {
   const { profile } = useAuth()
+  const { showToast } = useToast()
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
   const [requests, setRequests] = useState<RequestRecord[]>([])
@@ -176,8 +291,9 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
   const [services, setServices] = useState<Service[]>([])
   const [currentEventId, setCurrentEventId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     if (!profile?.uid) {
       setVendors([])
       setEvents([])
@@ -190,9 +306,10 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setIsLoading(true)
+    setError(null)
 
     try {
-      const shouldLoadReviews = profile.role === "customer"
+      const shouldLoadReviews = profile.role !== "admin"
       const shouldLoadServices = profile.role === "customer"
 
       const [vendorResponse, reviewResponse, serviceResponse] = await Promise.all([
@@ -201,141 +318,66 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         shouldLoadServices ? apiFetch("/services").catch(() => []) : Promise.resolve([]),
       ])
 
-      const vendorList = asArray<any>(vendorResponse)
-      const reviews = asArray<any>(reviewResponse)
-      const serviceList = asArray<any>(serviceResponse)
-
-      const mappedVendors = vendorList.map((vendor) => {
-        const vendorReviews = reviews.filter((review) => review.vendorId === String(vendor._id))
-        const rating = vendorReviews.length
-          ? vendorReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / vendorReviews.length
-          : 0
-        const portfolioFromItems = Array.isArray(vendor.portfolio)
-          ? vendor.portfolio
-              .map((item: { url?: string } | string) =>
-                resolveMediaUrl(typeof item === "string" ? item : item?.url),
-              )
-              .filter(Boolean)
-          : []
-        const portfolioFromGallery = Array.isArray(vendor.gallery)
-          ? vendor.gallery.map((item: string) => resolveMediaUrl(item)).filter(Boolean)
-          : []
-        const portfolio = Array.from(new Set([...portfolioFromItems, ...portfolioFromGallery]))
-        const primaryImage = resolveMediaUrl(vendor.image) || portfolio[0] || DEFAULT_VENDOR_IMAGE
-
-        return {
-          id: String(vendor._id),
-          userId: String(vendor.userId ?? ""),
-          name: String(vendor.name ?? "Vendor"),
-          category: String(vendor.category ?? vendor.businessType ?? "Vendor Service"),
-          location: buildLocationLabel(vendor.location),
-          price: Number(vendor.price ?? 0),
-          rating,
-          responseTime: String(vendor.responseTime ?? "1 hour"),
-          image: primaryImage,
-          description: String(vendor.description ?? vendor.businessType ?? "Professional event vendor"),
-          services: Array.isArray(vendor.servicesOffered) && vendor.servicesOffered.length
-            ? vendor.servicesOffered.map((item: unknown) => String(item))
-            : [String(vendor.category ?? vendor.businessType ?? "Vendor Service")],
-          portfolio,
-        } satisfies Vendor
-      })
+      const rawVendorList = asArray<Record<string, unknown>>(vendorResponse)
+      const reviews = asArray<Record<string, unknown>>(reviewResponse)
+      const serviceList = asArray<Service>(serviceResponse)
+      const mappedVendors = rawVendorList.map((vendor) => normalizeVendor(vendor, reviews))
 
       let activeVendorId: string | null = null
       if (profile.role === "vendor") {
-        const ownVendor = vendorList.find((vendor) => String(vendor.userId) === profile.uid)
-        activeVendorId = ownVendor ? String(ownVendor._id) : null
+        const ownVendor = rawVendorList.find((vendor) => String(vendor.userId) === profile.uid)
+        activeVendorId = ownVendor ? getEntityId(ownVendor) : null
       }
 
-      const [eventResponse, requestResponse, bookingResponse] = await Promise.all([
+      const [rawEventsResponse, rawRequestsResponse, rawBookingsResponse] =
         profile.role === "customer"
-          ? apiFetch(`/events?customerId=${profile.uid}`)
-          : apiFetch("/events"),
-        profile.role === "customer"
-          ? apiFetch(`/requests?userId=${profile.uid}`)
+          ? await Promise.all([
+              apiFetch(`/events?customerId=${profile.uid}`),
+              apiFetch(`/requests?userId=${profile.uid}`),
+              apiFetch(`/bookings?customerId=${profile.uid}`),
+            ])
           : activeVendorId
-            ? apiFetch(`/requests?vendorId=${activeVendorId}`)
-            : Promise.resolve([]),
-        profile.role === "customer"
-          ? apiFetch(`/bookings?customerId=${profile.uid}`)
-          : activeVendorId
-            ? apiFetch(`/bookings?vendorId=${activeVendorId}`)
-            : Promise.resolve([]),
-      ])
+            ? await Promise.all([
+                Promise.resolve([]),
+                apiFetch(`/requests?vendorId=${activeVendorId}`),
+                apiFetch(`/bookings?vendorId=${activeVendorId}`),
+              ])
+            : [[], [], []]
 
-      const requestList = asArray<any>(requestResponse).map((request) => ({
-        id: String(request._id),
-        eventId: String(request.eventId),
-        vendorId: String(request.vendorId),
-        customerId: String(request.customerId),
-        status: String(request.status) as RequestRecord["status"],
-        createdAt: String(request.createdAt ?? ""),
-        clientName: "",
-      }))
+      const rawRequests = asArray<Record<string, unknown>>(rawRequestsResponse)
+      const nestedRawEvents =
+        profile.role === "vendor"
+          ? (rawRequests
+              .map((request) => request.event as unknown)
+              .filter(Boolean) as Record<string, unknown>[])
+          : []
+      const rawEvents = dedupeById(
+        [...asArray<Record<string, unknown>>(rawEventsResponse), ...nestedRawEvents],
+        (event) => getEntityId(event),
+      )
+      const eventNameMap = new Map(
+        rawEvents.map((event) => [
+          String(event._id ?? event.id ?? event.eventId ?? ""),
+          String(event.name ?? event.eventType ?? "Untitled Event"),
+        ]),
+      )
+      const bookingSources = dedupeById(
+        [
+          ...asArray<Record<string, unknown>>(rawBookingsResponse),
+          ...rawRequests
+            .map((request) => request.booking as unknown)
+            .filter(Boolean) as Record<string, unknown>[],
+        ],
+        (booking) => getEntityId(booking),
+      )
+      const bookingList = bookingSources.map(normalizeBooking)
+      const requestList = rawRequests.map((request) => normalizeRequest(request, eventNameMap))
+      const mappedEvents = rawEvents.map((event) => normalizeEvent(event, requestList, bookingList))
 
-      const bookingList = asArray<any>(bookingResponse).map((booking) => ({
-        id: String(booking._id),
-        requestId: String(booking.requestId),
-        eventId: String(booking.eventId),
-        vendorId: String(booking.vendorId),
-        customerId: String(booking.customerId),
-        status: String(booking.status) as BookingRecord["status"],
-        amount: Number(booking.amount ?? booking.price ?? 0),
-        paymentStatus: booking.paymentStatus
-          ? String(booking.paymentStatus) as BookingRecord["paymentStatus"]
-          : undefined,
-      }))
-
-      const rawEvents = asArray<any>(eventResponse)
-      const mappedEvents = rawEvents.map((event) => {
-        const eventRequests = requestList.filter((request) => request.eventId === String(event._id))
-        const eventBookings = bookingList.filter((booking) => booking.eventId === String(event._id))
-        const acceptedVendorIds = eventRequests
-          .filter((request) => request.status === "accepted")
-          .map((request) => request.vendorId)
-
-        return {
-          id: String(event._id),
-          name: String(event.name ?? event.eventType ?? "Untitled Event"),
-          type: String(event.eventType ?? "Custom"),
-          date: String(event.eventDate ?? event.date ?? ""),
-          location: buildLocationLabel(event.location),
-          status: String(event.status ?? "draft"),
-          guests: Number(event.guestCount ?? event.guests ?? 0),
-          budget: Number(event.budget ?? 0),
-          spent: eventBookings.reduce((total, booking) => total + booking.amount, 0),
-          coverImage: String(event.coverImage ?? DEFAULT_EVENT_IMAGE),
-          notes: acceptedVendorIds.length
-            ? "Track vendor responses, confirmed bookings, and payment status from this event."
-            : "Create your event, send vendor requests, and wait for approval before payment.",
-          checklist: buildChecklist(
-            event,
-            acceptedVendorIds.length > 0,
-            eventBookings.some(
-              (booking) =>
-                booking.status === "confirmed" || booking.paymentStatus === "paid"
-            )
-          ),
-          vendorIds: acceptedVendorIds,
-          timeline: [
-            { title: "Request", detail: "Send vendor requests from the discovery flow." },
-            { title: "Approval", detail: "Wait for vendor acceptance before payment." },
-            { title: "Booking", detail: "Complete payment to confirm the booking." },
-          ],
-          services: asArray<string>(event.services).map((service) => String(service)),
-        } satisfies EventItem
-      })
-
-      const eventNameMap = new Map(mappedEvents.map((event) => [event.id, event.name]))
       setVendors(mappedVendors)
       setEvents(mappedEvents)
       setServices(serviceList)
-      setRequests(
-        requestList.map((request) => ({
-          ...request,
-          clientName: eventNameMap.get(request.eventId) ?? "Event request",
-        }))
-      )
+      setRequests(requestList)
       setBookings(bookingList)
       setCurrentEventId((current) => {
         if (current && mappedEvents.some((event) => event.id === current)) {
@@ -343,14 +385,92 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         }
         return mappedEvents[0]?.id ?? null
       })
+    } catch {
+      setError("We couldn't load the latest event data.")
+      setVendors([])
+      setEvents([])
+      setRequests([])
+      setBookings([])
+      setServices([])
+      setCurrentEventId(null)
+      showToast("We couldn't load your latest event data.", "error")
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [profile?.uid, profile?.role, showToast])
+
+  const profileRef = useRef(profile)
+  useEffect(() => {
+    profileRef.current = profile
+  }, [profile])
+
+  const callbackRef = useRef({ refreshData, showToast })
+  useEffect(() => {
+    callbackRef.current = { refreshData, showToast }
+  }, [refreshData, showToast])
+
+  useEffect(() => {
+    const socket = getSocket()
+
+    const handleBookingUpdate = (bookingUpdate: Partial<Booking>) => {
+      const currentProfile = profileRef.current
+      if (
+        bookingUpdate.customerId === currentProfile?.uid ||
+        bookingUpdate.vendorId === currentProfile?.uid
+      ) {
+        callbackRef.current.showToast(
+          `Booking status changed: ${bookingUpdate.status}`,
+          "success"
+        )
+      }
+      void callbackRef.current.refreshData()
+    }
+
+    const handleNotification = (notification: Notification) => {
+      if (!notification) return
+      callbackRef.current.showToast(`Notification: ${notification.message}`, "info")
+      void callbackRef.current.refreshData()
+    }
+
+    onBookingStatusUpdated(handleBookingUpdate)
+    onNotificationCreated(handleNotification)
+
+    return () => {
+      offAll()
+      socket.disconnect()
+    }
+  }, [])
 
   useEffect(() => {
     void refreshData()
-  }, [profile?.uid, profile?.role])
+  }, [profile?.uid, profile?.role, refreshData])
+
+  useEffect(() => {
+    if (!profile?.uid) return;
+
+    const socket = getSocket();
+
+    onBookingStatusUpdated((bookingUpdate) => {
+      if (
+        bookingUpdate.customerId === profile.uid ||
+        bookingUpdate.vendorId === profile.uid
+      ) {
+        showToast(`Booking status changed: ${bookingUpdate.status}`, 'success');
+      }
+      void refreshData();
+    });
+
+    onNotificationCreated((notification: Notification) => {
+      if (!notification) return;
+      showToast(`Notification: ${notification.message}`, 'info');
+      void refreshData();
+    });
+
+    return () => {
+      offAll();
+      socket.disconnect();
+    };
+  }, [profile?.uid, refreshData, showToast]);
 
   const currentEvent =
     events.find((event) => event.id === currentEventId) ?? events[0] ?? null
@@ -361,9 +481,9 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
     const response = await apiFetch("/events", {
       method: "POST",
       body: JSON.stringify({
-        customerId: profile.uid,
         name: event.name || `${event.type ?? "Custom"} Event`,
         eventType: event.type ?? "Custom",
+        date: event.date,
         eventDate: event.date,
         location: { label: event.location || "Location pending" },
         status: "planning",
@@ -372,31 +492,15 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         services: event.services ?? [],
       }),
     })
+    if (!response?._id && !response?.id) {
+      throw new Error("Failed to create event")
+    }
 
-    const createdId = String(response._id ?? response.id)
+    const normalizedEvent = normalizeEvent(response, [], [])
+    const createdId = normalizedEvent.id
     await refreshData()
     setCurrentEventId(createdId)
-    return {
-      id: createdId,
-      name: String(response.name ?? event.name ?? `${event.type ?? "Custom"} Event`),
-      type: String(response.eventType ?? event.type ?? "Custom"),
-      date: String(response.eventDate ?? response.date ?? event.date),
-      location: buildLocationLabel(response.location ?? { label: event.location }),
-      status: String(response.status ?? "planning"),
-      guests: Number(response.guestCount ?? response.guests ?? event.guests ?? 0),
-      budget: Number(response.budget ?? event.budget ?? 0),
-      spent: 0,
-      coverImage: String(response.coverImage ?? DEFAULT_EVENT_IMAGE),
-      notes: "Create your event, send vendor requests, and wait for approval before payment.",
-      checklist: buildChecklist({ services: response.services }, false, false),
-      vendorIds: [],
-      timeline: [
-        { title: "Request", detail: "Send vendor requests from the discovery flow." },
-        { title: "Approval", detail: "Wait for vendor acceptance before payment." },
-        { title: "Booking", detail: "Complete payment to confirm the booking." },
-      ],
-      services: asArray<string>(response.services).map((service) => String(service)),
-    }
+    return normalizedEvent
   }
 
   const updateEventServices = async (eventId: string, nextServices: string[]) => {
@@ -438,8 +542,11 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         eventId,
       }),
     })
+    if (!response?._id && !response?.id) {
+      throw new Error("Failed to create request")
+    }
 
-    const requestId = String(response._id ?? response.id)
+    const requestId = getEntityId(response)
     await refreshData()
     return {
       id: requestId,
@@ -539,12 +646,13 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         vendors,
         events,
         requests,
-        bookings,
-        services,
-        currentEvent,
-        currentEventId,
-        isLoading,
-        selectedServices,
+      bookings,
+      services,
+      currentEvent,
+      currentEventId,
+      isLoading,
+      error,
+      selectedServices,
         selectedVendors,
         totalPrice,
         createEvent,

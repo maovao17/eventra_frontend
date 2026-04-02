@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getVendorNotifications, markVendorNotificationRead } from "@/app/lib/vendorApi";
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
+import { useToast } from "@/context/ToastContext";
 
 type VendorNotification = {
   _id: string;
   message: string;
+  type?: string;
   daysBefore?: number;
   read?: boolean;
 };
 
 export default function Reminders() {
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notifications, setNotifications] = useState<VendorNotification[]>([]);
@@ -23,26 +27,34 @@ export default function Reminders() {
       setLoading(true);
       setError("");
 
-      const response = await getVendorNotifications();
-      if (response?.error) {
-        setError(response.message || "Failed to load reminders.");
+      try {
+        const response = await getVendorNotifications();
+        setNotifications(Array.isArray(response) ? response : []);
+      } catch (fetchError) {
+        const message = fetchError instanceof Error ? fetchError.message : "Failed to load reminders.";
+        setError(message);
+        showToast(message, "error");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setNotifications(Array.isArray(response) ? response : []);
-      setLoading(false);
     };
 
     void loadReminders();
   }, [profile?.uid]);
 
   if (loading) {
-    return <p>Loading reminders...</p>;
+    return <PageCardSkeleton count={3} className="md:grid-cols-1" />;
   }
 
   if (error) {
-    return <p className="text-red-500">{error}</p>;
+    return (
+      <ErrorState
+        title="We couldn't load reminders."
+        description={error}
+        onRetry={() => window.location.reload()}
+        retryLabel="Retry"
+      />
+    );
   }
 
   const handleMarkRead = async (notificationId: string) => {
@@ -53,41 +65,55 @@ export default function Reminders() {
       current.map((item) => (item._id === notificationId ? { ...item, read: true } : item)),
     );
 
-    const response = await markVendorNotificationRead(notificationId);
-    if (response?.error) {
+    try {
+      await markVendorNotificationRead(notificationId);
+      showToast('Reminder marked read', 'success');
+    } catch (backendError) {
       setNotifications(previous);
-      setError(response.message || "Could not mark reminder as read.");
+      const message = backendError instanceof Error ? backendError.message : 'Could not mark reminder as read.';
+      setError(message);
+      showToast(message, 'error');
     }
   };
 
   return (
     <div>
       <h1 className="text-xl font-semibold mb-6">
-        Upcoming Milestones
+        Notifications
       </h1>
 
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-4">
           {notifications.length === 0 ? (
-            <div className="theme-card p-4">
-              No reminders yet.
-            </div>
+            <EmptyState
+              title="No notifications"
+              description="Upcoming milestones and automated nudges will appear here."
+            />
           ) : (
             notifications.map((notification) => (
               <div key={notification._id} className="theme-card p-4 flex justify-between">
                 <div className="flex gap-4">
-                  <div className="bg-green-100 w-10 h-10 flex items-center justify-center rounded">
-                    {notification.daysBefore ? `${notification.daysBefore}d` : "•"}
+                  <div className={`w-10 h-10 flex items-center justify-center rounded-full text-xs font-medium ${notification.type === 'event-reminder' ? 'bg-blue-100 text-blue-800' :
+                      notification.type === 'booking-update' ? 'bg-green-100 text-green-800' :
+                        'bg-orange-100 text-orange-800'
+                    }`}>
+                    {notification.type === 'event-reminder' ? `${notification.daysBefore || 0}d` :
+                      notification.type === 'booking-update' ? '📅' : '🔔'}
                   </div>
 
-                  <p>{notification.message} {notification.read ? "(Read)" : ""}</p>
+                  <div>
+                    <p className="font-medium">{notification.type?.toUpperCase()}</p>
+                    <p className={`text-sm ${notification.read ? 'text-gray-500 line-through' : 'font-medium'}`}>
+                      {notification.message}
+                    </p>
+                  </div>
                 </div>
 
                 <button
                   onClick={() => void handleMarkRead(notification._id)}
                   className="border px-3 py-1 rounded text-sm"
                 >
-                  Details
+                  Mark Read
                 </button>
               </div>
             ))

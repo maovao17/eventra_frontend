@@ -22,7 +22,11 @@ function ConfirmationPageContent() {
       <div className="mt-8 flex justify-center gap-4">
         <button
           type="button"
-          onClick={() => router.push("/customer/messages")}
+          onClick={() =>
+            router.push(
+              bookingId ? `/customer/messages?bookingId=${bookingId}` : "/customer/messages"
+            )
+          }
           className="theme-button rounded-xl px-6 py-3"
         >
           Open Chat

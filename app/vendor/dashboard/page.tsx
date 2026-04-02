@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useVendorData } from "@/context/VendorContext"
 
 export default function VendorDashboardPage() {
@@ -11,12 +12,17 @@ export default function VendorDashboardPage() {
   }, [refreshDashboard])
 
   if (loadingDashboard && !dashboard) {
+    return <PageCardSkeleton count={4} className="md:grid-cols-2 xl:grid-cols-4" />
+  }
+
+  if (!loadingDashboard && !dashboard) {
     return (
-      <div className="grid grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="theme-card h-28 animate-pulse" />
-        ))}
-      </div>
+      <ErrorState
+        title="We couldn't load your dashboard."
+        description="Retry to refresh bookings, pending requests, revenue, and ratings."
+        onRetry={() => void refreshDashboard()}
+        retryLabel="Retry"
+      />
     )
   }
 
@@ -24,7 +30,7 @@ export default function VendorDashboardPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Vendor Dashboard</h1>
 
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <div className="theme-card p-5">
           <p>Total Bookings</p>
           <h3 className="text-xl font-semibold">{Number(dashboard?.totalBookings || 0)}</h3>

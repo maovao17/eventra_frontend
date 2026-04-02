@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
@@ -39,18 +39,32 @@ function MessagesPageContent() {
   const activeRequest =
     vendorRequests.find((request) => request.id === activeRequestId) ?? vendorRequests[0]
   const activeEvent = events.find((event) => event.id === activeRequest?.eventId)
+  const activeBooking = bookings.find((item) => item.requestId === activeRequest?.id)
+  const activeBookingId = activeBooking?.id ?? bookingId ?? null
+  const threads = useMemo(
+    () =>
+      vendorRequests.map((request) => ({
+        request,
+        event: events.find((item) => item.id === request.eventId),
+        bookingId: bookings.find((item) => item.requestId === request.id)?.id ?? null,
+      })),
+    [bookings, events, vendorRequests],
+  )
 
   useEffect(() => {
-    if (!activeRequest || !profile?.uid || !activeVendor?.userId || !bookingId) return
+    if (!activeRequest || !profile?.uid || !activeVendor?.userId || !activeBookingId) {
+      setMessages([])
+      return
+    }
 
     void initializeChatThread({
-      chatId: getChatIdForRequest(bookingId),
-      bookingId,
+      chatId: getChatIdForRequest(activeBookingId),
+      bookingId: activeBookingId,
       participantIds: [profile.uid, activeRequest.customerId],
     })
 
-    return subscribeToChatMessages(getChatIdForRequest(bookingId), setMessages)
-  }, [bookingId, activeRequest, activeVendor?.userId, profile?.uid])
+    return subscribeToChatMessages(getChatIdForRequest(activeBookingId), setMessages)
+  }, [activeBookingId, activeRequest, activeVendor?.userId, profile?.uid])
 
   if (!activeRequest) {
     return (
@@ -69,9 +83,7 @@ function MessagesPageContent() {
       >
         <h2 className="mb-4 text-lg font-semibold">Active Client Chats</h2>
         <div className="space-y-3">
-          {vendorRequests.map((request) => {
-            const event = events.find((item) => item.id === request.eventId)
-
+          {threads.map(({ request, event, bookingId: threadBookingId }) => {
             return (
               <button
                 key={request.id}
@@ -83,6 +95,9 @@ function MessagesPageContent() {
               >
                 <p className="font-medium">{request.clientName}</p>
                 <p className="theme-muted mt-1 text-sm">{event?.name}</p>
+                <p className="theme-muted mt-1 text-xs">
+                  {threadBookingId ? "Chat ready" : "Booking pending"}
+                </p>
                 <p className="theme-muted mt-2 text-xs">{request.createdAt}</p>
               </button>
             )
@@ -127,10 +142,10 @@ function MessagesPageContent() {
           <button
             type="button"
             onClick={() => {
-              if (!activeRequest || !bookingId) return
+              if (!activeRequest || !activeBookingId) return
 
               void sendChatMessage({
-                chatId: getChatIdForRequest(bookingId),
+                chatId: getChatIdForRequest(activeBookingId),
                 senderId: profile?.uid ?? "vendor",
                 text: draft,
               })

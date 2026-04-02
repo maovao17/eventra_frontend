@@ -5,6 +5,8 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import { apiFetch } from "@/app/lib/api"
+import { EmptyState, ErrorState, PageCardSkeleton, PageIntroSkeleton } from "@/components/ui/PageState"
+import { useToast } from "@/context/ToastContext"
 
 type VendorListItem = {
   _id: string
@@ -17,19 +19,33 @@ type VendorListItem = {
 }
 
 function VendorsPageContent() {
+  const { showToast } = useToast()
   const searchParams = useSearchParams()
   const serviceFilter = searchParams.get("service")?.toLowerCase().trim() || ""
   const [vendors, setVendors] = useState<VendorListItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  useEffect(() => {
-    const loadVendors = async () => {
-      setLoading(true)
+  const loadVendors = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
       const data = await apiFetch("/vendors")
       setVendors(Array.isArray(data) ? data : [])
+    } catch (fetchError) {
+      const message =
+        fetchError instanceof Error ? fetchError.message : "Could not load vendors."
+      setError(message)
+      showToast(message, "error")
+      setVendors([])
+    } finally {
       setLoading(false)
     }
-    loadVendors()
+  }
+
+  useEffect(() => {
+    void loadVendors()
   }, [])
 
   const filteredVendors = serviceFilter
@@ -52,9 +68,39 @@ function VendorsPageContent() {
       </div>
 
       {loading ? (
-        <p className="theme-muted text-lg">Loading vendors...</p>
+        <div className="space-y-8">
+          <PageIntroSkeleton />
+          <PageCardSkeleton />
+        </div>
+      ) : error ? (
+        <ErrorState
+          title="We couldn't load vendors."
+          description="Retry to fetch live vendor availability and service matches."
+          onRetry={() => void loadVendors()}
+          retryLabel="Retry"
+        />
       ) : filteredVendors.length === 0 ? (
-        <p className="theme-muted text-lg">No vendors found</p>
+        <EmptyState
+          title={serviceFilter ? "No vendors found" : "No vendors available yet"}
+          description={
+            serviceFilter
+              ? "No vendors found. Try another service or clear your filter to explore more options."
+              : "Vendors will appear here as soon as they join Eventra."
+          }
+          actionLabel={serviceFilter ? "Browse All Vendors" : "Refresh Vendors"}
+          actionHref={serviceFilter ? "/customer/vendors" : undefined}
+          secondaryAction={
+            !serviceFilter ? (
+              <button
+                type="button"
+                onClick={() => void loadVendors()}
+                className="rounded-full border px-5 py-2 text-sm font-medium"
+              >
+                Retry
+              </button>
+            ) : undefined
+          }
+        />
       ) : (
       <div className="grid gap-8 md:grid-cols-3">
         {filteredVendors.map((vendor, index) => (
@@ -107,7 +153,7 @@ function VendorsPageContent() {
 
 export default function VendorsPage() {
   return (
-    <Suspense fallback={<p className="theme-muted text-lg">Loading vendors...</p>}>
+    <Suspense fallback={<PageCardSkeleton />}>
       <VendorsPageContent />
     </Suspense>
   )

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { getVendorBookings } from "@/app/lib/vendorApi"
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
+import { useToast } from "@/context/ToastContext"
 
 type UpcomingBooking = {
   _id: string
@@ -19,6 +21,7 @@ type UpcomingBooking = {
 
 export default function VendorUpcomingEventsPage() {
   const { profile } = useAuth()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [events, setEvents] = useState<UpcomingBooking[]>([])
@@ -29,16 +32,18 @@ export default function VendorUpcomingEventsPage() {
       setLoading(true)
       setError("")
 
-      const response = await getVendorBookings()
-      if (response?.error) {
-        setError(response.message || "Could not load upcoming events")
+      try {
+        const response = await getVendorBookings()
+        const list = Array.isArray(response) ? response : []
+        setEvents(list.filter((item) => item.status === "confirmed"))
+      } catch (fetchError) {
+        const message =
+          fetchError instanceof Error ? fetchError.message : "Could not load upcoming events"
+        setError(message)
+        showToast(message, "error")
+      } finally {
         setLoading(false)
-        return
       }
-
-      const list = Array.isArray(response) ? response : []
-      setEvents(list.filter((item) => item.status === "confirmed"))
-      setLoading(false)
     }
 
     const timer = setTimeout(() => {
@@ -48,15 +53,27 @@ export default function VendorUpcomingEventsPage() {
   }, [profile?.uid])
 
   if (loading) {
-    return <p>Loading upcoming events...</p>
+    return <PageCardSkeleton count={3} className="md:grid-cols-1" />
   }
 
   if (error) {
-    return <p className="text-red-500">{error}</p>
+    return (
+      <ErrorState
+        title="We couldn't load upcoming events."
+        description={error}
+        onRetry={() => window.location.reload()}
+        retryLabel="Retry"
+      />
+    )
   }
 
   if (events.length === 0) {
-    return <p>No upcoming events.</p>
+    return (
+      <EmptyState
+        title="No upcoming events yet"
+        description="Confirmed events will appear here once clients complete their bookings."
+      />
+    )
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/app/lib/api";
 import {
   getVendorMe,
@@ -28,6 +29,7 @@ const VendorContext = createContext<VendorContextType | null>(null);
 
 export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const { profile } = useAuth();
+  const { showToast } = useToast();
 
   const [vendorProfile, setVendorProfile] = useState<any>(null);
   const [dashboard, setDashboard] = useState<any>(null);
@@ -49,10 +51,11 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error("Profile fetch error:", err);
       setVendorProfile(null);
+      showToast("We couldn't load your business profile.", "error");
     } finally {
       setLoadingProfile(false);
     }
-  }, [profile?.uid, profile?.role]);
+  }, [profile?.uid, profile?.role, showToast]);
 
   // 🔄 Fetch Dashboard
   const refreshDashboard = useCallback(async () => {
@@ -68,10 +71,11 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       console.error("Dashboard fetch error:", err);
       setDashboard(null);
+      showToast("We couldn't load your dashboard stats.", "error");
     } finally {
       setLoadingDashboard(false);
     }
-  }, [profile?.uid, profile?.role]);
+  }, [profile?.uid, profile?.role, showToast]);
 
   // 💾 Save Profile + Refresh
   const saveVendorProfile = useCallback(async (data: any) => {
@@ -85,11 +89,12 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       return response;
     } catch (err) {
       console.error("Profile update failed:", err);
+      showToast("We couldn't save your profile changes.", "error");
       return null;
     } finally {
       setIsMutating(false);
     }
-  }, [profile?.uid, refreshVendorProfile, refreshDashboard]);
+  }, [profile?.uid, refreshVendorProfile, refreshDashboard, showToast]);
 
   // 📅 Update Booking + Refresh
   const updateBookingStatus = useCallback(async (bookingId: string, status: VendorBookingStatus) => {
@@ -115,11 +120,12 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       return apiSuccess;
     } catch (err) {
       console.error("Booking update failed:", err);
+      showToast("We couldn't update that booking status.", "error");
       return false;
     } finally {
       setIsMutating(false);
     }
-  }, [profile?.uid, refreshDashboard, refreshVendorProfile]);
+  }, [profile?.uid, refreshDashboard, refreshVendorProfile, showToast]);
 
   // 🚀 Initial Load
   useEffect(() => {
@@ -128,6 +134,18 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       refreshDashboard();
     }
   }, [profile?.role, refreshVendorProfile, refreshDashboard]);
+
+  // 🔄 Real-time polling for small updates (booking / requests statuses)
+  useEffect(() => {
+    if (profile?.role !== "vendor") return;
+
+    const interval = setInterval(async () => {
+      await refreshDashboard();
+      await refreshVendorProfile();
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [profile?.role, refreshDashboard, refreshVendorProfile]);
 
   return (
     <VendorContext.Provider

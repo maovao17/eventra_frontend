@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion"
 import Link from "next/link"
+import EventProgress from "@/components/event/EventProgress"
+import { EmptyState, ErrorState, PageCardSkeleton, PageIntroSkeleton } from "@/components/ui/PageState"
 import { useEvent } from "@/context/EventContext"
 
 type EventSummary = {
@@ -15,23 +17,25 @@ type EventSummary = {
 }
 
 export default function EventsPage() {
-  const { events, isLoading } = useEvent()
+  const { events, isLoading, error, refreshData } = useEvent()
 
   if (isLoading) {
     return (
       <div className="space-y-8">
-        <div className="max-w-3xl">
-          <p className="theme-primary mb-2 text-sm font-semibold uppercase tracking-[0.2em]">
-            Event Control
-          </p>
-          <h1 className="text-4xl font-bold mb-3">
-            Your Events
-          </h1>
-          <p className="theme-muted text-lg">
-            Loading events...
-          </p>
-        </div>
+        <PageIntroSkeleton />
+        <PageCardSkeleton />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="We couldn't load your events."
+        description="Retry to refresh your plans and planning progress."
+        onRetry={() => void refreshData()}
+        retryLabel="Retry"
+      />
     )
   }
 
@@ -50,6 +54,14 @@ export default function EventsPage() {
         </p>
       </div>
 
+      {events.length === 0 ? (
+        <EmptyState
+          title="Add your first event"
+          description="Start with a template or create a custom event plan to track services, vendors, and payments."
+          actionLabel="Create Event"
+          actionHref="/customer/events/create"
+        />
+      ) : (
       <div className="grid gap-8 md:grid-cols-3">
         {events.map((event: EventSummary, index) => (
           <motion.div
@@ -79,6 +91,20 @@ export default function EventsPage() {
               {event.location ?? "Location to be finalized"}
             </p>
 
+            <div className="mt-4">
+              <EventProgress
+                progress={
+                  event.status === "completed"
+                    ? 100
+                    : event.status === "confirmed"
+                      ? 85
+                      : event.status === "planning"
+                        ? 45
+                        : 20
+                }
+              />
+            </div>
+
               <p className="mt-4 text-lg font-semibold">
               {typeof event.budget === "number"
                 ? new Intl.NumberFormat("en-IN", {
@@ -98,6 +124,7 @@ export default function EventsPage() {
           </motion.div>
         ))}
       </div>
+      )}
     </div>
   )
 }
