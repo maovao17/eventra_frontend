@@ -18,12 +18,13 @@ export default function ChatPage() {
 
   const senderId = profile?.uid
 
-  if (!senderId) {
-    useEffect(() => {
+  useEffect(() => {
+    if (!senderId) {
       router.push("/login")
-    }, [])
-    return <div>Redirecting to login...</div>
-  }
+    }
+  }, [senderId, router])
+
+  if (!senderId) return <div>Redirecting to login...</div>
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -60,9 +61,9 @@ export default function ChatPage() {
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" &amp;&amp; !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      handleSend()
+      void handleSend()
     }
   }
 
@@ -107,7 +108,7 @@ export default function ChatPage() {
                 }`}
               >
                 <p className="text-sm">{message.text}</p>
-                {message.timestamp &amp;&amp; (
+                {message.timestamp && (
                   <p className={`text-xs mt-1 ${
                     message.senderId === senderId ? "text-blue-100" : "text-gray-500"
                   }`}>

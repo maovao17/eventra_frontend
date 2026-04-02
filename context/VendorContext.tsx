@@ -1,167 +1,155 @@
-"use client"
+"use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
-import { useAuth } from "@/context/AuthContext"
-import { getVendorDashboard, getVendorMe, updateVendorMe } from "@/app/lib/vendorApi"
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { apiFetch } from "@/app/lib/api";
+import {
+  getVendorMe,
+  updateVendorMe,
+  updateVendorBookingStatus,
+  getVendorDashboard,
+} from "@/app/lib/vendorApi";
 
-type VendorContextValue = {
-vendorProfile: Record<string, unknown> | null
-dashboard: Record<string, unknown> | null
-loadingProfile: boolean
-loadingDashboard: boolean
-refreshVendorProfile: () => Promise<void>
-refreshDashboard: () => Promise<void>
-saveVendorProfile: (payload: Record<string, unknown>) => Promise<Record<string, unknown>>
-}
+type VendorBookingStatus = "pending" | "accepted" | "rejected" | "completed";
 
-const VendorContext = createContext<VendorContextValue | null>(null)
+type VendorContextType = {
+  vendorProfile: any;
+  dashboard: any;
+  loadingProfile: boolean;
+  loadingDashboard: boolean;
+  isMutating: boolean;
+  refreshVendorProfile: () => Promise<void>;
+  refreshDashboard: () => Promise<void>;
+  saveVendorProfile: (data: any) => Promise<any>;
+  updateBookingStatus: (bookingId: string, status: VendorBookingStatus) => Promise<boolean>;
+};
+
+const VendorContext = createContext<VendorContextType | null>(null);
 
 export const VendorProvider = ({ children }: { children: ReactNode }) => {
-const { profile } = useAuth()
+  const { profile } = useAuth();
 
-const [vendorProfile, setVendorProfile] = useState<Record<string, unknown> | null>(null)
-const [dashboard, setDashboard] = useState<Record<string, unknown> | null>(null)
-const [loadingProfile, setLoadingProfile] = useState(false)
-const [loadingDashboard, setLoadingDashboard] = useState(false)
+  const [vendorProfile, setVendorProfile] = useState<any>(null);
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
 
-// ✅ FETCH PROFILE
-const refreshVendorProfile = useCallback(async () => {
-console.log("VENDOR REFRESH CHECK - profile:", profile?.role)
-if (!profile?.uid || profile.role !== "vendor") {
-setVendorProfile(null)
-return
-}
-
-
-setLoadingProfile(true)
-
-try {
-  const response = await getVendorMe()
-
-  console.log("PROFILE RESPONSE:", response)
-
-  if (response && typeof response === "object" && !response.error) {
-    setVendorProfile(response)
-  } else {
-    console.warn("⚠️ Invalid profile response")
-    setVendorProfile(null)
-  }
-} catch (err) {
-  console.error("🔥 Profile fetch failed:", err)
-  setVendorProfile(null)
-}
-
-setLoadingProfile(false)
-
-}, [profile?.uid, profile?.role])
-
-// ✅ FETCH DASHBOARD
-const refreshDashboard = useCallback(async () => {
-if (!profile?.uid || profile.role !== "vendor") {
-setDashboard(null)
-return
-}
-
-
-setLoadingDashboard(true)
-
-try {
-  const response = await getVendorDashboard()
-
-  console.log("DASHBOARD RESPONSE:", response)
-
-  if (response && typeof response === "object" && !response.error) {
-    setDashboard(response)
-  } else {
-    console.warn("⚠️ Invalid dashboard response, using fallback")
-
-    setDashboard({
-      totalBookings: 0,
-      pendingRequests: 0,
-      pendingBookings: 0,
-      completedBookings: 0,
-      monthlyRevenue: 0,
-      revenue: 0,
-      rating: 0,
-    })
-  }
-} catch (err) {
-  console.error("🔥 Dashboard fetch failed:", err)
-
-  setDashboard({
-    totalBookings: 0,
-    pendingRequests: 0,
-    pendingBookings: 0,
-    completedBookings: 0,
-    monthlyRevenue: 0,
-    revenue: 0,
-    rating: 0,
-  })
-}
-
-setLoadingDashboard(false)
-
-
-}, [profile?.uid, profile?.role])
-
-// ✅ SAVE PROFILE
-const saveVendorProfile = useCallback(
-async (payload: Record<string, unknown>) => {
-if (!profile?.uid) return { error: true, message: "userId missing" }
-
-
-  try {
-    const response = await updateVendorMe(payload)
-
-    console.log("SAVE RESPONSE:", response)
-
-    if (response && typeof response === "object" && !response.error) {
-      setVendorProfile(response)
+  // 🔄 Fetch Profile
+  const refreshVendorProfile = useCallback(async () => {
+    if (!profile?.uid || profile.role !== "vendor") {
+      setVendorProfile(null);
+      return;
     }
 
-    return response
-  } catch (err) {
-    console.error("🔥 Save failed:", err)
-    return { error: true }
-  }
-},
-[profile?.uid],
+    setLoadingProfile(true);
+    try {
+      const res = await getVendorMe();
+      setVendorProfile(res || null);
+    } catch (err) {
+      console.error("Profile fetch error:", err);
+      setVendorProfile(null);
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [profile?.uid, profile?.role]);
 
+  // 🔄 Fetch Dashboard
+  const refreshDashboard = useCallback(async () => {
+    if (!profile?.uid || profile.role !== "vendor") {
+      setDashboard(null);
+      return;
+    }
 
-)
+    setLoadingDashboard(true);
+    try {
+      const res = await getVendorDashboard();
+      setDashboard(res || null);
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+      setDashboard(null);
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }, [profile?.uid, profile?.role]);
 
-// ✅ INITIAL LOAD
-useEffect(() => {
-if (profile?.role === "vendor") {
-void refreshVendorProfile()
-void refreshDashboard()
-}
-}, [profile?.role, refreshVendorProfile, refreshDashboard])
+  // 💾 Save Profile + Refresh
+  const saveVendorProfile = useCallback(async (data: any) => {
+    if (!profile?.uid) return null;
 
-return (
-<VendorContext.Provider
-value={{
-vendorProfile,
-dashboard,
-loadingProfile,
-loadingDashboard,
-refreshVendorProfile,
-refreshDashboard,
-saveVendorProfile,
-}}
->
-{children}
-</VendorContext.Provider>
-)
-}
+    setIsMutating(true);
+    try {
+      const response = await updateVendorMe(data);
+      await refreshVendorProfile();
+      await refreshDashboard();
+      return response;
+    } catch (err) {
+      console.error("Profile update failed:", err);
+      return null;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [profile?.uid, refreshVendorProfile, refreshDashboard]);
 
-// ✅ HOOK
+  // 📅 Update Booking + Refresh
+  const updateBookingStatus = useCallback(async (bookingId: string, status: VendorBookingStatus) => {
+    if (!profile?.uid) return false;
+
+    setIsMutating(true);
+    try {
+      const apiSuccess = await updateVendorBookingStatus(bookingId, status, profile.uid);
+      if (status === "accepted" && apiSuccess) {
+        const booking = await apiFetch(`/bookings/${bookingId}`);
+        if (booking?.customerId) {
+          const { getChatIdForBooking, initializeChatThread } = await import("@/lib/chat");
+          const chatId = getChatIdForBooking(bookingId);
+          await initializeChatThread({
+            chatId,
+            bookingId,
+            participantIds: [profile.uid, booking.customerId],
+          });
+        }
+      }
+      await refreshDashboard();
+      await refreshVendorProfile();
+      return apiSuccess;
+    } catch (err) {
+      console.error("Booking update failed:", err);
+      return false;
+    } finally {
+      setIsMutating(false);
+    }
+  }, [profile?.uid, refreshDashboard, refreshVendorProfile]);
+
+  // 🚀 Initial Load
+  useEffect(() => {
+    if (profile?.role === "vendor") {
+      refreshVendorProfile();
+      refreshDashboard();
+    }
+  }, [profile?.role, refreshVendorProfile, refreshDashboard]);
+
+  return (
+    <VendorContext.Provider
+      value={{
+        vendorProfile,
+        dashboard,
+        loadingProfile,
+        loadingDashboard,
+        isMutating,
+        refreshVendorProfile,
+        refreshDashboard,
+        saveVendorProfile,
+        updateBookingStatus,
+      }}
+    >
+      {children}
+    </VendorContext.Provider>
+  );
+};
+
 export const useVendorData = () => {
-const context = useContext(VendorContext)
-
-if (!context) {
-throw new Error("useVendorData must be used within VendorProvider")
-}
-
-return context
-}
+  const context = useContext(VendorContext);
+  if (!context) throw new Error("useVendorData must be used within VendorProvider");
+  return context;
+};

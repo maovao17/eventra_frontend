@@ -4,9 +4,7 @@ import { apiFetch } from '@/app/lib/api';
 
 declare global {
   interface Window {
-    Razorpay?: new (options: RazorpayOptions) => {
-      open: () => void;
-    };
+    Razorpay?: any;
   }
 }
 
@@ -32,12 +30,14 @@ type RazorpayOptions = {
 
 const RAZORPAY_SCRIPT_ID = 'eventra-razorpay-sdk';
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
-export const RAZORPAY_TEST_KEY = 'rzp_test_1DP5mmOlF5G5ag';
+export const PLATFORM_FEE = 2500;
+export const RAZORPAY_PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() || 'rzp_test_1DP5mmOlF5G5ag';
 
-export const createRazorpayOrder = async (amount: number) => {
+export const createRazorpayOrder = async (bookingId: string) => {
   const response = await apiFetch('/payments/create-order', {
     method: 'POST',
-    body: JSON.stringify({ amount }),
+    body: JSON.stringify({ bookingId }),
   });
   
   if (response?.error) {
@@ -71,16 +71,20 @@ export const loadRazorpayScript = async () => {
 
 export const openRazorpayCheckout = async ({
   amount,
+  bookingId,
   customerName,
   customerPhone,
   onSuccess,
   onDismiss,
+  onError,
 }: {
   amount: number;
+  bookingId: string;
   customerName?: string;
   customerPhone?: string;
-  onSuccess: (response: Record<string, string> & { orderId: string }) => void;
+  onSuccess: (response: Record<string, string> & { orderId: string; paymentId?: string }) => void;
   onDismiss?: () => void;
+  onError?: (message: string) => void;
 }) => {
   const scriptLoaded = await loadRazorpayScript();
 
@@ -88,14 +92,14 @@ export const openRazorpayCheckout = async ({
     throw new Error('Unable to load Razorpay right now.');
   }
 
-  const order = await createRazorpayOrder(amount);
+  const order = await createRazorpayOrder(bookingId);
   const razorpay = new window.Razorpay({
-    key: RAZORPAY_TEST_KEY,
+    key: RAZORPAY_PUBLIC_KEY,
     amount: order.amount,
     currency: order.currency,
     name: 'Eventra',
     description: 'Event booking payment',
-    handler: async (response) => {
+    handler: async (response: Record<string, string>) => {
       try {
         const verifyResponse = await apiFetch('/payments/verify', {
           method: 'POST',
@@ -103,6 +107,8 @@ export const openRazorpayCheckout = async ({
             razorpay_order_id: order.orderId,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
+            bookingId,
+            amount,
           }),
         });
         
@@ -110,10 +116,17 @@ export const openRazorpayCheckout = async ({
           throw new Error(verifyResponse.message || 'Payment verification failed');
         }
         
-        onSuccess({ ...response, orderId: order.orderId });
+        onSuccess({
+          ...response,
+          orderId: order.orderId,
+          paymentId: verifyResponse.paymentId,
+        });
       } catch (error) {
-        console.error('Payment verification error:', error);
-        alert('Payment verification failed. Please contact support.');
+        onError?.(
+          error instanceof Error
+            ? error.message
+            : 'Payment verification failed. Please contact support.',
+        );
       }
     },
     modal: {
@@ -133,4 +146,3 @@ export const openRazorpayCheckout = async ({
 
   razorpay.open();
 };
-

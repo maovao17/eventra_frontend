@@ -19,24 +19,21 @@ export type ChatMessage = {
   timestamp: Date | null
 }
 
-export const getChatIdForRequest = (requestId: string) => `chat-${requestId}`
+export const getChatIdForBooking = (bookingId: string) => `booking-${bookingId}`
 
 export const initializeChatThread = async ({
   chatId,
-  requestId,
   bookingId,
   participantIds,
 }: {
   chatId: string
-  requestId: string
-  bookingId?: string
+  bookingId: string
   participantIds: string[]
 }) => {
   await setDoc(
     doc(db, "chats", chatId),
     {
-      requestId,
-      bookingId: bookingId ?? null,
+      bookingId,
       participantIds,
       updatedAt: serverTimestamp(),
     },

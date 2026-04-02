@@ -87,6 +87,7 @@ export type BookingRecord = {
   customerId: string
   status: "pending" | "accepted" | "rejected" | "confirmed" | "completed" | "cancelled"
   amount: number
+  paymentStatus?: "pending" | "partial" | "paid"
 }
 
 type CreateEventInput = {
@@ -131,6 +132,7 @@ type EventContextValue = {
     category: string
     amount: number
     bookingStatus?: BookingRecord["status"]
+    paymentStatus?: BookingRecord["paymentStatus"]
   }>
   formatCurrency: (value: number) => string
 }
@@ -190,10 +192,13 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true)
 
     try {
+      const shouldLoadReviews = profile.role === "customer"
+      const shouldLoadServices = profile.role === "customer"
+
       const [vendorResponse, reviewResponse, serviceResponse] = await Promise.all([
         apiFetch("/vendors"),
-        apiFetch("/reviews").catch(() => []),
-        apiFetch("/services").catch(() => []),
+        shouldLoadReviews ? apiFetch("/reviews").catch(() => []) : Promise.resolve([]),
+        shouldLoadServices ? apiFetch("/services").catch(() => []) : Promise.resolve([]),
       ])
 
       const vendorList = asArray<any>(vendorResponse)
@@ -275,7 +280,10 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         vendorId: String(booking.vendorId),
         customerId: String(booking.customerId),
         status: String(booking.status) as BookingRecord["status"],
-        amount: Number(booking.amount ?? 0),
+        amount: Number(booking.amount ?? booking.price ?? 0),
+        paymentStatus: booking.paymentStatus
+          ? String(booking.paymentStatus) as BookingRecord["paymentStatus"]
+          : undefined,
       }))
 
       const rawEvents = asArray<any>(eventResponse)
@@ -290,10 +298,10 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
           id: String(event._id),
           name: String(event.name ?? event.eventType ?? "Untitled Event"),
           type: String(event.eventType ?? "Custom"),
-          date: String(event.eventDate ?? ""),
+          date: String(event.eventDate ?? event.date ?? ""),
           location: buildLocationLabel(event.location),
           status: String(event.status ?? "draft"),
-          guests: Number(event.guestCount ?? 0),
+          guests: Number(event.guestCount ?? event.guests ?? 0),
           budget: Number(event.budget ?? 0),
           spent: eventBookings.reduce((total, booking) => total + booking.amount, 0),
           coverImage: String(event.coverImage ?? DEFAULT_EVENT_IMAGE),
@@ -303,7 +311,10 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
           checklist: buildChecklist(
             event,
             acceptedVendorIds.length > 0,
-            eventBookings.some((booking) => booking.status === "confirmed")
+            eventBookings.some(
+              (booking) =>
+                booking.status === "confirmed" || booking.paymentStatus === "paid"
+            )
           ),
           vendorIds: acceptedVendorIds,
           timeline: [
@@ -369,10 +380,10 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       id: createdId,
       name: String(response.name ?? event.name ?? `${event.type ?? "Custom"} Event`),
       type: String(response.eventType ?? event.type ?? "Custom"),
-      date: String(response.eventDate ?? event.date),
+      date: String(response.eventDate ?? response.date ?? event.date),
       location: buildLocationLabel(response.location ?? { label: event.location }),
       status: String(response.status ?? "planning"),
-      guests: Number(response.guestCount ?? event.guests ?? 0),
+      guests: Number(response.guestCount ?? response.guests ?? event.guests ?? 0),
       budget: Number(response.budget ?? event.budget ?? 0),
       spent: 0,
       coverImage: String(response.coverImage ?? DEFAULT_EVENT_IMAGE),
@@ -510,6 +521,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
           category: vendor?.category ?? "Vendor Service",
           amount: booking?.amount ?? vendor?.price ?? 0,
           bookingStatus: booking?.status,
+          paymentStatus: booking?.paymentStatus,
         }
       })
   }, [bookings, currentEvent, requests, vendors])

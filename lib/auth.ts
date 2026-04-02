@@ -2,15 +2,18 @@
 
 import {
   ConfirmationResult,
+  GoogleAuthProvider,
   RecaptchaVerifier,
   User,
   browserLocalPersistence,
   onAuthStateChanged,
   setPersistence,
+  signInWithPopup,
   signInWithPhoneNumber,
   type Auth,
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { apiFetch } from "@/app/lib/api"
 
 declare global {
   interface Window {
@@ -24,10 +27,13 @@ export type AppUserProfile = {
   uid: string
   name: string
   phone: string
-  role: UserRole
+  role: UserRole | "admin"
   businessName?: string
 }
 
+const googleProvider = new GoogleAuthProvider()
+
+const AUTH_TOKEN_STORAGE_KEY = "token"
 const PROFILE_STORAGE_KEY = "eventra_user"
 
 const getDigits = (value: string) => value.replace(/\D/g, "")
@@ -156,9 +162,67 @@ export const verifyOtp = async (
 export const sendPhoneOtp = sendOtp
 export const verifyPhoneOtp = verifyOtp
 
+export const signInWithGoogle = async () => {
+  await enableAuthPersistence()
+
+  const result = await signInWithPopup(auth, googleProvider)
+  const user = result.user
+
+  await syncAuthToken(user)
+
+  const profile = await apiFetch("/users/me")
+
+  if (!profile || profile?.error) {
+    const createUserResult = await apiFetch("/users", {
+      method: "POST",
+      body: JSON.stringify({
+        name: user.displayName || "Eventra User",
+        email: user.email || undefined,
+        userId: user.uid,
+        authProvider: "google",
+        role: "customer",
+      }),
+    })
+
+    if (createUserResult?.error) {
+      throw new Error(
+        String(createUserResult.message || "Could not create your Eventra account.")
+      )
+    }
+  }
+
+  const updatedProfile = await apiFetch("/users/me")
+  if (!updatedProfile || updatedProfile?.error || !updatedProfile?.role) {
+    throw new Error("Could not load your Eventra account.")
+  }
+
+  return updatedProfile as AppUserProfile
+}
+
 export const subscribeToAuthState = (
   callback: (user: User | null) => void
 ) => onAuthStateChanged(auth, callback)
+
+export const storeAuthToken = (token: string) => {
+  if (typeof window === "undefined") return
+  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token)
+}
+
+export const clearStoredAuthToken = () => {
+  if (typeof window === "undefined") return
+  window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
+}
+
+export const syncAuthToken = async (user: User | null) => {
+  if (!user) {
+    clearStoredAuthToken()
+    return null
+  }
+
+  const token = await user.getIdToken()
+  storeAuthToken(token)
+  return token
+}
 
 export const storeUserProfile = (profile: AppUserProfile) => {
   if (typeof window === "undefined") return

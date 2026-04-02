@@ -1,180 +1,134 @@
-"use client"
+"use client";
 
 import {
   createContext,
   useContext,
   useEffect,
   useState,
-  type ReactNode,
-} from "react"
-import { signOut, getIdToken, type User } from "firebase/auth"
-import { getVendorMe } from "@/app/lib/vendorApi"
-import { apiFetch } from "@/app/lib/api"
-import { auth } from "@/lib/firebase"
+  ReactNode,
+} from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { apiFetch } from "@/app/lib/api";
 import {
-  AppUserProfile,
-  UserRole,
   clearStoredUserProfile,
-  formatPhoneNumber,
-  getStoredUserProfile,
   storeUserProfile,
-  subscribeToAuthState,
-} from "@/lib/auth"
+  syncAuthToken,
+} from "@/lib/auth";
 
+type UserRole = "customer" | "vendor" | "admin";
 
+type AppUserProfile = {
+  uid: string;
+  name: string;
+  phone: string;
+  role: UserRole;
+  businessName?: string;
+};
 
-type AuthContextValue = {
-  user: User | null
-  profile: AppUserProfile | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  setProfile: (profile: AppUserProfile) => void
-  refreshProfile: (uid?: string) => Promise<AppUserProfile | null>
-  logout: () => Promise<void>
-}
+type AuthContextType = {
+  user: User | null;
+  profile: AppUserProfile | null;
+  loading: boolean;
+  refreshProfile: () => Promise<AppUserProfile | null>;
+};
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfileState] = useState<AppUserProfile | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<AppUserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-const getUserMe = async (targetUid: string) => {
-  try {
-    return await apiFetch(`/users?userId=${targetUid}`)
-  } catch (error) {
-    console.error("Failed to fetch user from backend:", error)
-    return null
-  }
-}
+  // 🔄 Fetch user from backend
+  const fetchUserProfile = async (uid: string) => {
+    try {
+      const data = await apiFetch("/users/me");
 
-const refreshProfile = async (uid?: string) => {
-  const targetUid = uid ?? auth.currentUser?.uid
-  if (!targetUid) return null
+      if (data?.error) {
+        return null;
+      }
 
-  try {
-    const token = await auth.currentUser!.getIdToken()
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", token)
+      if (data) {
+        return {
+          uid: String(data.userId || uid),
+          name: data.name || "Eventra User",
+          phone: data.phoneNumber || "",
+          role: data.role || "customer",
+          businessName: data.businessName || "",
+        };
+      }
+
+      return null;
+    } catch (err) {
+      console.error("Fetch user failed:", err);
+      return null;
+    }
+  };
+
+  // 🔄 Refresh profile
+  const refreshProfile = async () => {
+    if (!auth.currentUser) return null;
+
+    await syncAuthToken(auth.currentUser);
+
+    const uid = auth.currentUser.uid;
+    const userProfile = await fetchUserProfile(uid);
+
+    if (userProfile) {
+      setProfile(userProfile);
+      storeUserProfile(userProfile);
+    } else {
+      setProfile(null);
+      clearStoredUserProfile();
     }
 
-    // Always fetch base profile from backend
-    let userData = await getUserMe(targetUid)
-    if (!userData || userData.error) {
-      console.log("Backend user not found, checking local storage...")
-      const storedProfile = getStoredUserProfile()
-      if (storedProfile?.uid === targetUid) {
-        console.log("Reusing stored profile")
-        userData = {
-          role: storedProfile.role,
-          name: storedProfile.name,
-          phoneNumber: storedProfile.phone,
+    return userProfile;
+  };
+
+  // 🔥 Firebase Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+
+      if (firebaseUser) {
+        await syncAuthToken(firebaseUser);
+        const userProfile = await fetchUserProfile(firebaseUser.uid);
+        setProfile(userProfile);
+        if (userProfile) {
+          storeUserProfile(userProfile);
+        } else {
+          clearStoredUserProfile();
         }
       } else {
-        console.log("Creating fallback profile")
-        userData = {
-          uid: targetUid,
-          role: "customer",
-          name: "Eventra User",
-          phoneNumber: "",
-        }
-      }
-    }
-
-    let nextProfile: AppUserProfile = {
-      uid: targetUid,
-      name: String(userData.name || "Eventra User"),
-      phone: String(userData.phoneNumber || ""),
-      role: userData.role as UserRole,
-    }
-
-    // Fetch vendor data if vendor role
-    if (nextProfile.role === "vendor") {
-      const vendorData = await getVendorMe()
-      if (vendorData && !vendorData.error) {
-        nextProfile.businessName = String(vendorData.businessName || "")
-        nextProfile.name = String(vendorData.name || nextProfile.name)
-      }
-    }
-
-    setProfileState(nextProfile)
-    storeUserProfile(nextProfile)
-    console.log("AUTH PROFILE FINAL:", nextProfile)
-    return nextProfile
-  } catch (error) {
-    console.error("Profile refresh failed:", error)
-    return null
-  }
-}
-
-  useEffect(() => {
-    const unsubscribe = subscribeToAuthState((firebaseUser) => {
-      setUser(firebaseUser)
-
-      if (!firebaseUser) {
-        setProfileState(null)
-        setIsLoading(false)
-        return
+        await syncAuthToken(null);
+        setProfile(null);
+        clearStoredUserProfile();
       }
 
-      const storedProfile = getStoredUserProfile()
-      if (storedProfile?.uid === firebaseUser.uid) {
-        setProfileState(storedProfile)
-      }
+      setLoading(false);
+    });
 
-      refreshProfile(firebaseUser.uid)
-        .catch(() => {
-          if (storedProfile?.uid === firebaseUser.uid) {
-            setProfileState(storedProfile)
-          }
-        })
-        .finally(() => {
-          setIsLoading(false)
-        })
-    })
-
-    return unsubscribe
-  }, [])
-
-  const setProfile = (nextProfile: AppUserProfile) => {
-    setProfileState(nextProfile)
-    storeUserProfile(nextProfile)
-  }
-
-  const logout = async () => {
-    await signOut(auth)
-    clearStoredUserProfile()
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token")
-      localStorage.removeItem("eventra_user")
-    }
-    setProfileState(null)
-  }
+    return () => unsubscribe();
+  }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         profile,
-        isAuthenticated: Boolean(user),
-        isLoading,
-        setProfile,
+        loading,
         refreshProfile,
-        logout,
       }}
     >
       {children}
     </AuthContext.Provider>
-  )
-}
+  );
+};
 
+// 🔥 Hook
 export const useAuth = () => {
-  const context = useContext(AuthContext)
-
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-
-  return context
-}
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
+};

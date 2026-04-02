@@ -1,24 +1,16 @@
 import { apiFetch } from "@/app/lib/api"
 
-export type VendorBookingStatus = "pending" | "accepted" | "completed" | "cancelled"
+export type VendorBookingStatus = "pending" | "accepted" | "rejected" | "completed"
 
 export const getVendorMe = async () => {
-  console.log("Vendor API GET /vendors/me");
-  const res = await apiFetch(`/vendors/me`)
-  console.log("Vendor API GET /vendors/me response:", res);
-  if (res?.error) console.error("Vendor API GET /vendors/me error:", res);
-  return res;
+  return apiFetch(`/vendors/me`)
 }
 
 export const updateVendorMe = async (payload: Record<string, unknown>) => {
-  console.log("Vendor API PATCH /vendors/profile payload:", payload);
-  const res = await apiFetch(`/vendors/profile`, {
+  return apiFetch(`/vendors/profile`, {
     method: "PATCH",
     body: JSON.stringify(payload),
-  });
-  console.log("Vendor API PATCH /vendors/profile response:", res);
-  if (res?.error) console.error("Vendor API PATCH /vendors/profile error:", res);
-  return res;
+  })
 }
 
 export const uploadVendorFile = async (file: File) => {
@@ -44,17 +36,13 @@ export const uploadVendorPortfolio = async (files: File[], caption?: string, cat
 }
 
 export const uploadVendorPortfolioMultiple = async (files: File[]) => {
-  console.log("Vendor API POST /vendors/upload-multiple files count:", files.length);
   const formData = new FormData()
   files.forEach((file) => formData.append("files", file))
 
-  const res = await apiFetch("/vendors/upload-multiple", {
+  return apiFetch("/vendors/upload-multiple", {
     method: "POST",
     body: formData,
-  });
-  console.log("Vendor API POST /vendors/upload-multiple response:", res);
-  if (res?.error) console.error("Vendor API POST /vendors/upload-multiple error:", res);
-  return res;
+  })
 }
 
 export const assignVendorServices = async (serviceIds: string[]) => {
@@ -73,34 +61,39 @@ export const updateVendorAvailability = async (
   })
 }
 
-export const getVendorBookings = async (bucket?: string) => {
-  const query = bucket ? `?bucket=${encodeURIComponent(bucket)}` : ""
-  return apiFetch(`/vendors/bookings${query}`)
+export const getVendorBookings = async (vendorId?: string) => {
+  const query = vendorId ? `?vendorId=${vendorId}` : ""
+  return apiFetch(`/bookings${query}`)
 }
 
 export const updateVendorBookingStatus = async (
   bookingId: string,
   status: VendorBookingStatus,
-) => {
-  return apiFetch(`/vendors/bookings/${bookingId}/status`, {
+  actorUserId?: string,
+): Promise<boolean> => {
+  const endpoint = status === "accepted" 
+    ? `/bookings/${bookingId}/accept`
+    : `/bookings/${bookingId}/reject`
+    
+  const res = await apiFetch(endpoint, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(
+      actorUserId
+        ? { actorUserId }
+        : {}
+    ),
   })
+  
+  return !res?.error
 }
 
 export const getVendorDashboard = async () => {
-  console.log("Vendor API GET /vendors/dashboard");
-
   const res = await apiFetch(`/vendors/dashboard`);
 
-  console.log("FULL RESPONSE:", JSON.stringify(res, null, 2));
-
   if (res && res.error === true) {
-    console.error("❌ Dashboard API FAILED:", res);
     return null;
   }
 
-  console.log("✅ Dashboard API SUCCESS:", res);
   return res;
 };
 

@@ -21,12 +21,12 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-4">
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/dashboard">Dashboard</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/templates">Templates</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/vendors">Vendors</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/messages">Messages</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/events">My Events</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/payment">Payments</Link>
+        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/dashboard">Dashboard</Link>
+        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/templates">Templates</Link>
+        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/vendors">Vendors</Link>
+        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/messages">Messages</Link>
+        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/events">My Events</Link>
+        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/payment">Payments</Link>
       </nav>
     </aside>
   );

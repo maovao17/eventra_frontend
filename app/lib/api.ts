@@ -1,4 +1,7 @@
-export const API_URL = "http://localhost:3002";
+import { auth } from "@/lib/firebase";
+
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:3002";
 
 type ApiError = {
   error: true;
@@ -12,14 +15,34 @@ const buildError = (message: string, status?: number): ApiError => ({
   status,
 });
 
+const resolveAuthToken = async () => {
+  if (typeof window === "undefined") return null;
+
+  const storedToken = localStorage.getItem("token");
+  const currentUser = auth.currentUser;
+
+  if (!currentUser) {
+    return storedToken;
+  }
+
+  try {
+    const freshToken = await currentUser.getIdToken();
+
+    if (freshToken !== storedToken) {
+      localStorage.setItem("token", freshToken);
+    }
+
+    return freshToken;
+  } catch {
+    return storedToken;
+  }
+};
+
 export async function apiFetch(
   endpoint: string,
   options?: RequestInit
 ) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("token")
-      : null;
+  const token = await resolveAuthToken();
 
   try {
     const isFormData = typeof FormData !== "undefined" && options?.body instanceof FormData;
