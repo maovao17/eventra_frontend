@@ -67,17 +67,20 @@ function MessagesPageContent() {
       return
     }
 
-    void initializeChatThread({
-      chatId: getChatIdForRequest(activeBookingId),
-      bookingId: activeBookingId,
-      participantIds: [profile.uid, activeVendor?.userId ?? ""].filter(Boolean),
-    })
+    let unsubscribe: (() => void) | undefined
 
-    return subscribeToChatMessages(
-      getChatIdForRequest(activeBookingId),
-      setActiveMessages
-    )
-  }, [activeBookingId, activeRequest, activeVendor?.userId, profile?.uid])
+    void initializeChatThread({ bookingId: activeBookingId })
+      .then(({ chatId }) => {
+        unsubscribe = subscribeToChatMessages(chatId, setActiveMessages)
+      })
+      .catch(() => {
+        setActiveMessages([])
+      })
+
+    return () => {
+      unsubscribe?.()
+    }
+  }, [activeBookingId, activeRequest, profile?.uid])
 
   return (
     <div className="space-y-8">
@@ -168,8 +171,11 @@ function MessagesPageContent() {
                 type="button"
                 onClick={async () => {
                   if (!activeRequest || !activeBookingId) return
+                  const { chatId } = await initializeChatThread({
+                    bookingId: activeBookingId,
+                  })
                   await sendChatMessage({
-                    chatId: getChatIdForRequest(activeBookingId),
+                    chatId,
                     senderId: user?.uid ?? profile?.uid ?? "customer",
                     text: draft,
                   })

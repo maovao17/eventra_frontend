@@ -11,7 +11,8 @@ export type PaymentStatus = 'pending' | 'partial' | 'paid';
 export type RequestStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface Booking {
-  id: string;
+  id?: string;
+  _id?: string;
   requestId: string;
   eventId: string;
   vendorId: string;
@@ -64,10 +65,12 @@ export interface Payment {
 }
 
 export interface EventItem {
-  id: string;
+  id?: string;
+  _id?: string;
   name: string;
   eventType: string;
   eventDate?: string;
+  date?: string;
   location?: { label?: string; address?: string };
   status: string;
   budget?: number;

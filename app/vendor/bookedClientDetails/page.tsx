@@ -9,7 +9,7 @@ import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageSt
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { useVendorData } from "@/context/VendorContext";
-import { getChatIdForBooking as getChatIdForRequest, initializeChatThread } from "@/lib/chat";
+import { initializeChatThread } from "@/lib/chat";
 
 type BookingDetails = {
   _id: string;
@@ -181,11 +181,8 @@ function BookingDetailsPageContent() {
     }
 
     // Create chat
-    const chatId = getChatIdForRequest(booking._id);
     await initializeChatThread({
-      chatId,
       bookingId: booking._id,
-      participantIds: [profile.uid, booking.customerId],
     });
 
     setSuccess("Booking accepted and chat created!");

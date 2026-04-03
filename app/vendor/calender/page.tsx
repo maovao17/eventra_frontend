@@ -33,17 +33,17 @@ export default function Calendar(){
       setLoading(true)
       try {
         const response = await getVendorMe()
-        const nextBlocked = Array.isArray(response?.availability?.blockedDates)
-          ? response.availability.blockedDates.map((value: string) => String(value).slice(0, 10))
+        const nextBlocked = Array.isArray((response as any)?.availability?.blockedDates)
+          ? (response as any).availability.blockedDates.map((value: string) => String(value).slice(0, 10))
           : []
-        const nextBooked = Array.isArray(response?.availability?.bookedDates)
-          ? response.availability.bookedDates.map((value: string) => String(value).slice(0, 10))
+        const nextBooked = Array.isArray((response as any)?.availability?.bookedDates)
+          ? (response as any).availability.bookedDates.map((value: string) => String(value).slice(0, 10))
           : []
 
         setBlockedDates(nextBlocked)
         setBookedDates(nextBooked)
-        setStartHour(response?.availability?.workingHours?.start || "09:00")
-        setEndHour(response?.availability?.workingHours?.end || "18:00")
+        setStartHour((response as any)?.availability?.workingHours?.start || "09:00")
+        setEndHour((response as any)?.availability?.workingHours?.end || "18:00")
       } catch (fetchError) {
         const message = fetchError instanceof Error ? fetchError.message : "Could not load availability"
         setError(message)

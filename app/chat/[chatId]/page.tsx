@@ -5,6 +5,8 @@ import { useParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { ChatMessage, subscribeToChatMessages, sendChatMessage } from "@/lib/chat"
 import { useRouter } from "next/navigation"
+import { apiFetch } from "@/app/lib/api"
+import { useToast } from "@/context/ToastContext"
 
 export default function ChatPage() {
   const params = useParams()
@@ -14,17 +16,82 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState("")
   const [loading, setLoading] = useState(true)
+  const [accessVerified, setAccessVerified] = useState<boolean | null>(null)
+  const [error, setError] = useState("")
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const senderId = profile?.uid
+  const { showToast } = useToast()
+  const fallbackDashboard =
+    profile?.role === "vendor"
+      ? "/vendor/dashboard"
+      : profile?.role === "admin"
+        ? "/admin/dashboard"
+        : "/customer/dashboard"
 
   useEffect(() => {
     if (!senderId) {
       router.push("/login")
+      return
     }
-  }, [senderId, router])
+
+    const verifyChatAccess = async () => {
+      try {
+        const response = await apiFetch(`/chats/${chatId}/verify`) as { allowed: boolean }
+        if (response.allowed) {
+          setAccessVerified(true)
+        } else {
+          setAccessVerified(false)
+          setError("You don't have access to this chat")
+        }
+      } catch {
+        setAccessVerified(false)
+        setError("Unable to verify chat access")
+      }
+    }
+
+    if (chatId) {
+      verifyChatAccess()
+    }
+  }, [senderId, chatId, router])
+
+  useEffect(() => {
+    if (accessVerified === false) {
+      router.push(`${fallbackDashboard}?error=chat-access-denied`)
+    }
+  }, [accessVerified, fallbackDashboard, router])
 
   if (!senderId) return <div>Redirecting to login...</div>
+
+  if (accessVerified === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted">Verifying chat access...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (accessVerified === false) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-red-600">Access Denied</h2>
+          <p className="mt-2 text-gray-600">{error}</p>
+          <button
+            onClick={() => router.push(fallbackDashboard)}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -35,7 +102,7 @@ export default function ChatPage() {
   }, [messages])
 
   useEffect(() => {
-    if (!chatId) return
+    if (!chatId || accessVerified !== true) return
 
     setLoading(true)
     const unsubscribe = subscribeToChatMessages(chatId, (newMessages) => {
@@ -46,18 +113,46 @@ export default function ChatPage() {
     return () => {
       unsubscribe()
     }
-  }, [chatId])
+  }, [chatId, accessVerified])
 
-  const handleSend = async () => {
-    if (!inputText.trim() || !senderId || !chatId) return
+  const sendMessage = async (text: string, isRetry = false) => {
+    if (!text.trim() || !senderId || !chatId) return
 
-    await sendChatMessage({
-      chatId,
-      senderId,
-      text: inputText.trim(),
-    })
+    setSending(true)
+    setSendError(false)
+    try {
+      await sendChatMessage({
+        chatId,
+        senderId,
+        text: text.trim(),
+      })
 
-    setInputText("")
+      setInputText("")
+      if (isRetry) {
+        showToast("Message sent successfully!", "success")
+      }
+    } catch (error: any) {
+      setSendError(true)
+
+      if (error.code === 'permission-denied') {
+        showToast("You don't have permission to send messages in this chat", "error")
+        setTimeout(() => {
+          router.push("/customer/dashboard?error=chat-permission-denied")
+        }, 2000)
+      } else {
+        showToast("Failed to send message. Please try again.", "error")
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleSend = () => {
+    void sendMessage(inputText)
+  }
+
+  const handleRetry = () => {
+    void sendMessage(inputText, true)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -87,6 +182,12 @@ export default function ChatPage() {
         </button>
         <h1 className="font-semibold text-lg">Chat</h1>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 mx-4 mt-4 rounded">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
@@ -127,18 +228,32 @@ export default function ChatPage() {
         <div className="flex gap-2 max-w-4xl mx-auto">
           <input
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={(e) => {
+              setInputText(e.target.value)
+              if (sendError) setSendError(false)
+            }}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
             className="flex-1 px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            disabled={sending}
           />
-          <button
-            onClick={handleSend}
-            disabled={!inputText.trim()}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-          >
-            Send
-          </button>
+          {sendError ? (
+            <button
+              onClick={handleRetry}
+              disabled={sending || !inputText.trim()}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-2xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+            >
+              {sending ? "Retrying..." : "Retry"}
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={sending || !inputText.trim()}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+            >
+              {sending ? "Sending..." : "Send"}
+            </button>
+          )}
         </div>
       </div>
     </div>

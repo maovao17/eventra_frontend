@@ -3,14 +3,13 @@
 import {
   addDoc,
   collection,
-  doc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { apiFetch } from "@/app/lib/api"
 
 export type ChatMessage = {
   id: string
@@ -22,23 +21,18 @@ export type ChatMessage = {
 export const getChatIdForBooking = (bookingId: string) => `booking-${bookingId}`
 
 export const initializeChatThread = async ({
-  chatId,
   bookingId,
-  participantIds,
 }: {
-  chatId: string
   bookingId: string
-  participantIds: string[]
 }) => {
-  await setDoc(
-    doc(db, "chats", chatId),
-    {
-      bookingId,
-      participantIds,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  )
+  const response = await apiFetch("/chats/init", {
+    method: "POST",
+    body: JSON.stringify({ bookingId }),
+  }) as { chatId?: string }
+
+  return {
+    chatId: String(response?.chatId || getChatIdForBooking(bookingId)),
+  }
 }
 
 export const subscribeToChatMessages = (
@@ -76,14 +70,6 @@ export const sendChatMessage = async ({
 }) => {
   const trimmedText = text.trim()
   if (!trimmedText) return
-
-  await setDoc(
-    doc(db, "chats", chatId),
-    {
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  )
 
   await addDoc(collection(db, "chats", chatId, "messages"), {
     senderId,

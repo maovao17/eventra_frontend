@@ -170,8 +170,8 @@ export default function BusinessProfile() {
     const { uploadVendorFile } = await import("@/app/lib/vendorApi");
     const response = await uploadVendorFile(file);
 
-    if (response?.error) {
-      const message = String(response.message || "Profile image upload failed");
+    if ((response as any)?.error) {
+      const message = String((response as any).message || "Profile image upload failed");
       setError(message);
       showToast(message, "error");
       setUploadingProfile(false);
@@ -180,11 +180,11 @@ export default function BusinessProfile() {
 
     // Update profile with the full URL
     const updateResponse = await saveVendorProfile({
-      profileImage: response.fullUrl,
+      profileImage: (response as any).fullUrl,
     });
 
-    if (updateResponse?.error) {
-      const message = String(updateResponse.message || "Could not update profile image");
+    if ((updateResponse as any)?.error) {
+      const message = String((updateResponse as any).message || "Could not update profile image");
       setError(message);
       showToast(message, "error");
       setUploadingProfile(false);
@@ -221,8 +221,8 @@ export default function BusinessProfile() {
     setUploadingGallery(true);
 
     const response = await uploadVendorPortfolioMultiple(selectedFiles);
-    if (response?.error) {
-      const message = String(response.message || "Portfolio upload failed");
+    if ((response as any)?.error) {
+      const message = String((response as any).message || "Portfolio upload failed");
       setError(message);
       showToast(message, "error");
       setUploadingGallery(false);

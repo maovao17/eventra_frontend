@@ -110,7 +110,7 @@ const vendorRequests = useMemo<BookingCardItem[]>(() => {
 
       showToast(status === "accepted" ? "Request accepted" : "Request rejected", "success")
       if (status === "accepted") {
-        const bookingId = String(response?.booking?._id || "")
+        const bookingId = String((response as any)?.booking?._id || "")
         if (bookingId) {
           router.push(`/vendor/bookedClientDetails?bookingId=${bookingId}`)
         }

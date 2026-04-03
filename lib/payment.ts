@@ -41,8 +41,8 @@ export const createRazorpayOrder = async (bookingId: string) => {
   });
 
   return {
-    orderId: response.orderId,
-    amount: response.amount,
+    orderId: (response as any).orderId,
+    amount: (response as any).amount,
     currency: 'INR' as const,
   };
 };
@@ -111,7 +111,7 @@ export const openRazorpayCheckout = async ({
         onSuccess({
           ...response,
           orderId: order.orderId,
-          paymentId: verifyResponse.paymentId,
+          paymentId: (verifyResponse as any).paymentId,
         });
       } catch (error) {
         onError?.(

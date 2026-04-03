@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
-import { apiFetch } from "@/app/lib/api";
 import { useVendorData } from "@/context/VendorContext";
+import { getVendorPayouts } from "@/app/lib/vendorApi";
 
 export default function Earnings() {
   const { dashboard, loadingDashboard, refreshDashboard } = useVendorData();
@@ -17,8 +17,7 @@ export default function Earnings() {
     pendingPayouts: 0,
     paidOut: 0,
   });
-  const [payoutList, setPayoutList] = useState([]); 
-  const [processing, setProcessing] = useState('');
+  const [payoutList, setPayoutList] = useState<any[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -120,19 +119,6 @@ export default function Earnings() {
                 <p className="font-semibold">₹{Number(payout.payoutAmount).toLocaleString("en-IN")}</p>
                 <p className="text-sm text-gray-500">Booking: {payout.bookingId?.slice(-6)}</p>
               </div>
-              <button
-                onClick={() => {
-                  setProcessing(payout._id);
-                  simulatePayout(payout._id).then(() => {
-                    setProcessing('');
-                    showToast('Payout simulated successfully', 'success');
-                  }).catch(() => setProcessing(''));
-                }}
-                disabled={processing === payout._id}
-                className="theme-button px-4 py-1 text-sm"
-              >
-                {processing === payout._id ? 'Simulating...' : 'Simulate Payout'}
-              </button>
             </div>
           ))}
           {payoutList.filter((p: any) => p.status === "pending").length === 0 && (
@@ -143,7 +129,3 @@ export default function Earnings() {
     </div>
   );
 }
-function getVendorPayouts() {
-  throw new Error("Function not implemented.");
-}
-

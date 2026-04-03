@@ -34,13 +34,13 @@ export default function ServicesPage() {
       getVendorMe(),
     ]);
 
-    if (!serviceResponse?.error && Array.isArray(serviceResponse)) {
+    if (!(serviceResponse as any)?.error && Array.isArray(serviceResponse)) {
       setServices(serviceResponse);
     }
 
-    if (!vendorResponse?.error) {
-      const ids = Array.isArray(vendorResponse?.servicesOffered)
-        ? vendorResponse.servicesOffered.map((item: unknown) => String(item))
+    if (!(vendorResponse as any)?.error) {
+      const ids = Array.isArray((vendorResponse as any)?.servicesOffered)
+        ? (vendorResponse as any).servicesOffered.map((item: unknown) => String(item))
         : [];
       setSelectedServiceIds(ids);
     }
@@ -78,8 +78,8 @@ export default function ServicesPage() {
     setLoading(true);
 
     const vendor = await getVendorMe();
-    if (vendor?.error || !vendor?._id) {
-      setError(vendor?.message || "Vendor not found for current user.");
+    if ((vendor as any)?.error || !(vendor as any)?._id) {
+      setError((vendor as any)?.message || "Vendor not found for current user.");
       setLoading(false);
       return;
     }
@@ -91,12 +91,12 @@ export default function ServicesPage() {
         category,
         price: numericPrice,
         location: {},
-        vendor_Id: vendor._id,
+        vendor_Id: (vendor as any)._id,
       }),
     });
 
-    if (created?.error) {
-      setError(created.message || "Could not create service.");
+    if ((created as any)?.error) {
+      setError((created as any).message || "Could not create service.");
       setLoading(false);
       return;
     }
@@ -125,8 +125,8 @@ export default function ServicesPage() {
     setSuccess("");
 
     const response = await assignVendorServices(selectedServiceIds);
-    if (response?.error) {
-      setError(response.message || "Could not assign services.");
+    if ((response as any)?.error) {
+      setError((response as any).message || "Could not assign services.");
       setAssigning(false);
       return;
     }

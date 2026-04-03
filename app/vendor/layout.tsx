@@ -34,11 +34,11 @@ export default function VendorLayout({
       }
 
       const response = await getVendorMe()
-      if (response?.error) {
+      if ((response as any)?.error) {
         setCheckingProfile(false)
         return
       }
-      if (!response?.error && response?.profileCompleted === false && pathname !== "/vendor/businessProfile") {
+      if (!(response as any)?.error && (response as any)?.profileCompleted === false && pathname !== "/vendor/businessProfile") {
         router.replace("/vendor/businessProfile")
         return
       }

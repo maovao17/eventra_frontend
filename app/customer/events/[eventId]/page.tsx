@@ -8,9 +8,10 @@ import { useEffect, useMemo, useState } from "react"
 import { apiFetch } from "@/app/lib/api"
 import EventProgress from "@/components/event/EventProgress"
 import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
-import { useEvent, type Vendor } from "@/context/EventContext"
+import { useEvent } from "@/context/EventContext"
 import { useToast } from "@/context/ToastContext"
 import { getSuggestedServices, searchServiceCatalog } from "@/lib/serviceCatalog"
+import type { Vendor } from "@/app/types/eventra"
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -285,6 +286,9 @@ export default function EventDetailPage() {
     setUpdatingService(true)
 
     try {
+      if (!event.id) {
+        throw new Error("Event ID is missing")
+      }
       await addServiceToEvent(event.id, normalizedName)
       setShowServiceModal(false)
       setServiceQuery("")

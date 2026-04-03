@@ -33,8 +33,8 @@ export default function Ratings() {
       try {
         const reviewResponse = await getVendorReviews();
         const vendorResponse = await apiFetch(`/vendors/me`);
-        if (vendorResponse?._id) {
-          setVendorId(String(vendorResponse._id));
+        if ((vendorResponse as any)?._id) {
+          setVendorId(String((vendorResponse as any)._id));
         }
         setReviews(Array.isArray(reviewResponse) ? reviewResponse : []);
       } catch (fetchError) {
@@ -78,8 +78,8 @@ export default function Ratings() {
       }),
     });
 
-    if (response?.error) {
-      setError(response.message || "Reply failed.");
+    if ((response as any)?.error) {
+      setError((response as any).message || "Reply failed.");
       setSending("");
       return;
     }

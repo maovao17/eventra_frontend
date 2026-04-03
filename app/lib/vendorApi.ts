@@ -99,6 +99,10 @@ export const getVendorNotifications = async () => {
   return apiFetch(`/vendors/notifications`)
 }
 
+export const getVendorPayouts = async () => {
+  return apiFetch(`/payouts/vendor`)
+}
+
 export const markVendorNotificationRead = async (notificationId: string) => {
   return apiFetch(`/vendors/notifications/${notificationId}/read`, {
     method: "PATCH",
@@ -108,13 +112,3 @@ export const markVendorNotificationRead = async (notificationId: string) => {
 export const getAllServices = async () => {
   return apiFetch("/services?limit=1000&offset=0")
 }
-
-export const getVendorPayouts = async () => {
-  return apiFetch("/payouts");
-};
-
-export const simulatePayout = async (payoutId: string) => {
-  return apiFetch(`/payouts/${payoutId}/simulate`, {
-    method: "POST",
-  });
-};

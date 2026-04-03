@@ -44,6 +44,7 @@ const googleProvider = new GoogleAuthProvider()
 
 const AUTH_TOKEN_STORAGE_KEY = "token"
 const PROFILE_STORAGE_KEY = "eventra_user"
+const GOOGLE_SIGNUP_ROLE_STORAGE_KEY = "eventra_google_signup_role"
 
 const getDigits = (value: string) => value.replace(/\D/g, "")
 
@@ -215,7 +216,7 @@ export const ensureBackendProfile = async (
       email: payload.email,
       userId: user.uid,
       authProvider: payload.authProvider,
-      role: payload.role ?? "customer",
+      role: payload.role,
       businessName: payload.businessName,
     }),
   })
@@ -228,18 +229,41 @@ export const ensureBackendProfile = async (
   return profile
 }
 
-export const signInWithGoogle = async () => {
-  await enableAuthPersistence()
+const storePendingGoogleSignupRole = (role: UserRole) => {
+  if (typeof window === "undefined") return
+  window.sessionStorage.setItem(GOOGLE_SIGNUP_ROLE_STORAGE_KEY, role)
+}
 
-  const result = await signInWithPopup(auth, googleProvider)
-  const user = result.user
+const getPendingGoogleSignupRole = () => {
+  if (typeof window === "undefined") return null
+  const value = window.sessionStorage.getItem(GOOGLE_SIGNUP_ROLE_STORAGE_KEY)
+  return value === "customer" || value === "vendor" ? value : null
+}
 
-  return ensureBackendProfile(user, {
-    name: user.displayName || "Eventra User",
-    email: user.email || undefined,
-    authProvider: "google",
-    role: "customer",
-  })
+const clearPendingGoogleSignupRole = () => {
+  if (typeof window === "undefined") return
+  window.sessionStorage.removeItem(GOOGLE_SIGNUP_ROLE_STORAGE_KEY)
+}
+
+export const signInWithGoogle = async (role: UserRole = "customer") => {
+  storePendingGoogleSignupRole(role)
+
+  try {
+    await enableAuthPersistence()
+
+    const result = await signInWithPopup(auth, googleProvider)
+    const user = result.user
+    const resolvedRole = getPendingGoogleSignupRole() ?? role
+
+    return ensureBackendProfile(user, {
+      name: user.displayName || "Eventra User",
+      email: user.email || undefined,
+      authProvider: "google",
+      role: resolvedRole,
+    })
+  } finally {
+    clearPendingGoogleSignupRole()
+  }
 }
 
 export const subscribeToAuthState = (

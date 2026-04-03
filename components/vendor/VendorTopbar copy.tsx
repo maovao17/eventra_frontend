@@ -20,8 +20,8 @@ export default function VendorTopbar() {
     const loadVendor = async () => {
       if (!profile?.uid) return;
       const response = await apiFetch(`/vendors?userId=${profile.uid}`);
-      if (!response?.error) {
-        setVendor(response);
+      if (!(response as any)?.error) {
+        setVendor(response as VendorTopbarProfile);
       }
     };
 

@@ -92,8 +92,8 @@ export async function apiFetch(
 
     if (!res.ok) {
       const errorMessage =
-        parsed?.message ||
-        parsed?.error ||
+        (parsed as any)?.message ||
+        (parsed as any)?.error ||
         `HTTP ${res.status}`;
 
       throw new ApiFetchError({

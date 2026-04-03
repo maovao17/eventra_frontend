@@ -53,17 +53,17 @@ export default function AdminBookings() {
 
       <div className="space-y-4">
         {bookings.map((booking) => (
-          <Card key={booking._id}>
+          <Card key={booking._id || booking.id}>
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="font-semibold">{booking.eventType || 'Event'}</h3>
+                  <h3 className="font-semibold">Booking #{booking.id?.slice(-6) || 'Unknown'}</h3>
                   <p className="theme-muted text-sm">{booking.status}</p>
                 </div>
                 <span className="text-2xl font-bold text-[var(--primary)]">₹{booking.amount}</span>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm theme-muted">
-                <div><Calendar className="inline mr-1 h-4 w-4" /> {new Date(booking.createdAt).toLocaleDateString()}</div>
+                <div><Calendar className="inline mr-1 h-4 w-4" /> {booking.date || 'Date pending'}</div>
                 <div><DollarSign className="inline mr-1 h-4 w-4" /> Payment: {booking.paymentStatus || 'pending'}</div>
               </div>
             </div>

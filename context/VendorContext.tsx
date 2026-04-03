@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/app/lib/api";
@@ -10,6 +10,8 @@ import {
   updateVendorBookingStatus,
   getVendorDashboard,
 } from "@/app/lib/vendorApi";
+import { getSocket, onSocketConnect, onSocketDisconnect } from "@/app/lib/socket";
+import type { Booking, Notification } from "@/app/types/eventra";
 
 type VendorBookingStatus = "pending" | "accepted" | "rejected" | "completed";
 
@@ -36,6 +38,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   // 🔄 Fetch Profile
   const refreshVendorProfile = useCallback(async () => {
@@ -48,8 +51,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await getVendorMe();
       setVendorProfile(res || null);
-    } catch (err) {
-      console.error("Profile fetch error:", err);
+    } catch {
       setVendorProfile(null);
       showToast("We couldn't load your business profile.", "error");
     } finally {
@@ -68,8 +70,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     try {
       const res = await getVendorDashboard();
       setDashboard(res || null);
-    } catch (err) {
-      console.error("Dashboard fetch error:", err);
+    } catch {
       setDashboard(null);
       showToast("We couldn't load your dashboard stats.", "error");
     } finally {
@@ -87,8 +88,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       await refreshVendorProfile();
       await refreshDashboard();
       return response;
-    } catch (err) {
-      console.error("Profile update failed:", err);
+    } catch {
       showToast("We couldn't save your profile changes.", "error");
       return null;
     } finally {
@@ -105,27 +105,33 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       const apiSuccess = await updateVendorBookingStatus(bookingId, status, profile.uid);
       if (status === "accepted" && apiSuccess) {
         const booking = await apiFetch(`/bookings/${bookingId}`);
-        if (booking?.customerId) {
-          const { getChatIdForBooking, initializeChatThread } = await import("@/lib/chat");
-          const chatId = getChatIdForBooking(bookingId);
+        if ((booking as any)?.customerId) {
+          const { initializeChatThread } = await import("@/lib/chat");
           await initializeChatThread({
-            chatId,
             bookingId,
-            participantIds: [profile.uid, booking.customerId],
           });
         }
       }
       await refreshDashboard();
       await refreshVendorProfile();
       return apiSuccess;
-    } catch (err) {
-      console.error("Booking update failed:", err);
+    } catch {
       showToast("We couldn't update that booking status.", "error");
       return false;
     } finally {
       setIsMutating(false);
     }
   }, [profile?.uid, refreshDashboard, refreshVendorProfile, showToast]);
+
+  const profileRef = useRef(profile);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+
+  const refreshRef = useRef({ refreshDashboard, refreshVendorProfile });
+  useEffect(() => {
+    refreshRef.current = { refreshDashboard, refreshVendorProfile };
+  }, [refreshDashboard, refreshVendorProfile]);
 
   // 🚀 Initial Load
   useEffect(() => {
@@ -135,17 +141,75 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [profile?.role, refreshVendorProfile, refreshDashboard]);
 
-  // 🔄 Real-time polling for small updates (booking / requests statuses)
   useEffect(() => {
-    if (profile?.role !== "vendor") return;
+    if (profile?.role !== "vendor") {
+      setIsSocketConnected(false);
+      return;
+    }
 
-    const interval = setInterval(async () => {
-      await refreshDashboard();
-      await refreshVendorProfile();
+    const socket = getSocket();
+    setIsSocketConnected(socket.connected);
+
+    const refreshVendorData = async () => {
+      await Promise.all([
+        refreshRef.current.refreshDashboard(),
+        refreshRef.current.refreshVendorProfile(),
+      ]);
+    };
+
+    const handleConnect = () => {
+      setIsSocketConnected(true);
+      void refreshVendorData();
+    };
+
+    const handleDisconnect = () => {
+      setIsSocketConnected(false);
+    };
+
+    const handleBookingUpdate = (bookingUpdate: Partial<Booking>) => {
+      const currentProfile = profileRef.current;
+      if (
+        currentProfile?.role !== "vendor" ||
+        bookingUpdate.vendorId !== currentProfile.uid
+      ) {
+        return;
+      }
+
+      void refreshVendorData();
+    };
+
+    const handleNotification = (notification: Notification) => {
+      if (!notification) return;
+      if (profileRef.current?.role !== "vendor") return;
+      void refreshVendorData();
+    };
+
+    const removeConnectListener = onSocketConnect(handleConnect);
+    const removeDisconnectListener = onSocketDisconnect(handleDisconnect);
+
+    socket.on("bookingStatusUpdated", handleBookingUpdate);
+    socket.on("notificationCreated", handleNotification);
+
+    return () => {
+      removeConnectListener();
+      removeDisconnectListener();
+      socket.off("bookingStatusUpdated", handleBookingUpdate);
+      socket.off("notificationCreated", handleNotification);
+    };
+  }, [profile?.role]);
+
+  useEffect(() => {
+    if (profile?.role !== "vendor" || isSocketConnected) return;
+
+    const interval = setInterval(() => {
+      void Promise.all([
+        refreshDashboard(),
+        refreshVendorProfile(),
+      ]);
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [profile?.role, refreshDashboard, refreshVendorProfile]);
+  }, [isSocketConnected, profile?.role, refreshDashboard, refreshVendorProfile]);
 
   return (
     <VendorContext.Provider

@@ -36,17 +36,16 @@ function PaymentsPageContent() {
       }
 
       try {
-        const requestData = await apiFetch(`/requests/${requestId}`)
+        const requestData = await apiFetch(`/requests/${requestId}`) as { status?: string }
         setRequest(requestData)
 
-        const bookingData = await apiFetch(`/bookings?requestId=${requestId}`)
+        const bookingData = await apiFetch(`/bookings?requestId=${requestId}`) as Booking[]
         if (Array.isArray(bookingData) && bookingData.length > 0) {
           setBooking(bookingData[0])
         } else {
           setBooking(null)
         }
-      } catch (err) {
-        console.error('Payment data fetch failed', err)
+      } catch {
         setError('Could not load payment details')
       } finally {
         setLoading(false)

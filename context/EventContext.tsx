@@ -42,7 +42,8 @@ export type Service = {
 export type VendorType = Vendor
 
 export type EventItem = {
-  id: string
+  id?: string
+  _id?: string
   name: string
   type: string
   date: string
@@ -231,7 +232,7 @@ const normalizeRequest = (
   status: String(request.status ?? "pending") as RequestRecord["status"],
   createdAt: String(request.createdAt ?? ""),
   clientName: String(
-    request.customer?.name ??
+    (request.customer as any)?.name ??
       eventNameMap.get(String(request.eventId ?? getEntityId(request.event) ?? "")) ??
       "Event request",
   ),
@@ -437,40 +438,13 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       offAll()
-      socket.disconnect()
+      // Don't disconnect socket as it may be used by other components
     }
   }, [])
 
   useEffect(() => {
     void refreshData()
-  }, [profile?.uid, profile?.role, refreshData])
-
-  useEffect(() => {
-    if (!profile?.uid) return;
-
-    const socket = getSocket();
-
-    onBookingStatusUpdated((bookingUpdate) => {
-      if (
-        bookingUpdate.customerId === profile.uid ||
-        bookingUpdate.vendorId === profile.uid
-      ) {
-        showToast(`Booking status changed: ${bookingUpdate.status}`, 'success');
-      }
-      void refreshData();
-    });
-
-    onNotificationCreated((notification: Notification) => {
-      if (!notification) return;
-      showToast(`Notification: ${notification.message}`, 'info');
-      void refreshData();
-    });
-
-    return () => {
-      offAll();
-      socket.disconnect();
-    };
-  }, [profile?.uid, refreshData, showToast]);
+  }, [profile?.uid, profile?.role, refreshData]);
 
   const currentEvent =
     events.find((event) => event.id === currentEventId) ?? events[0] ?? null
@@ -492,11 +466,11 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         services: event.services ?? [],
       }),
     })
-    if (!response?._id && !response?.id) {
+    if (!(response as any)?._id && !(response as any)?.id) {
       throw new Error("Failed to create event")
     }
 
-    const normalizedEvent = normalizeEvent(response, [], [])
+    const normalizedEvent = normalizeEvent(response as Record<string, unknown>, [], [])
     const createdId = normalizedEvent.id
     await refreshData()
     setCurrentEventId(createdId)
@@ -542,7 +516,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         eventId,
       }),
     })
-    if (!response?._id && !response?.id) {
+    if (!(response as any)?._id && !(response as any)?.id) {
       throw new Error("Failed to create request")
     }
 
@@ -554,7 +528,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       vendorId,
       customerId: profile.uid,
       status: "pending" as const,
-      createdAt: String(response.createdAt ?? new Date().toISOString()),
+      createdAt: String((response as any).createdAt ?? new Date().toISOString()),
       clientName: events.find((item) => item.id === eventId)?.name ?? "Event request",
     }
   }

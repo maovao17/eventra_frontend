@@ -7,7 +7,7 @@ import {
   useState,
   ReactNode,
 } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onIdTokenChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -16,6 +16,7 @@ import {
   storeUserProfile,
   syncAuthToken,
 } from "@/lib/auth";
+import { disconnectSocket, syncSocketAuth } from "@/app/lib/socket";
 
 type UserRole = "customer" | "vendor" | "admin";
 
@@ -46,8 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserProfile = async (uid: string) => {
     try {
       return await fetchBackendProfile(uid);
-    } catch (err) {
-      console.error("Fetch user failed:", err);
+    } catch {
       showToast("We couldn't load your account details. Please retry.", "error");
       return null;
     }
@@ -75,11 +75,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // 🔥 Firebase Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        await syncAuthToken(firebaseUser);
+        const token = await syncAuthToken(firebaseUser);
+        syncSocketAuth(token);
         const userProfile = await fetchUserProfile(firebaseUser.uid);
         setProfile(userProfile);
         if (userProfile) {
@@ -89,6 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } else {
         await syncAuthToken(null);
+        disconnectSocket();
         setProfile(null);
         clearStoredUserProfile();
       }
