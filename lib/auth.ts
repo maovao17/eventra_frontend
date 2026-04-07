@@ -40,6 +40,12 @@ type BackendUserPayload = {
   businessName?: string
 }
 
+type GoogleSignupOptions = {
+  role?: UserRole
+  name?: string
+  businessName?: string
+}
+
 const googleProvider = new GoogleAuthProvider()
 
 const AUTH_TOKEN_STORAGE_KEY = "token"
@@ -180,9 +186,30 @@ const mapBackendProfile = (data: any, uid: string): AppUserProfile => ({
   businessName: data.businessName ? String(data.businessName) : undefined,
 })
 
-export const fetchBackendProfile = async (uid: string) => {
+const getRequiredIdToken = async (user: User) => {
+  const token = await user.getIdToken()
+
+  if (!token) {
+    throw new Error("Could not verify your Google sign-in. Please try again.")
+  }
+
+  storeAuthToken(token)
+  return token
+}
+
+const withAuthorizationHeader = (
+  token: string,
+  headers?: HeadersInit
+): Record<string, string> => ({
+  ...((headers as Record<string, string> | undefined) ?? {}),
+  Authorization: `Bearer ${token}`,
+})
+
+export const fetchBackendProfile = async (uid: string, token?: string) => {
   try {
-    const data = await apiFetch("/users/me")
+    const data = await apiFetch("/users/me", {
+      headers: token ? withAuthorizationHeader(token) : undefined,
+    })
     return data ? mapBackendProfile(data, uid) : null
   } catch (error) {
     if (error instanceof ApiFetchError && error.status === 404) {
@@ -197,12 +224,19 @@ export const ensureBackendProfile = async (
   user: User,
   payload?: BackendUserPayload
 ) => {
-  await syncAuthToken(user)
+  const token = await getRequiredIdToken(user)
+  let profile: AppUserProfile | null
 
-  let profile = await fetchBackendProfile(user.uid)
-  if (profile) {
-    return profile
+  try {
+    profile = await fetchBackendProfile(user.uid, token)
+  } catch (error) {
+    if (error instanceof ApiFetchError && error.status === 401) {
+      throw new Error("Your Google session could not be verified. Please sign in again.")
+    }
+    throw error
   }
+
+  if (profile) return profile
 
   if (!payload) {
     throw new Error("Could not load your Eventra account.")
@@ -210,6 +244,7 @@ export const ensureBackendProfile = async (
 
   await apiFetch("/users", {
     method: "POST",
+    headers: withAuthorizationHeader(token),
     body: JSON.stringify({
       name: payload.name,
       phoneNumber: payload.phoneNumber,
@@ -221,7 +256,7 @@ export const ensureBackendProfile = async (
     }),
   })
 
-  profile = await fetchBackendProfile(user.uid)
+  profile = await fetchBackendProfile(user.uid, token)
   if (!profile) {
     throw new Error("Could not load your Eventra account.")
   }
@@ -245,7 +280,11 @@ const clearPendingGoogleSignupRole = () => {
   window.sessionStorage.removeItem(GOOGLE_SIGNUP_ROLE_STORAGE_KEY)
 }
 
-export const signInWithGoogle = async (role: UserRole = "customer") => {
+export const signInWithGoogle = async ({
+  role = "customer",
+  name,
+  businessName,
+}: GoogleSignupOptions = {}) => {
   storePendingGoogleSignupRole(role)
 
   try {
@@ -256,10 +295,11 @@ export const signInWithGoogle = async (role: UserRole = "customer") => {
     const resolvedRole = getPendingGoogleSignupRole() ?? role
 
     return ensureBackendProfile(user, {
-      name: user.displayName || "Eventra User",
+      name: user.displayName || name || "Eventra User",
       email: user.email || undefined,
       authProvider: "google",
       role: resolvedRole,
+      businessName: resolvedRole === "vendor" ? businessName : undefined,
     })
   } finally {
     clearPendingGoogleSignupRole()

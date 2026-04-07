@@ -196,7 +196,11 @@ export default function SignupPage() {
       setApiError("")
       setStatusMessage("Signing in with Google...")
 
-      const googleProfile = await signInWithGoogle(role)
+      const googleProfile = await signInWithGoogle({
+        role,
+        name,
+        businessName: role === "vendor" ? businessName : undefined,
+      })
       setStatusMessage("Fetching your account...")
       const profile = await refreshProfile()
       const resolvedProfile = profile ?? googleProfile

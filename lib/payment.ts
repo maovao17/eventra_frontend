@@ -32,7 +32,7 @@ const RAZORPAY_SCRIPT_ID = 'eventra-razorpay-sdk';
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 export const PLATFORM_FEE = 2500;
 export const RAZORPAY_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() || 'rzp_test_1DP5mmOlF5G5ag';
+  process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() || '';
 
 export const createRazorpayOrder = async (bookingId: string) => {
   const response = await apiFetch('/payments/create-order', {
@@ -88,6 +88,10 @@ export const openRazorpayCheckout = async ({
     throw new Error('Unable to load Razorpay right now.');
   }
 
+  if (!RAZORPAY_PUBLIC_KEY) {
+    throw new Error('Razorpay is not configured for this environment.');
+  }
+
   const order = await createRazorpayOrder(bookingId);
   const razorpay = new window.Razorpay({
     key: RAZORPAY_PUBLIC_KEY,
@@ -107,6 +111,10 @@ export const openRazorpayCheckout = async ({
             amount,
           }),
         });
+
+        if (!(verifyResponse as { success?: boolean })?.success) {
+          throw new Error('Payment verification failed.');
+        }
 
         onSuccess({
           ...response,

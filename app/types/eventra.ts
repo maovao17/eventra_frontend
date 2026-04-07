@@ -16,6 +16,7 @@ export interface Booking {
   requestId: string;
   eventId: string;
   vendorId: string;
+  vendorUserId?: string;
   customerId: string;
   status: BookingStatus;
   amount: number;

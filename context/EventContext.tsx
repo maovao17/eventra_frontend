@@ -67,6 +67,10 @@ export type RequestRecord = Request
 
 export type BookingRecord = Booking
 
+type BookingRealtimeUpdate = Partial<BookingRecord> & {
+  vendorUserId?: string
+}
+
 type CreateEventInput = {
   name: string
   date: string
@@ -213,6 +217,7 @@ const normalizeBooking = (booking: Record<string, unknown>) => ({
   requestId: String(booking.requestId ?? ""),
   eventId: String(booking.eventId ?? ""),
   vendorId: String(booking.vendorId ?? ""),
+  vendorUserId: booking.vendorUserId ? String(booking.vendorUserId) : undefined,
   customerId: String(booking.customerId ?? ""),
   status: String(booking.status ?? "pending") as BookingRecord["status"],
   amount: Number(booking.amount ?? booking.price ?? 0),
@@ -413,11 +418,11 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const socket = getSocket()
 
-    const handleBookingUpdate = (bookingUpdate: Partial<Booking>) => {
+    const handleBookingUpdate = (bookingUpdate: BookingRealtimeUpdate) => {
       const currentProfile = profileRef.current
       if (
         bookingUpdate.customerId === currentProfile?.uid ||
-        bookingUpdate.vendorId === currentProfile?.uid
+        bookingUpdate.vendorUserId === currentProfile?.uid
       ) {
         callbackRef.current.showToast(
           `Booking status changed: ${bookingUpdate.status}`,

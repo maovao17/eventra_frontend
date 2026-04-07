@@ -14,6 +14,7 @@ import { getSocket, onSocketConnect, onSocketDisconnect } from "@/app/lib/socket
 import type { Booking, Notification } from "@/app/types/eventra";
 
 type VendorBookingStatus = "pending" | "accepted" | "rejected" | "completed";
+type BookingRealtimeUpdate = Partial<Booking> & { vendorUserId?: string };
 
 type VendorContextType = {
   vendorProfile: any;
@@ -102,7 +103,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
 
     setIsMutating(true);
     try {
-      const apiSuccess = await updateVendorBookingStatus(bookingId, status, profile.uid);
+      const apiSuccess = await updateVendorBookingStatus(bookingId, status);
       if (status === "accepted" && apiSuccess) {
         const booking = await apiFetch(`/bookings/${bookingId}`);
         if ((booking as any)?.customerId) {
@@ -166,11 +167,11 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       setIsSocketConnected(false);
     };
 
-    const handleBookingUpdate = (bookingUpdate: Partial<Booking>) => {
+    const handleBookingUpdate = (bookingUpdate: BookingRealtimeUpdate) => {
       const currentProfile = profileRef.current;
       if (
         currentProfile?.role !== "vendor" ||
-        bookingUpdate.vendorId !== currentProfile.uid
+        bookingUpdate.vendorUserId !== currentProfile.uid
       ) {
         return;
       }

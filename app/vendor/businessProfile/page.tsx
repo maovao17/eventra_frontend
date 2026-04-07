@@ -6,6 +6,7 @@ import { uploadVendorPortfolioMultiple } from "@/app/lib/vendorApi";
 import { useToast } from "@/context/ToastContext";
 import { useVendorData } from "@/context/VendorContext";
 import { API_URL } from "@/app/lib/api";
+import VerifiedVendor from "@/components/vendor/VerifiedVendor";
 
 type VendorProfileData = {
   name?: string;
@@ -24,6 +25,8 @@ type VendorProfileData = {
     description?: string;
     servicesIncluded?: string[];
   }>;
+  isVerified?: boolean;
+  verified?: boolean;
 };
 
 type PackageInput = {
@@ -314,6 +317,10 @@ export default function BusinessProfile() {
 
   return (
     <div className="space-y-6">
+      {typedVendorProfile?.isVerified || typedVendorProfile?.verified ? (
+        <VerifiedVendor />
+      ) : null}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold">Business Profile</h1>

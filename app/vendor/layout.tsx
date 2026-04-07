@@ -33,7 +33,14 @@ export default function VendorLayout({
         return
       }
 
-      const response = await getVendorMe()
+      let response: unknown = null
+      try {
+        response = await getVendorMe()
+      } catch {
+        setCheckingProfile(false)
+        return
+      }
+
       if ((response as any)?.error) {
         setCheckingProfile(false)
         return

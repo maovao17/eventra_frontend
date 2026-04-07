@@ -147,7 +147,7 @@ export default function LoginPage() {
       setErrors({})
       setStatusMessage("Signing in with Google...")
 
-      const googleProfile = await signInWithGoogle("customer")
+      const googleProfile = await signInWithGoogle({ role: "customer" })
       setStatusMessage("Fetching your account...")
       const profile = await refreshProfile()
       const resolvedProfile = profile ?? googleProfile

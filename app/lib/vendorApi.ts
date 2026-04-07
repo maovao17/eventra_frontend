@@ -69,19 +69,10 @@ export const getVendorBookings = async (vendorId?: string) => {
 export const updateVendorBookingStatus = async (
   bookingId: string,
   status: VendorBookingStatus,
-  actorUserId?: string,
 ): Promise<boolean> => {
-  const endpoint = status === "accepted" 
-    ? `/bookings/${bookingId}/accept`
-    : `/bookings/${bookingId}/reject`
-    
-  await apiFetch(endpoint, {
+  await apiFetch(`/bookings/${bookingId}/status`, {
     method: "PATCH",
-    body: JSON.stringify(
-      actorUserId
-        ? { actorUserId }
-        : {}
-    ),
+    body: JSON.stringify({ status }),
   })
 
   return true
