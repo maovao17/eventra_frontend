@@ -23,31 +23,24 @@ export class ApiFetchError extends Error {
   }
 }
 
-const resolveAuthToken = async (endpoint?: string) => {
+const resolveAuthToken = async (endpoint: string) => {
   if (typeof window === "undefined") return null;
 
-  const theAuth = getAuth();
-  const currentUser = theAuth.currentUser;
+  const authInstance = getAuth();
+  const user = authInstance.currentUser;
 
-  if (!currentUser) {
-    console.warn(`⚠️ No Firebase user found for API call to ${endpoint || 'unknown'}`);
-    const storedToken = localStorage.getItem("token");
-    return storedToken;
+  if (!user) {
+    console.warn(`⚠️ No Firebase user for API call`);
+    return null;
   }
 
   try {
-    const freshToken = await currentUser.getIdToken(true); // force refresh
-
-    const storedToken = localStorage.getItem("token");
-    if (freshToken !== storedToken) {
-      localStorage.setItem("token", freshToken);
-    }
-
-    return freshToken;
-  } catch (error) {
-    console.error(`Token refresh failed for ${endpoint || 'unknown'}:`, error);
-    const storedToken = localStorage.getItem("token");
-    return storedToken;
+    const token = await user.getIdToken(true);
+    console.log(`🔑 API Token ready for call (length: ${token.length})`);
+    return token;
+  } catch (err) {
+    console.error("Token error:", err);
+    return null;
   }
 };
 

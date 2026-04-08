@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
 import { useToast } from "@/context/ToastContext";
 import Card from "@/components/ui/Card";
@@ -10,6 +11,7 @@ import type { Booking } from "@/app/types/eventra";
 
 export default function AdminBookings() {
   const { showToast } = useToast();
+  const { profile, loading: authLoading } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,16 +33,19 @@ export default function AdminBookings() {
   };
 
   useEffect(() => {
+    if (authLoading || !profile) return;
     void loadBookings();
-  }, []);
+  }, [authLoading, profile]); 
 
-  if (loading) return <PageCardSkeleton count={4} className="md:grid-cols-1" />;
+  if (loading || authLoading) return <PageCardSkeleton count={4} className="md:grid-cols-1" />;
   if (error) {
     return (
       <ErrorState
         title="We couldn't load bookings."
         description="Retry to fetch platform booking activity."
-        onRetry={() => void loadBookings()}
+        onRetry={() => {
+          if (!authLoading && profile) void loadBookings();
+        }}
         retryLabel="Retry"
       />
     );

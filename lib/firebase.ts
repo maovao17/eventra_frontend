@@ -17,4 +17,5 @@ export const firebaseApp = getApps().length
   : initializeApp(firebaseConfig)
 
 export const auth = getAuth(firebaseApp)
+export { getAuth } from "firebase/auth"
 export const db = getFirestore(firebaseApp)
