@@ -1,8 +1,7 @@
 import { auth } from "@/lib/firebase";
 
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:3002";
-
+(process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:3002") + "/api";
 type ApiError = {
   message: string
   status?: number
