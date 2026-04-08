@@ -1,6 +1,8 @@
 import { auth } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
 
+// force rebuild 
+
 export const API_URL =
 (process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:3002") + "/api";
 type ApiError = {
