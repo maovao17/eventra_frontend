@@ -1,4 +1,4 @@
-import { auth } from "@/lib/firebase";
+import { auth, getAuth } from "@/lib/firebase";
 
 export const API_URL =
 (process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:3002") + "/api";
@@ -20,34 +20,41 @@ export class ApiFetchError extends Error {
   }
 }
 
-const resolveAuthToken = async () => {
+const resolveAuthToken = async (endpoint?: string) => {
   if (typeof window === "undefined") return null;
 
-  const storedToken = localStorage.getItem("token");
-  const currentUser = auth.currentUser;
+  const theAuth = getAuth();
+  const currentUser = theAuth.currentUser;
 
   if (!currentUser) {
+    console.warn(`⚠️ No Firebase user found for API call to ${endpoint || 'unknown'}`);
+    const storedToken = localStorage.getItem("token");
     return storedToken;
   }
 
   try {
-    const freshToken = await currentUser.getIdToken();
+    const freshToken = await currentUser.getIdToken(true); // force refresh
 
+    const storedToken = localStorage.getItem("token");
     if (freshToken !== storedToken) {
       localStorage.setItem("token", freshToken);
     }
 
     return freshToken;
-  } catch {
+  } catch (error) {
+    console.error(`Token refresh failed for ${endpoint || 'unknown'}:`, error);
+    const storedToken = localStorage.getItem("token");
     return storedToken;
   }
 };
+
 
 export async function apiFetch(
   endpoint: string,
   options?: RequestInit
 ) {
-  const token = await resolveAuthToken();
+  const token = await resolveAuthToken(endpoint);
+
 
   try {
     const isFormData = typeof FormData !== "undefined" && options?.body instanceof FormData;

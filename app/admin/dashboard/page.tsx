@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
 import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
 import { useToast } from "@/context/ToastContext";
+import { useAuth } from "@/context/AuthContext";
 import Card from "@/components/ui/Card";
 import { Users, UserCheck, Calendar, CreditCard } from "lucide-react";
 
+
 export default function AdminDashboard() {
   const { showToast } = useToast();
+  const { profile, loading: authLoading } = useAuth();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalVendors: 0,
@@ -17,6 +20,7 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
 
   const loadStats = async () => {
     setLoading(true);
@@ -46,19 +50,29 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
+    if (authLoading || !profile) {
+      return;
+    }
     void loadStats();
-  }, []);
+  }, [authLoading, profile]);
 
-  if (loading) {
+
+  if (loading || authLoading) {
     return <PageCardSkeleton count={4} className="md:grid-cols-2 xl:grid-cols-4" />;
   }
+
 
   if (error) {
     return (
       <ErrorState
         title="We couldn't load the admin dashboard."
         description="Retry to fetch the latest platform totals."
-        onRetry={() => void loadStats()}
+        onRetry={() => {
+          if (!authLoading && profile) {
+            void loadStats();
+          }
+        }}
+
         retryLabel="Retry"
       />
     );
