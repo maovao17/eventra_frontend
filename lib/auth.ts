@@ -10,6 +10,7 @@ import {
   setPersistence,
   signInWithPopup,
   signInWithPhoneNumber,
+  onIdTokenChanged,
   type Auth,
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
@@ -289,9 +290,7 @@ export const signInWithGoogle = async ({
 
 export const subscribeToAuthState = (
   callback: (user: User | null) => void
-) => onAuthStateChanged(auth, callback)
-
-
+) => onIdTokenChanged(auth, callback)
 
 export const syncAuthToken = async (user: User | null) => {
   if (!user) {
