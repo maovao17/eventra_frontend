@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import React, { useEffect, useState, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import VendorSidebar from "@/components/vendor/VendorSidebar copy"
 import VendorTopbar from "@/components/vendor/VendorTopbar copy"
@@ -9,7 +9,7 @@ import { getVendorMe } from "@/app/lib/vendorApi"
 import { ProtectedLayoutLoading } from "@/components/ui/PageState"
 import { getDashboardPathForRole } from "@/lib/routes"
 
-export default function VendorLayout({
+export default React.memo(function VendorLayout({
   children,
 }: {
   children: React.ReactNode
@@ -17,59 +17,43 @@ export default function VendorLayout({
   const router = useRouter()
   const pathname = usePathname()
   const { profile, loading } = useAuth()
-  const [checkingProfile, setCheckingProfile] = useState(true)
   const hasValidated = useRef(false)
 
   useEffect(() => {
-    if (loading || hasValidated.current) return;
+    if (loading) return;
+    if (hasValidated.current) return;
 
-    hasValidated.current = true; // 🔥 lock immediately
+    hasValidated.current = true; // 🔥 LOCK IMMEDIATELY
 
     const validateVendorAccess = async () => {
-      if (!profile) {
-        setCheckingProfile(false);
-        return;
-      }
+      if (!profile) return;
 
       if (profile.role !== "vendor") {
         router.replace(getDashboardPathForRole(profile.role));
         return;
-      }
-
+      } 
       try {
-        const response = await getVendorMe();
-
-        if ((response as any)?.error) {
-          setCheckingProfile(false);
-          return;
-        }
-
-        if (
-          (response as any)?.profileCompleted === false &&
-          pathname !== "/vendor/businessProfile"
-        ) {
+        const response = await getVendorMe() as any;
+        if (response?.profileCompleted === false) {
           router.replace("/vendor/businessProfile");
-          return;
         }
-
-      } catch {
-        setCheckingProfile(false);
-        return;
+      } catch (err) {
+        console.warn("Vendor validation failed", err);
       }
-
-      setCheckingProfile(false);
     };
 
     void validateVendorAccess();
-  }, [loading]);
+  }, [loading]); // ✅ ONLY loading
 
-  if (loading || checkingProfile) {
-    return (
-      <ProtectedLayoutLoading
-        title="Preparing your vendor workspace"
-        subtitle="We're checking access, profile completion, and your latest bookings."
-      />
-    )
+  if (loading) {
+    return <ProtectedLayoutLoading
+      title="Preparing your vendor workspace"
+      subtitle="We're checking access, profile completion, and your latest bookings."
+    />;
+  }
+
+  if (!profile) {
+    return null; // prevents flicker render
   }
 
   return (
@@ -86,3 +70,4 @@ export default function VendorLayout({
     </div>
   )
 }
+)

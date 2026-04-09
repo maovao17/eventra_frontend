@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { CalendarDays, LayoutGrid, LogOut, User, Users } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -11,7 +11,7 @@ import { ProtectedLayoutLoading } from "@/components/ui/PageState";
 import { useAuth } from "@/context/AuthContext";
 import { getDashboardPathForRole } from "@/lib/routes";
 
-export default function AdminLayout({
+export default React.memo(function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -42,15 +42,19 @@ export default function AdminLayout({
     if (profile.role !== "admin") {
       router.replace(getDashboardPathForRole(profile.role));
     }
-  }, [loading, router]);
+  }, [loading]);
 
-  if (loading || !profile || profile.role !== "admin") {
+  if (loading) {
     return (
       <ProtectedLayoutLoading
         title="Preparing the admin workspace"
         subtitle="We're checking your permissions and loading platform controls."
       />
     );
+  }
+
+  if (!profile) {
+    return null;
   }
 
   return (
@@ -207,3 +211,4 @@ export default function AdminLayout({
     </div>
   );
 }
+)

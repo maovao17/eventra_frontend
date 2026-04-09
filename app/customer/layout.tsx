@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect, useRef } from "react"
+import React, { useEffect, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import type { ReactNode } from "react"
@@ -20,7 +20,7 @@ const links = [
   { href: "/customer/budgetTracker", label: "Budget" },
 ]
 
-export default function CustomerLayout({ children }: { children: ReactNode }) {
+export default React.memo(function CustomerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { profile, loading } = useAuth()
@@ -40,15 +40,19 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
     if (profile.role !== "customer") {
       router.replace(getDashboardPathForRole(profile.role))
     }
-  }, [loading, router])
+  }, [loading])
 
-  if (loading || !profile || profile.role !== "customer") {
+  if (loading) {
     return (
       <ProtectedLayoutLoading
         title="Preparing your planning workspace"
         subtitle="We're checking your account and loading your latest event activity."
       />
     )
+  }
+
+  if (!profile) {
+    return null;
   }
 
   return (
@@ -100,3 +104,4 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
     </div>
   )
 }
+)

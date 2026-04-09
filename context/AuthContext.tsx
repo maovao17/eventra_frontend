@@ -113,12 +113,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const fetchedProfile = await fetchUserProfile(firebaseUser.uid, token);
 
         if (!fetchedProfile) {
-          console.warn("⚠️ Profile not ready, fallback UI");
-
           setProfile(null);
           setIsReady(true);
           setLoading(false);
-
           return;
         }
 
