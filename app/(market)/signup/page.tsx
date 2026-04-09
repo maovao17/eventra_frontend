@@ -15,7 +15,6 @@ import {
   normalizePhoneInput,
   sendOtp,
   signInWithGoogle,
-  storeAuthToken,
   syncAuthToken,
   verifyOtp,
 } from "@/lib/auth"
@@ -131,8 +130,7 @@ export default function SignupPage() {
 
     try {
       const credential = await verifyOtp(confirmationResult, otp)
-      const token = await credential.user.getIdToken()
-      storeAuthToken(token)
+      await credential.user.getIdToken(true)
       await syncAuthToken(credential.user)
       setStatusMessage("Creating your profile...")
 

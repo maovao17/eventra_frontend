@@ -13,7 +13,6 @@ import {
   normalizePhoneInput,
   sendOtp,
   signInWithGoogle,
-  storeAuthToken,
   syncAuthToken,
   verifyOtp,
 } from "@/lib/auth"
@@ -114,8 +113,7 @@ export default function LoginPage() {
       setStatusMessage("Verifying OTP...")
 
       const credential = await verifyOtp(confirmationResult, otp)
-      const token = await credential.user.getIdToken()
-      storeAuthToken(token)
+      await credential.user.getIdToken(true)
       await syncAuthToken(credential.user)
 
       setStatusMessage("Fetching your account...")
