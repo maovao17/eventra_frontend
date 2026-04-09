@@ -34,10 +34,8 @@ export default React.memo(function VendorLayout({
         return;
       }
 
-
       try {
         const response = await getVendorMe();
-
         if ((response as any)?.profileCompleted === false) {
           router.replace("/vendor/businessProfile");
         }

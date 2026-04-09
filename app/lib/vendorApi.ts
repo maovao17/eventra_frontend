@@ -8,7 +8,7 @@ export const getVendorMe = async () => {
 
 export const updateVendorMe = async (payload: Record<string, unknown>) => {
   return apiFetch(`/vendors/profile`, {
-    method: "PUT",
+    method: "PATCH",
     body: JSON.stringify(payload),
   })
 }
