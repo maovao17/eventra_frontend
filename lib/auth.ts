@@ -48,9 +48,7 @@ type GoogleSignupOptions = {
 
 const googleProvider = new GoogleAuthProvider()
 
-const AUTH_TOKEN_STORAGE_KEY = "token"
 const PROFILE_STORAGE_KEY = "eventra_user"
-const GOOGLE_SIGNUP_ROLE_STORAGE_KEY = "eventra_google_signup_role"
 
 const getDigits = (value: string) => value.replace(/\D/g, "")
 
@@ -187,13 +185,12 @@ const mapBackendProfile = (data: any, uid: string): AppUserProfile => ({
 })
 
 const getRequiredIdToken = async (user: User) => {
-  const token = await user.getIdToken()
+  const token = await user.getIdToken(true)
 
   if (!token) {
     throw new Error("Could not verify your Google sign-in. Please try again.")
   }
 
-  storeAuthToken(token)
   return token
 }
 
@@ -264,45 +261,29 @@ export const ensureBackendProfile = async (
   return profile
 }
 
-const storePendingGoogleSignupRole = (role: UserRole) => {
-  if (typeof window === "undefined") return
-  window.sessionStorage.setItem(GOOGLE_SIGNUP_ROLE_STORAGE_KEY, role)
-}
 
-const getPendingGoogleSignupRole = () => {
-  if (typeof window === "undefined") return null
-  const value = window.sessionStorage.getItem(GOOGLE_SIGNUP_ROLE_STORAGE_KEY)
-  return value === "customer" || value === "vendor" ? value : null
-}
-
-const clearPendingGoogleSignupRole = () => {
-  if (typeof window === "undefined") return
-  window.sessionStorage.removeItem(GOOGLE_SIGNUP_ROLE_STORAGE_KEY)
-}
 
 export const signInWithGoogle = async ({
   role = "customer",
   name,
   businessName,
 }: GoogleSignupOptions = {}) => {
-  storePendingGoogleSignupRole(role)
-
   try {
     await enableAuthPersistence()
 
     const result = await signInWithPopup(auth, googleProvider)
     const user = result.user
-    const resolvedRole = getPendingGoogleSignupRole() ?? role
 
     return ensureBackendProfile(user, {
       name: user.displayName || name || "Eventra User",
       email: user.email || undefined,
       authProvider: "google",
-      role: resolvedRole,
-      businessName: resolvedRole === "vendor" ? businessName : undefined,
+      role,
+      businessName: role === "vendor" ? businessName : undefined,
     })
-  } finally {
-    clearPendingGoogleSignupRole()
+  } catch (error) {
+    console.error("Google sign-in failed:", error)
+    throw error
   }
 }
 
@@ -310,24 +291,14 @@ export const subscribeToAuthState = (
   callback: (user: User | null) => void
 ) => onAuthStateChanged(auth, callback)
 
-export const storeAuthToken = (token: string) => {
-  if (typeof window === "undefined") return
-  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token)
-}
 
-export const clearStoredAuthToken = () => {
-  if (typeof window === "undefined") return
-  window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY)
-}
 
 export const syncAuthToken = async (user: User | null) => {
   if (!user) {
-    clearStoredAuthToken()
     return null
   }
 
-  const token = await user.getIdToken()
-  storeAuthToken(token)
+  const token = await user.getIdToken(true)
   return token
 }
 
