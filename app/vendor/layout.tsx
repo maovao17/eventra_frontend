@@ -54,7 +54,7 @@ export default React.memo(function VendorLayout({
   }
 
   if (!profile) {
-    return null;
+    return <ProtectedLayoutLoading title="Loading vendor dashboard" subtitle="One moment..." />;
   }
 
   return (
