@@ -158,7 +158,7 @@ export default function BusinessProfile() {
       await refreshVendorProfile();
       await refreshDashboard();
 
-      showToast("Profile updated successfully", "success");
+      showToast("✅ Profile saved successfully! Your services are now visible to customers.", "success");
     } catch (err: any) {
       console.error("❌ Save failed:", err);
       setError(err.message || "Could not save profile");

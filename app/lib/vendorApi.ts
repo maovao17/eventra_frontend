@@ -6,12 +6,20 @@ export const getVendorMe = async () => {
   return apiFetch(`/vendors/me`)
 }
 
-export const updateVendorMe = async (payload: Record<string, unknown>) => {
+export const saveVendorProfile = async (payload: Record<string, unknown>) => {
+  console.log("Frontend saving payload:", payload);
   return apiFetch(`/vendors/profile`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   })
-}
+};
+
+export const updateVendorMe = async (payload: Record<string, unknown>) => {saveVendorProfile(payload) 
+  return apiFetch(`/vendors/profile`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  })
+};
 
 export const uploadVendorFile = async (file: File) => {
   const formData = new FormData()

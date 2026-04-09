@@ -85,21 +85,17 @@ function VendorsPageContent() {
           description={
             serviceFilter
               ? "No vendors found. Try another service or clear your filter to explore more options."
-              : "Vendors will appear here as soon as they join Eventra."
+              : "No vendors yet? They'll appear here once they complete their profiles! 👇"
+          }
+          secondaryAction={
+            serviceFilter ? undefined : (
+              <Link href="/login?role=vendor" className="theme-primary font-medium underline">
+                Become a Vendor
+              </Link>
+            )
           }
           actionLabel={serviceFilter ? "Browse All Vendors" : "Refresh Vendors"}
           actionHref={serviceFilter ? "/customer/vendors" : undefined}
-          secondaryAction={
-            !serviceFilter ? (
-              <button
-                type="button"
-                onClick={() => void loadVendors()}
-                className="rounded-full border px-5 py-2 text-sm font-medium"
-              >
-                Retry
-              </button>
-            ) : undefined
-          }
         />
       ) : (
       <div className="grid gap-8 md:grid-cols-3">
