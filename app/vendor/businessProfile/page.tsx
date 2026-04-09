@@ -119,6 +119,8 @@ export default function BusinessProfile() {
     event?.preventDefault();
     if (!profile?.uid) return;
 
+    console.log("🚀 Saving vendor profile:", form, packages);
+
     setSaving(true);
     setError("");
 
@@ -127,7 +129,8 @@ export default function BusinessProfile() {
       .map((item) => item.trim())
       .filter(Boolean);
 
-    const response = await saveVendorProfile({
+    // Optimistic update
+    const optimisticData = {
       name: form.businessName,
       businessName: form.businessName,
       description: form.description,
@@ -136,18 +139,24 @@ export default function BusinessProfile() {
         address: form.location,
       },
       experience: form.experience,
-      packages: packages.map((pkg) => ({
-        name: String(pkg.name || ""),
-        price: Number(pkg.price || 0),
-        description: String(pkg.description || ""),
-        servicesIncluded: Array.isArray(pkg.servicesIncluded)
-          ? pkg.servicesIncluded
-          : String(pkg.servicesIncluded || "")
-              .split(",")
-              .map((item) => item.trim())
-              .filter(Boolean),
-      })),
-    });
+      packages,
+    };
+
+    const response = await saveVendorProfile(optimisticData);
+
+    console.log("✅ SAVE RESPONSE:", response);
+
+    if (response?.error) {
+      const message = String(response.message || "Could not save profile");
+      setError(message);
+      showToast(message, "error");
+      setSaving(false);
+      return;
+    }
+
+    // Keep optimistic - no full refresh flicker
+    showToast("Profile updated successfully", "success");
+    setSaving(false);}
 
     if (response?.error) {
       const message = String(response.message || "Could not save profile");

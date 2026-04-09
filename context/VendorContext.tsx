@@ -83,19 +83,29 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const saveVendorProfile = useCallback(async (data: any) => {
     if (!profile?.uid) return null;
 
+    console.log("💾 VendorContext saving:", data);
+
     setIsMutating(true);
     try {
+      // Optimistic update
+      setVendorProfile(prev => ({ ...prev, ...data }));
+
       const response = await updateVendorMe(data);
+      console.log("💾 VendorContext response:", response);
+
+      // Confirm with refresh
       await refreshVendorProfile();
-      await refreshDashboard();
+
       return response;
-    } catch {
+    } catch (error) {
+      // Revert optimistic on error
+      await refreshVendorProfile();
       showToast("We couldn't save your profile changes.", "error");
       return null;
     } finally {
       setIsMutating(false);
     }
-  }, [profile?.uid, refreshVendorProfile, refreshDashboard, showToast]);
+  }, [profile?.uid, refreshVendorProfile, showToast]);
 
   // 📅 Update Booking + Refresh
   const updateBookingStatus = useCallback(async (bookingId: string, status: VendorBookingStatus) => {

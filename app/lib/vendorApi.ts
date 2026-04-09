@@ -3,11 +3,11 @@ import { apiFetch } from "@/app/lib/api"
 export type VendorBookingStatus = "pending" | "accepted" | "rejected" | "completed"
 
 export const getVendorMe = async () => {
-  return apiFetch(`/vendors/me`)
+  return apiFetch(`/users/me`)
 }
 
 export const updateVendorMe = async (payload: Record<string, unknown>) => {
-  return apiFetch(`/vendors/profile`, {
+  return apiFetch(`/users/me`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   })

@@ -31,7 +31,7 @@ function VendorsPageContent() {
     setError("")
 
     try {
-      const data = await apiFetch("/vendors")
+      const data = await apiFetch("/users?role=vendor")
       setVendors(Array.isArray(data) ? data : [])
     } catch (fetchError) {
       const message =
