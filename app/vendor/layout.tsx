@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import VendorSidebar from "@/components/vendor/VendorSidebar copy"
 import VendorTopbar from "@/components/vendor/VendorTopbar copy"
 import { useAuth } from "@/context/AuthContext"
+import { getVendorMe } from "@/app/lib/vendorApi"
 
 import { ProtectedLayoutLoading } from "@/components/ui/PageState"
 import { getDashboardPathForRole } from "@/lib/routes"
@@ -17,24 +18,43 @@ export default React.memo(function VendorLayout({
   const router = useRouter()
   const pathname = usePathname()
   const { profile, loading } = useAuth()
-  const hasMounted = useRef(false)
+  const hasValidated = useRef(false)
 
   useEffect(() => {
     if (loading) return;
+    if (hasValidated.current) return;
 
-    if (!profile) return;
+    hasValidated.current = true;
 
-    if (profile.role !== "vendor") {
-      router.replace(getDashboardPathForRole(profile.role));
-    }
+    const validateVendorAccess = async () => {
+      if (!profile) return;
+
+      if (profile.role !== "vendor") {
+        router.replace(getDashboardPathForRole(profile.role));
+        return;
+      }
+
+
+      try {
+        const response = await getVendorMe();
+
+        if ((response as any)?.profileCompleted === false) {
+          router.replace("/vendor/businessProfile");
+        }
+      } catch (err) {
+        console.warn("Vendor validation failed", err);
+      }
+    };
+
+    void validateVendorAccess();
   }, [loading]);
 
-  if (!hasMounted.current) {
-    if (loading || !profile) {
-      return <ProtectedLayoutLoading title="Loading vendor dashboard" subtitle="One moment..." />;
-    }
+  if (loading) {
+    return <ProtectedLayoutLoading title="Loading vendor dashboard" subtitle="One moment..." />;
+  }
 
-    hasMounted.current = true;
+  if (!profile) {
+    return null;
   }
 
   return (

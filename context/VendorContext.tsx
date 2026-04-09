@@ -88,7 +88,7 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     setIsMutating(true);
     try {
       // Optimistic update
-      setVendorProfile(prev => ({ ...prev, ...data }));
+      setVendorProfile((prev: any) => ({ ...prev, ...data }));
 
       const response = await updateVendorMe(data);
       console.log("💾 VendorContext response:", response);

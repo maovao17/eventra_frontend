@@ -33,7 +33,7 @@ export default function Vendors() {
     setLoading(true);
     setError("");
     try {
-      const response = await apiFetch("/admin/vendors");
+      const response = await apiFetch("/vendors");
       setVendors(Array.isArray(response) ? response : []);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : "Could not load vendors.";

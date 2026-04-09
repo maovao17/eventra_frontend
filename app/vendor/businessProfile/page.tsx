@@ -129,49 +129,44 @@ export default function BusinessProfile() {
       .map((item) => item.trim())
       .filter(Boolean);
 
-    // Optimistic update
-    const optimisticData = {
+    const payload = {
       name: form.businessName,
       businessName: form.businessName,
       description: form.description,
       category: categories,
-      location: {
-        address: form.location,
-      },
+      location: { address: form.location },
       experience: form.experience,
       packages,
     };
 
-    const response = await saveVendorProfile(optimisticData);
+    try {
+      const response = await saveVendorProfile(payload);
 
-    console.log("✅ SAVE RESPONSE:", response);
+      console.log("✅ SAVE RESPONSE:", response);
 
-    if (response?.error) {
-      const message = String(response.message || "Could not save profile");
-      setError(message);
-      showToast(message, "error");
+      if (response?.error) {
+        throw new Error(response.message || "Failed to save profile");
+      }
+
+      // ✅ Update UI immediately (NO flicker)
+      setForm((prev) => ({
+        ...prev,
+        ...form,
+      }));
+
+      // ✅ Sync fresh data from backend
+      await refreshVendorProfile();
+      await refreshDashboard();
+
+      showToast("Profile updated successfully", "success");
+    } catch (err: any) {
+      console.error("❌ Save failed:", err);
+      setError(err.message || "Could not save profile");
+      showToast(err.message || "Save failed", "error");
+    } finally {
       setSaving(false);
-      return;
     }
-
-    // Keep optimistic - no full refresh flicker
-    showToast("Profile updated successfully", "success");
-    setSaving(false);}
-
-    if (response?.error) {
-      const message = String(response.message || "Could not save profile");
-      setError(message);
-      showToast(message, "error");
-      setSaving(false);
-      return;
-    }
-
-    await refreshVendorProfile();
-    await refreshDashboard();
-    showToast("Profile updated successfully", "success");
-    setSaving(false);
   };
-
   const handleProfileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files?.[0]) return;
 
@@ -264,9 +259,9 @@ export default function BusinessProfile() {
 
     const existingPortfolio = Array.isArray(typedVendorProfile?.portfolio)
       ? typedVendorProfile.portfolio.map((item) => ({
-          url: String(item?.url || ""),
-          caption: String(item?.caption || ""),
-        }))
+        url: String(item?.url || ""),
+        caption: String(item?.caption || ""),
+      }))
       : [];
 
     const nextPortfolio = [...existingPortfolio, ...incomingPortfolio].slice(0, 7);
