@@ -205,13 +205,19 @@ const withAuthorizationHeader = (
 
 export const fetchBackendProfile = async (uid: string, token?: string) => {
   try {
+    console.log("🔍 Backend profile fetch, token len:", token?.length || 0);
     const data = await apiFetch("/users/me", {
       headers: token ? withAuthorizationHeader(token) : undefined,
     })
+    console.log("✅ Backend profile:", !!data);
     return data ? mapBackendProfile(data, uid) : null
-  } catch (error) {
+  } catch (error: any) {
+    console.log("❌ Backend profile error:", error.status || 'unknown');
     if (error instanceof ApiFetchError && error.status === 404) {
       return null
+    }
+    if (error.status === 401) {
+      return null;
     }
 
     throw error
@@ -229,7 +235,7 @@ export const ensureBackendProfile = async (
     profile = await fetchBackendProfile(user.uid, token)
   } catch (error) {
     if (error instanceof ApiFetchError && error.status === 401) {
-      throw new Error("Your Google session could not be verified. Please sign in again.")
+      return null
     }
     throw error
   }

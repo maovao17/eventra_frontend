@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import type { ReactNode } from "react"
@@ -25,8 +25,12 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const { profile, loading } = useAuth()
 
+  const hasValidated = useRef(false);
+
   useEffect(() => {
-    if (loading) return
+    if (loading || hasValidated.current) return;
+
+    hasValidated.current = true;
 
     if (!profile) {
       router.replace("/login")
@@ -36,7 +40,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
     if (profile.role !== "customer") {
       router.replace(getDashboardPathForRole(profile.role))
     }
-  }, [loading, profile, router])
+  }, [loading, router])
 
   if (loading || !profile || profile.role !== "customer") {
     return (

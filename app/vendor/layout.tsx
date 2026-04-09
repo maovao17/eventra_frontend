@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import VendorSidebar from "@/components/vendor/VendorSidebar copy"
 import VendorTopbar from "@/components/vendor/VendorTopbar copy"
@@ -18,43 +18,50 @@ export default function VendorLayout({
   const pathname = usePathname()
   const { profile, loading } = useAuth()
   const [checkingProfile, setCheckingProfile] = useState(true)
+  const hasValidated = useRef(false)
 
   useEffect(() => {
-    const validateVendorAccess = async () => {
-      if (loading) return
+    if (loading || hasValidated.current) return;
 
+    hasValidated.current = true; // 🔥 lock immediately
+
+    const validateVendorAccess = async () => {
       if (!profile) {
-        router.replace("/login")
-        return
+        setCheckingProfile(false);
+        return;
       }
 
       if (profile.role !== "vendor") {
-        router.replace(getDashboardPathForRole(profile.role))
-        return
+        router.replace(getDashboardPathForRole(profile.role));
+        return;
       }
 
-      let response: unknown = null
       try {
-        response = await getVendorMe()
+        const response = await getVendorMe();
+
+        if ((response as any)?.error) {
+          setCheckingProfile(false);
+          return;
+        }
+
+        if (
+          (response as any)?.profileCompleted === false &&
+          pathname !== "/vendor/businessProfile"
+        ) {
+          router.replace("/vendor/businessProfile");
+          return;
+        }
+
       } catch {
-        setCheckingProfile(false)
-        return
+        setCheckingProfile(false);
+        return;
       }
 
-      if ((response as any)?.error) {
-        setCheckingProfile(false)
-        return
-      }
-      if (!(response as any)?.error && (response as any)?.profileCompleted === false && pathname !== "/vendor/businessProfile") {
-        router.replace("/vendor/businessProfile")
-        return
-      }
+      setCheckingProfile(false);
+    };
 
-      setCheckingProfile(false)
-    }
-
-    void validateVendorAccess()
-  }, [loading, pathname, profile, router])
+    void validateVendorAccess();
+  }, [loading]);
 
   if (loading || checkingProfile) {
     return (

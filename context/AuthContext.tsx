@@ -7,7 +7,7 @@ import {
   useState,
   ReactNode,
 } from "react";
-import { onIdTokenChanged, User } from "firebase/auth";
+import { getIdToken, onIdTokenChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -17,6 +17,7 @@ import {
   syncAuthToken,
 } from "@/lib/auth";
 import { disconnectSocket, syncSocketAuth } from "@/app/lib/socket";
+import { useRef } from "react";
 
 type UserRole = "customer" | "vendor" | "admin";
 
@@ -32,6 +33,7 @@ type AuthContextType = {
   user: User | null;
   profile: AppUserProfile | null;
   loading: boolean;
+  isReady: boolean;
   refreshProfile: () => Promise<AppUserProfile | null>;
 };
 
@@ -42,13 +44,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isReady, setIsReady] = useState(false);
+  const retryCount = useRef(0);
+  const maxRetries = 3;
 
-  // 🔄 Fetch user from backend
-  const fetchUserProfile = async (uid: string) => {
+  // 🔄 Fetch user from backend with retry
+  const fetchUserProfile = async (uid: string, token?: string): Promise<AppUserProfile | null> => {
     try {
-      return await fetchBackendProfile(uid);
-    } catch {
-      showToast("We couldn't load your account details. Please retry.", "error");
+      console.log("Fetching profile for uid:", uid, "token len:", token?.length || 0);
+      const data = await fetchBackendProfile(uid, token);
+      console.log("Profile fetched:", !!data);
+      return data;
+    } catch (error: any) {
+      const status = (error as any).status || 0;
+      console.log("Profile fetch failed:", status, error);
+      if (status === 401 && retryCount.current < maxRetries) {
+        retryCount.current++;
+        console.log(`🔄 Profile retry ${retryCount.current}/${maxRetries}`);
+
+        await new Promise(r => setTimeout(r, 1000));
+
+        const freshToken = await auth.currentUser!.getIdToken(true);
+        return fetchUserProfile(uid, freshToken);
+      }
+      showToast("Couldn't load account. Please login again.", "error");
       return null;
     }
   };
@@ -57,45 +76,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshProfile = async () => {
     if (!auth.currentUser) return null;
 
-    await syncAuthToken(auth.currentUser);
-
     const uid = auth.currentUser.uid;
     const userProfile = await fetchUserProfile(uid);
 
-    if (userProfile) {
-      setProfile(userProfile);
-      storeUserProfile(userProfile);
-    } else {
-      setProfile(null);
-      clearStoredUserProfile();
+    if (!userProfile) {
+      console.warn("⚠️ Refresh skipped, profile not ready");
+      return null;
     }
 
+    setProfile(userProfile);
+    storeUserProfile(userProfile);
+    retryCount.current = 0;
     return userProfile;
   };
 
   // 🔥 Firebase Auth Listener
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-
-      if (firebaseUser) {
-        const token = await syncAuthToken(firebaseUser);
-        syncSocketAuth(token);
-        const userProfile = await fetchUserProfile(firebaseUser.uid);
-        setProfile(userProfile);
-        if (userProfile) {
-          storeUserProfile(userProfile);
-        } else {
+      try {
+        if (!firebaseUser) {
+          setUser(null);
+          await syncAuthToken(null);
+          disconnectSocket();
+          setProfile(null);
           clearStoredUserProfile();
+          setLoading(false);
+          return;
         }
-      } else {
-        await syncAuthToken(null);
-        disconnectSocket();
+
+        setUser(firebaseUser);
+
+        const token = await firebaseUser.getIdToken(true);
+        console.log("🔑 Firebase token ready, len:", token.length);
+        syncSocketAuth(token);
+
+        const fetchedProfile = await fetchUserProfile(firebaseUser.uid, token);
+
+        if (!fetchedProfile) {
+          console.warn("⚠️ Profile not ready, fallback UI");
+
+          setProfile(null);
+          setIsReady(true);
+          setLoading(false);
+
+          return;
+        }
+
+        retryCount.current = 0;
+
+        setProfile(fetchedProfile);
+        storeUserProfile(fetchedProfile);
+        setIsReady(true);
+        setLoading(false);
+      } catch (error) {
+        console.error("Auth error:", error);
+        setUser(null);
         setProfile(null);
         clearStoredUserProfile();
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -107,6 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         profile,
         loading,
+        isReady,
         refreshProfile,
       }}
     >

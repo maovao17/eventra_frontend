@@ -23,6 +23,9 @@ export class ApiFetchError extends Error {
   }
 }
 
+export { ApiFetchError };
+
+
 const resolveAuthToken = async (endpoint: string) => {
   if (typeof window === "undefined") return null;
 
@@ -36,7 +39,7 @@ const resolveAuthToken = async (endpoint: string) => {
 
   try {
     const token = await user.getIdToken(true);
-    console.log(`🔑 API Token ready for call (length: ${token.length})`);
+    console.log(`📡 API [${endpoint}] token len: ${token?.length || 0}`);
     return token;
   } catch (err) {
     console.error("Token error:", err);

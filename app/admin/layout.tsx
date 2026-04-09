@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { CalendarDays, LayoutGrid, LogOut, User, Users } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -29,8 +29,12 @@ export default function AdminLayout({
     { name: "Events", path: "/admin/events", icon: <CalendarDays size={18} /> },
   ];
 
+  const hasValidated = useRef(false);
+
   useEffect(() => {
-    if (loading) return;
+    if (loading || hasValidated.current) return;
+
+    hasValidated.current = true;
     if (!profile) {
       router.replace("/login");
       return;
@@ -38,7 +42,7 @@ export default function AdminLayout({
     if (profile.role !== "admin") {
       router.replace(getDashboardPathForRole(profile.role));
     }
-  }, [loading, profile, router]);
+  }, [loading, router]);
 
   if (loading || !profile || profile.role !== "admin") {
     return (

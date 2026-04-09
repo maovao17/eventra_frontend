@@ -13,7 +13,7 @@ type ServiceRecord = {
 };
 
 export default function ServicesPage() {
-  const { user, profile } = useAuth();
+const { user, profile, loading: authLoading } = useAuth();
   const userId = user?.uid || profile?.uid;
 
   const [name, setName] = useState("");
@@ -26,8 +26,12 @@ export default function ServicesPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const loadServices = async () => {
-    if (!userId) return;
+const [hasFetched, setHasFetched] = useState(false);
+
+const loadServices = async () => {
+  if (!userId || authLoading || !profile || hasFetched) return;
+
+  setHasFetched(true);
 
     const [serviceResponse, vendorResponse] = await Promise.all([
       getAllServices(),
@@ -46,12 +50,9 @@ export default function ServicesPage() {
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadServices();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [userId]);
+useEffect(() => {
+  void loadServices();
+}, [userId]);
 
   const selectedCount = useMemo(() => selectedServiceIds.length, [selectedServiceIds]);
 
@@ -59,8 +60,8 @@ export default function ServicesPage() {
     setError("");
     setSuccess("");
 
-    if (!userId) {
-      setError("Unable to find authenticated user.");
+    if (!userId || authLoading || !profile) {
+      setError("Please wait for profile to load.");
       return;
     }
 
@@ -118,7 +119,7 @@ export default function ServicesPage() {
   };
 
   const handleAssignServices = async () => {
-    if (!userId) return;
+    if (!userId || authLoading || !profile) return;
 
     setAssigning(true);
     setError("");
