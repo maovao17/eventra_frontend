@@ -1,4 +1,4 @@
-import { auth } from "@/lib/firebase";
+import { auth,  } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
 
 // force rebuild 
@@ -22,9 +22,6 @@ export class ApiFetchError extends Error {
     this.data = data
   }
 }
-
-export { ApiFetchError };
-
 
 const resolveAuthToken = async (endpoint: string) => {
   if (typeof window === "undefined") return null;
