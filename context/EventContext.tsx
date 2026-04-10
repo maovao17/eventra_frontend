@@ -337,7 +337,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         profile.role === "customer"
           ? await Promise.all([
               apiFetch(`/events?customerId=${profile.uid}`),
-              apiFetch(`/api/requests?userId=${profile.uid}`),
+              apiFetch(`/requests?userId=${profile.uid}`),
               apiFetch(`/bookings?customerId=${profile.uid}`),
             ])
           : profile.role === "vendor"
