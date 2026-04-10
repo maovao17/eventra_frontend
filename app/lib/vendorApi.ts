@@ -33,7 +33,7 @@ export const uploadVendorFile = async (file: File): Promise<UploadResponse> => {
   console.log("📤 SINGLE UPLOAD:", file.name);
   const formData = new FormData();
   formData.append("file", file);
-  
+
   const response = await apiFetch("/vendors/upload", {
     method: "POST",
     body: formData,
@@ -41,7 +41,7 @@ export const uploadVendorFile = async (file: File): Promise<UploadResponse> => {
 
   const filename = response.filename || response.file?.filename || '';
   const url = response.fullUrl || response.url || (filename ? `/uploads/${filename}` : '');
-  
+
   console.log("✅ UPLOAD:", { filename, url });
   return { filename, fullUrl: url, url };
 };
@@ -56,7 +56,7 @@ export const uploadVendorPortfolioMultiple = async (files: File[]): Promise<stri
     body: formData,
   }) as any;
 
-  const urls: string[] = Array.isArray(response) 
+  const urls: string[] = Array.isArray(response)
     ? response.map((item: any) => item.url || item.fullUrl || '').filter(Boolean)
     : response.data?.map((item: any) => item.url || item.fullUrl || '').filter(Boolean) || [];
 

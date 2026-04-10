@@ -32,7 +32,7 @@ export default function Earnings() {
     void refreshVendorProfile().finally(() => {
       setLoading(false);
     });
-  }, [refreshVendorProfile]);
+  }, []);
 
   // Load payouts
   useEffect(() => {

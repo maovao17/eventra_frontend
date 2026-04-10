@@ -63,7 +63,7 @@ export default function BookingRequests() {
     setError("")
 
     try {
-      const response = await apiFetch(`/requests`)
+      const response = await apiFetch(`/requests/vendor`)
       const data = (response as { data?: VendorRequest[] } | null)?.data ?? response
       setRequests(Array.isArray(data) ? data : [])
     } catch (error) {
@@ -82,7 +82,7 @@ export default function BookingRequests() {
     return () => clearTimeout(timer)
   }, [profile?.uid])
 
-const vendorRequests = useMemo<BookingCardItem[]>(() => {
+  const vendorRequests = useMemo<BookingCardItem[]>(() => {
     return requests.map((request) => ({
       requestId: String(request._id),
       bookingId: String(request.booking?._id || ""),
@@ -94,7 +94,7 @@ const vendorRequests = useMemo<BookingCardItem[]>(() => {
       price: request.booking?.amount
         ? `₹${Number(request.booking.amount).toLocaleString("en-IN")}`
         : "TBD",
-      avatar: "/eventra_photos/wedding8.jpg",
+      avatar: "/eventra_photos/profile.png",
       status: request.status as RequestStatus,
     }))
   }, [requests])
@@ -150,53 +150,53 @@ const vendorRequests = useMemo<BookingCardItem[]>(() => {
 
   return (
 
-<div className="space-y-6">
+    <div className="space-y-6">
 
-<div className="flex justify-between items-center">
+      <div className="flex justify-between items-center">
 
-<div>
-<h1 className="text-2xl font-semibold">
-Booking Requests
-</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">
+            Booking Requests
+          </h1>
 
-<p className="text-gray-500 text-sm">
-You have <span className="text-orange-500 font-medium">{vendorRequests.filter((item) => item.status === "pending").length} pending requests</span>.
-</p>
-</div>
+          <p className="text-gray-500 text-sm">
+            You have <span className="text-orange-500 font-medium">{vendorRequests.filter((item) => item.status === "pending").length} pending requests</span>.
+          </p>
+        </div>
 
-<FilterBar />
+        <FilterBar />
 
-</div>
+      </div>
 
-{isMutating && (
-  <p className="text-sm text-gray-500">Updating...</p>
-)} 
+      {isMutating && (
+        <p className="text-sm text-gray-500">Updating...</p>
+      )}
 
-<div className="space-y-5">
+      <div className="space-y-5">
 
-{vendorRequests.map((b,i)=>(
-<BookingCard
-key={b.requestId}
-name={b.name}
-event={b.event}
-date={b.date}
-location={b.location}
-guests={b.guests}
-price={b.price}
-avatar={b.avatar}
-bookingId={b.bookingId}
-status={b.status}
-onAccept={b.status === "pending" ? () => void updateBookingStatusHandler(i, "accepted") : undefined}
-onDecline={b.status === "pending" ? () => void updateBookingStatusHandler(i, "rejected") : undefined}
-onDetails={b.bookingId ? () => router.push(`/vendor/bookedClientDetails?bookingId=${b.bookingId}`) : undefined}
-onChat={b.bookingId ? () => router.push(`/chat/booking-${b.bookingId}`) : undefined}
-disabled={isMutating} 
-/>
-))}
+        {vendorRequests.map((b, i) => (
+          <BookingCard
+            key={b.requestId}
+            name={b.name}
+            event={b.event}
+            date={b.date}
+            location={b.location}
+            guests={b.guests}
+            price={b.price}
+            avatar={b.avatar}
+            bookingId={b.bookingId}
+            status={b.status}
+            onAccept={b.status === "pending" ? () => void updateBookingStatusHandler(i, "accepted") : undefined}
+            onDecline={b.status === "pending" ? () => void updateBookingStatusHandler(i, "rejected") : undefined}
+            onDetails={b.bookingId ? () => router.push(`/vendor/bookedClientDetails?bookingId=${b.bookingId}`) : undefined}
+            onChat={b.bookingId ? () => router.push(`/chat/booking-${b.bookingId}`) : undefined}
+            disabled={isMutating}
+          />
+        ))}
 
-</div>
+      </div>
 
-</div>
+    </div>
 
-)
+  )
 }
