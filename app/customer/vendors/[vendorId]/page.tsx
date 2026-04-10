@@ -24,7 +24,7 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
     );
   }
 
-  const { currentEvent, sendVendorRequest } = useEvent()
+  const { currentEvent, sendVendorRequest, getRequestForVendor } = useEvent()
   const { showToast } = useToast()
   const [vendor, setVendor] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -32,6 +32,9 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
   const [reviewsLoading, setReviewsLoading] = useState(true)
   const [reviews, setReviews] = useState<any[]>([])
   const [error, setError] = useState("")
+  const existingRequest = currentEvent?.id && vendor?._id
+    ? getRequestForVendor(currentEvent.id, String(vendor._id))
+    : undefined
 
   useEffect(() => {
     const loadVendor = async () => {
@@ -130,7 +133,7 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
           <div>
             <div className="flex items-center mb-4">
               <h1 className="text-4xl font-bold">{vendor.businessName || vendor.name}</h1>
-              {vendor.isApproved && (
+              {vendor.isVerified && (
                 <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   ✔ Verified
                 </span>
@@ -229,10 +232,10 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
                 }
                 setRequesting(false)
               }}
-              disabled={requesting}
+              disabled={requesting || Boolean(existingRequest)}
               className="w-full rounded-xl py-3 theme-button disabled:opacity-50 mb-4"
             >
-              {requesting ? "Sending..." : "Send Request"}
+              {requesting ? "Sending..." : existingRequest ? "Request Sent" : "Send Request"}
             </button>
             <Link 
               href="/customer/vendors" 

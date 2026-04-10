@@ -329,12 +329,6 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       const serviceList = asArray<Service>(serviceResponse)
       const mappedVendors = rawVendorList.map((vendor) => normalizeVendor(vendor, reviews))
 
-      let activeVendorId: string | null = null
-      if (profile.role === "vendor") {
-        const ownVendor = rawVendorList.find((vendor) => String(vendor.userId) === profile.uid)
-        activeVendorId = ownVendor ? getEntityId(ownVendor) : null
-      }
-
       const [rawEventsResponse, rawRequestsResponse, rawBookingsResponse] =
         profile.role === "customer"
           ? await Promise.all([
@@ -342,11 +336,11 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
               apiFetch(`/requests?userId=${profile.uid}`),
               apiFetch(`/bookings?customerId=${profile.uid}`),
             ])
-          : activeVendorId
+          : profile.role === "vendor"
             ? await Promise.all([
                 Promise.resolve([]),
-                apiFetch(`/requests?vendorId=${activeVendorId}`),
-                apiFetch(`/bookings?vendorId=${activeVendorId}`),
+                apiFetch(`/requests`),
+                apiFetch(`/bookings`),
               ])
             : [[], [], []]
 

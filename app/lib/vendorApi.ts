@@ -10,7 +10,8 @@ export type UploadResponse = {
 
 export const getVendorMe = async (): Promise<any> => {
   console.log("📡 GET /vendors/me");
-  return apiFetch(`/vendors/me`);
+  const response = await apiFetch(`/vendors/me`);
+  return (response as any)?.data ?? response;
 }
 
 export const saveVendorProfile = async (payload: Record<string, unknown>): Promise<any> => {
@@ -84,7 +85,8 @@ export type VendorBooking = any;
 export const getVendorBookings = async (): Promise<VendorBooking[]> => {
   console.log("📡 GET /vendors/bookings");
   const response = await apiFetch("/vendors/bookings");
-  return Array.isArray(response) ? response : [];
+  const data = (response as any)?.data ?? response;
+  return Array.isArray(data) ? data : [];
 };
 
 export type VendorNotification = any;
@@ -92,12 +94,13 @@ export type VendorNotification = any;
 export const getVendorNotifications = async (): Promise<VendorNotification[]> => {
   console.log("📡 GET /vendors/notifications");
   const response = await apiFetch("/vendors/notifications");
-  return Array.isArray(response) ? response : [];
+  const data = (response as any)?.data ?? response;
+  return Array.isArray(data) ? data : [];
 };
 
 export const markVendorNotificationRead = async (notificationId: string): Promise<any> => {
   console.log("📡 PATCH /vendors/notifications/", notificationId, "/read");
-  return apiFetch(`/vendors/notifications/${notificationId}/read`, {
+  return apiFetch(`/notifications/${notificationId}/read`, {
     method: "PATCH",
   });
 };
@@ -113,4 +116,3 @@ export const getVendorReviews = async (): Promise<any[]> => {
   const response = await apiFetch("/vendors/reviews");
   return Array.isArray(response) ? response : [];
 };
-
