@@ -1,4 +1,5 @@
-export const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+export const API_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
 type ApiError = {
   message: string;
@@ -22,7 +23,10 @@ export async function apiFetch(
   path: string,
   options: RequestInit = {}
 ) {
-  const token = localStorage.getItem("firebaseToken");
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("firebaseToken")
+      : null;
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
