@@ -20,6 +20,7 @@ import {
   storeUserProfile,
   syncAuthToken,
 } from "@/lib/auth";
+import { signOut } from "firebase/auth";
 
 type UserRole = "customer" | "vendor" | "admin";
 
@@ -37,6 +38,7 @@ type AuthContextType = {
   loading: boolean;
   isReady: boolean;
   refreshProfile: () => Promise<AppUserProfile | null>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -138,32 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         let fetchedProfile = await fetchUserProfile(firebaseUser.uid);
 
         if (!fetchedProfile) {
-          try {
-            console.log("No backend profile → creating user...");
-
-            await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${localStorage.getItem("firebaseToken")}`,
-              },
-              body: JSON.stringify({
-                name: firebaseUser.displayName || "New User",
-                phoneNumber: firebaseUser.phoneNumber || "",
-                email: firebaseUser.email || "",
-                userId: firebaseUser.uid,
-                authProvider: firebaseUser.phoneNumber ? "phone" : "google",
-                role: "customer",
-              }),
-            });
-
-            fetchedProfile = await fetchUserProfile(firebaseUser.uid);
-          } catch (err) {
-            console.error("Failed to auto-create user:", err);
-          }
-        }
-
-        if (!fetchedProfile) {
+          console.log("No backend profile after auto-create");
           setProfile(null);
           setIsReady(true);
           setLoading(false);
@@ -197,6 +174,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, [pathname, router, showToast]);
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem("firebaseToken");
+      clearStoredUserProfile();
+      setUser(null);
+      setProfile(null);
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -205,6 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         isReady,
         refreshProfile,
+        logout: handleLogout,
       }}
     >
       {children}

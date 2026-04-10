@@ -1,6 +1,10 @@
 "use client";
 
+import { useAuth } from "@/context/AuthContext";
+
 export default function CustomerTopbar() {
+  const { profile, logout } = useAuth();
+
   return (
     <div className="theme-card flex items-center justify-between rounded-none border-x-0 border-t-0 px-8 py-4 shadow-none">
 
@@ -18,12 +22,18 @@ export default function CustomerTopbar() {
 
         <div className="flex items-center gap-2">
           <img
-            src="/avatar.jpg"
+            src="/placeholder-avatar.jpg"
             className="w-8 h-8 rounded-full"
           />
           <span className="text-sm font-medium">
-            Sarah
+            {profile?.name || "User"}
           </span>
+          <button
+            onClick={logout}
+            className="text-sm theme-muted hover:text-red-500 px-2 py-1 rounded transition"
+          >
+            Logout
+          </button>
         </div>
 
       </div>
