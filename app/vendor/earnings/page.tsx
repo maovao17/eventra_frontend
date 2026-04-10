@@ -6,7 +6,7 @@ import { useVendorData } from "@/context/VendorContext";
 import { getVendorPayouts } from "@/app/lib/vendorApi";
 
 export default function Earnings() {
-  const { dashboard, loadingDashboard, refreshDashboard } = useVendorData();
+const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({
@@ -22,8 +22,8 @@ export default function Earnings() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    void refreshDashboard().finally(() => setLoading(false));
-  }, [refreshDashboard]);
+    void refreshVendorProfile().finally(() => setLoading(false));
+  }, [refreshVendorProfile]);
 
   useEffect(() => {
     const loadPayouts = async () => {
@@ -69,7 +69,7 @@ export default function Earnings() {
       <ErrorState
         title="We couldn't load earnings."
         description={error}
-        onRetry={() => void refreshDashboard()}
+        onRetry={() => void refreshVendorProfile()}
         retryLabel="Retry"
       />
     );
