@@ -5,9 +5,7 @@ import { getAuth } from "firebase/auth";
 
 export const API_URL =
   (() => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
-      process.env.NEXT_PUBLIC_API_URL?.trim();
+    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
 
     if (!baseUrl) {
       throw new Error("NEXT_PUBLIC_BACKEND_URL is NOT set");

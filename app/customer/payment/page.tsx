@@ -8,6 +8,7 @@ import { apiFetch } from "@/app/lib/api"
 import { useEvent } from "@/context/EventContext"
 import { openRazorpayCheckout, PLATFORM_FEE } from "@/lib/payment"
 import type { Booking } from "@/app/types/eventra"
+import { useToast } from "@/context/ToastContext"
 
 const paymentMethods = [
   "UPI",
@@ -20,6 +21,7 @@ function PaymentsPageContent() {
   const router = useRouter()
   const { profile } = useAuth()
   const { formatCurrency, refreshData } = useEvent()
+  const { showToast } = useToast()
   const requestId = searchParams.get("requestId")
   const [request, setRequest] = useState<null | { status?: string }>(null)
   const [booking, setBooking] = useState<null | Booking>(null)
@@ -39,7 +41,8 @@ function PaymentsPageContent() {
         const requestData = await apiFetch(`/requests/${requestId}`) as { status?: string }
         setRequest(requestData)
 
-        const bookingData = await apiFetch(`/bookings?requestId=${requestId}`) as Booking[]
+        const bookingResponse = await apiFetch(`/bookings?requestId=${requestId}`)
+        const bookingData = ((bookingResponse as { data?: Booking[] } | null)?.data ?? bookingResponse) as Booking[]
         if (Array.isArray(bookingData) && bookingData.length > 0) {
           setBooking(bookingData[0])
         } else {
@@ -83,6 +86,7 @@ function PaymentsPageContent() {
         customerPhone: profile.phone,
         onSuccess: async (payment) => {
           await refreshData()
+          showToast("Payment successful", "success")
           router.push(
             `/customer/confirmation?bookingId=${booking.id}&paymentId=${payment.paymentId ?? ""}`
           )

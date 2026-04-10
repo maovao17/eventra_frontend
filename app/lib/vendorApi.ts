@@ -111,8 +111,8 @@ export const markVendorNotificationRead = async (notificationId: string): Promis
 };
 
 export const getVendorPayouts = async (): Promise<any[]> => {
-  console.log("📡 GET /vendors/payouts");
-  const response = await apiFetch("/vendors/payouts");
+  console.log("📡 GET /payouts/vendor");
+  const response = await apiFetch("/payouts/vendor");
   return extractArray(response);
 };
 

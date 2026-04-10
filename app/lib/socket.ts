@@ -1,9 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import type { Booking, Notification } from '@/app/types/eventra';
 
-const endpoint =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "https://eventra-backend-production-583b.up.railway.app";
+const endpoint = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
 
 if (!endpoint) {
   throw new Error("NEXT_PUBLIC_BACKEND_URL isn't present");

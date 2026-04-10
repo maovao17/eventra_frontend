@@ -24,8 +24,10 @@ export default function AdminPayments() {
         apiFetch("/admin/payments"),
         apiFetch("/payouts"),
       ]);
-      setPayments(Array.isArray(res) ? res : []);
-      setPayouts(Array.isArray(payoutRes) ? payoutRes : []);
+      const paymentsData = (res as { data?: any[] } | null)?.data ?? res;
+      const payoutsData = (payoutRes as { data?: any[] } | null)?.data ?? payoutRes;
+      setPayments(Array.isArray(paymentsData) ? paymentsData : []);
+      setPayouts(Array.isArray(payoutsData) ? payoutsData : []);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : "Could not load payments.";
       setError(message);

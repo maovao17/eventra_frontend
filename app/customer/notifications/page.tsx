@@ -30,7 +30,8 @@ export default function CustomerNotifications() {
 
       try {
         const response = await apiFetch(`/notifications?userId=${profile.uid}`);
-        setNotifications(Array.isArray(response) ? response : []);
+        const data = (response as { data?: Notification[] } | null)?.data ?? response;
+        setNotifications(Array.isArray(data) ? data : []);
       } catch (fetchError) {
         const message = fetchError instanceof Error ? fetchError.message : "Failed to load notifications.";
         setError(message);
@@ -131,4 +132,3 @@ export default function CustomerNotifications() {
     </div>
   );
 }
-

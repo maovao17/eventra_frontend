@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
+import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
 import { useVendorData } from "@/context/VendorContext";
-import { apiFetch } from "@/app/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { getVendorPayouts } from "@/app/lib/vendorApi";
 
 export default function Earnings() {
-const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
+  const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
+  const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({
@@ -28,16 +29,17 @@ const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
 
   useEffect(() => {
     const loadPayouts = async () => {
-      if (!dashboard) return;
+      if (!profile?.uid || !dashboard) {
+        setLoading(false);
+        return;
+      }
       if (Boolean(dashboard?.error)) {
         setError(String(dashboard.message || "Failed to load earnings."));
         return;
       }
 
       try {
-        const { profile } = useAuth();
-        const payouts = await apiFetch(`/payouts?vendorId=${profile?.uid}`);
-        const payoutList = Array.isArray(payouts) ? payouts : [];
+        const payoutList = await getVendorPayouts();
 
         setStats({
           totalBookings: Number(dashboard?.totalBookings || 0),
@@ -56,11 +58,13 @@ const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
         setPayoutList(payoutList);
       } catch (fetchError) {
         setError(fetchError instanceof Error ? fetchError.message : "Failed to load payouts.");
+      } finally {
+        setLoading(false);
       }
     };
 
     void loadPayouts();
-  }, [dashboard]);
+  }, [dashboard, profile?.uid]);
 
   if (loading || loadingDashboard) {
     return <PageCardSkeleton count={4} className="md:grid-cols-2 xl:grid-cols-4" />;
@@ -124,7 +128,10 @@ const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
             </div>
           ))}
           {payoutList.filter((p: any) => p.status === "pending").length === 0 && (
-            <p className="text-center text-gray-500 py-8">No pending payouts</p>
+            <EmptyState
+              title="No pending payouts"
+              description="Completed paid bookings will appear here until the admin marks them as paid."
+            />
           )}
         </div>
       </div>
