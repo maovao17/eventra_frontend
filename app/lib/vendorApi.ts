@@ -2,77 +2,61 @@ import { apiFetch } from "@/app/lib/api"
 
 export type VendorBookingStatus = "pending" | "accepted" | "rejected" | "completed"
 
-export const getVendorMe = async () => {
-  return apiFetch(`/vendors/me`)
+export type UploadResponse = {
+  filename?: string;
+  fullUrl?: string;
+  url?: string;
 }
 
-export const saveVendorProfile = async (payload: Record<string, unknown>) => {
-  console.log("Frontend saving payload:", payload);
+export const getVendorMe = async (): Promise<any> => {
+  console.log("📡 GET /vendors/me");
+  return apiFetch(`/vendors/me`);
+}
+
+export const saveVendorProfile = async (payload: Record<string, unknown>): Promise<any> => {
+  console.log("📡 PATCH /vendors/profile:", payload);
   return apiFetch(`/vendors/profile`, {
     method: "PATCH",
     body: JSON.stringify(payload),
-  })
+  });
 };
 
-export const updateVendorMe = async (payload: Record<string, unknown>) => {saveVendorProfile(payload) 
-  return apiFetch(`/vendors/profile`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  })
+export const updateVendorMe = saveVendorProfile;
+
+export const uploadVendorFile = async (file: File): Promise<UploadResponse> => {
+  console.log("📤 SINGLE UPLOAD:", file.name);
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  const response = await apiFetch("/vendors/upload", {
+    method: "POST",
+    body: formData,
+  }) as any;
+
+  const filename = response.filename || response.file?.filename || '';
+  const url = response.fullUrl || response.url || (filename ? `/uploads/${filename}` : '');
+  
+  console.log("✅ UPLOAD:", { filename, url });
+  return { filename, fullUrl: url, url };
 };
 
-export const uploadVendorFile = async (file: File) => {
-  const formData = new FormData()
-  formData.append("file", file)
+export const uploadVendorPortfolioMultiple = async (files: File[]): Promise<string[]> => {
+  console.log("📤 MULTIPLE UPLOAD:", files.length);
+  const formData = new FormData();
+  files.forEach(file => formData.append("files", file));
 
-  return apiFetch("/vendors/upload", {
+  const response = await apiFetch("/vendors/upload-multiple", {
     method: "POST",
     body: formData,
-  })
-}
+  }) as any;
 
-export const uploadVendorPortfolio = async (files: File[], caption?: string, category?: string) => {
-  const formData = new FormData()
-  files.forEach((file) => formData.append("files", file))
-  if (caption) formData.append("caption", caption)
-  if (category) formData.append("category", category)
+  const urls: string[] = Array.isArray(response) 
+    ? response.map((item: any) => item.url || item.fullUrl || '').filter(Boolean)
+    : response.data?.map((item: any) => item.url || item.fullUrl || '').filter(Boolean) || [];
 
-  return apiFetch("/vendors/portfolio", {
-    method: "POST",
-    body: formData,
-  })
-}
-
-export const uploadVendorPortfolioMultiple = async (files: File[]) => {
-  const formData = new FormData()
-  files.forEach((file) => formData.append("files", file))
-
-  return apiFetch("/vendors/upload-multiple", {
-    method: "POST",
-    body: formData,
-  })
-}
-
-export const assignVendorServices = async (serviceIds: string[]) => {
-  return apiFetch("/vendors/services", {
-    method: "POST",
-    body: JSON.stringify({ serviceIds }),
-  })
-}
-
-export const updateVendorAvailability = async (
-  payload: { blockedDates?: string[]; workingHours?: { start?: string; end?: string } },
-) => {
-  return apiFetch("/vendors/availability", {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  })
-}
-
-export const getVendorBookings = async (vendorId?: string) => {
-  const query = vendorId ? `?vendorId=${vendorId}` : ""
-  return apiFetch(`/bookings${query}`)
-}
+  console.log("✅ MULTIPLE:", urls);
+  return urls;
+};
 
 export const updateVendorBookingStatus = async (
   bookingId: string,
@@ -81,34 +65,9 @@ export const updateVendorBookingStatus = async (
   await apiFetch(`/bookings/${bookingId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
-  })
+  });
+  return true;
+};
 
-  return true
-}
+export const getAllServices = async () => apiFetch("/services?limit=1000&offset=0");
 
-// Disabled - 404 on prod backend
-// export const getVendorDashboard = async () => {
-//   return apiFetch(`/vendors/dashboard`)
-// };
-
-export const getVendorReviews = async () => {
-  return apiFetch(`/vendors/reviews`)
-}
-
-export const getVendorNotifications = async () => {
-  return apiFetch(`/vendors/notifications`)
-}
-
-export const getVendorPayouts = async () => {
-  return apiFetch(`/payouts/vendor`)
-}
-
-export const markVendorNotificationRead = async (notificationId: string) => {
-  return apiFetch(`/vendors/notifications/${notificationId}/read`, {
-    method: "PATCH",
-  })
-}
-
-export const getAllServices = async () => {
-  return apiFetch("/services?limit=1000&offset=0")
-}

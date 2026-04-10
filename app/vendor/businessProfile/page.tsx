@@ -1,8 +1,8 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { uploadVendorPortfolioMultiple } from "@/app/lib/vendorApi";
+import { uploadVendorPortfolioMultiple, uploadVendorFile } from "@/app/lib/vendorApi";
 import { useToast } from "@/context/ToastContext";
 import { useVendorData } from "@/context/VendorContext";
 import { API_URL } from "@/app/lib/api";
@@ -27,6 +27,7 @@ type VendorProfileData = {
   }>;
   isVerified?: boolean;
   verified?: boolean;
+  profileCompleted?: boolean;
 };
 
 type PackageInput = {
@@ -52,7 +53,7 @@ const initialPackage: PackageInput = {
 
 const resolveImageUrl = (path?: string) => {
   if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  if (path.startsWith("http") || path.startsWith("https")) return path;
   if (path.startsWith("/")) return `${API_URL}${path}`;
   return `${API_URL}/${path}`;
 };
@@ -60,15 +61,10 @@ const resolveImageUrl = (path?: string) => {
 export default function BusinessProfile() {
   const { profile } = useAuth();
   const { showToast } = useToast();
-  const {
-    vendorProfile,
-    loadingProfile,
-    refreshVendorProfile,
-    refreshDashboard,
-    saveVendorProfile,
-  } = useVendorData();
+  const { vendorProfile, loadingProfile, saveVendorProfile } = useVendorData();
   const typedVendorProfile = vendorProfile as VendorProfileData | null;
 
+  // Local form state - NOT overwritten by context
   const [form, setForm] = useState({
     businessName: "",
     description: "",
@@ -83,20 +79,25 @@ export default function BusinessProfile() {
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState("");
   const [error, setError] = useState("");
+  
+  // ONE TIME INITIALIZE
+  const initialized = useRef(false);
 
   useEffect(() => {
-    if (!typedVendorProfile) return;
-
-    setForm({
-      businessName: String(typedVendorProfile.businessName || typedVendorProfile.name || ""),
-      description: String(typedVendorProfile.description || ""),
-      category: Array.isArray(typedVendorProfile.category) ? typedVendorProfile.category.join(", ") : "",
-      location: String(typedVendorProfile?.location?.address || ""),
-      experience: String(typedVendorProfile.experience || ""),
-    });
-
-    setPackages(Array.isArray(typedVendorProfile.packages) ? typedVendorProfile.packages : []);
-    setProfileImagePreview(resolveImageUrl(String(typedVendorProfile.profileImage || typedVendorProfile.image || "")));
+    console.log("🔄 Profile effect - typedVendorProfile:", !!typedVendorProfile);
+    if (typedVendorProfile && !initialized.current) {
+      console.log("📥 SET INITIAL FORM ONCE");
+      setForm({
+        businessName: String(typedVendorProfile.businessName || typedVendorProfile.name || ""),
+        description: String(typedVendorProfile.description || ""),
+        category: Array.isArray(typedVendorProfile.category) ? typedVendorProfile.category.join(", ") : "",
+        location: String(typedVendorProfile?.location?.address || ""),
+        experience: String(typedVendorProfile.experience || ""),
+      });
+      setPackages(Array.isArray(typedVendorProfile.packages) ? typedVendorProfile.packages : []);
+      setProfileImagePreview(resolveImageUrl(String(typedVendorProfile.profileImage || typedVendorProfile.image || "")));
+      initialized.current = true;
+    }
   }, [typedVendorProfile]);
 
   const galleryImages = useMemo(() => {
@@ -104,33 +105,31 @@ export default function BusinessProfile() {
     if (Array.isArray(typedVendorProfile.portfolio) && typedVendorProfile.portfolio.length) {
       return typedVendorProfile.portfolio
         .map((item) => item.url)
-        .filter((value): value is string => Boolean(value))
-        .map((value) => resolveImageUrl(value));
+        .filter(Boolean)
+        .map(resolveImageUrl);
     }
     const gallery = Array.isArray(typedVendorProfile.gallery) ? typedVendorProfile.gallery : [];
-    return gallery.map((value) => resolveImageUrl(value));
+    return gallery.map(resolveImageUrl);
   }, [typedVendorProfile]);
 
   const onFormChange = (key: keyof typeof form, value: string) => {
+    console.log("📝 Form change", key, value);
     setForm((prev) => ({ ...prev, [key]: value }));
+    setError("");
   };
 
   const handleSave = async (event?: FormEvent) => {
     event?.preventDefault();
     if (!profile?.uid) return;
 
-    console.log("🚀 Saving vendor profile:", form, packages);
+    console.log("🚀 SAVING - form:", form, "packages:", packages);
 
     setSaving(true);
     setError("");
 
-    const categories = form.category
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const categories = form.category.split(",").map((item) => item.trim()).filter(Boolean);
 
     const payload = {
-      name: form.businessName,
       businessName: form.businessName,
       description: form.description,
       category: categories,
@@ -141,66 +140,44 @@ export default function BusinessProfile() {
 
     try {
       const response = await saveVendorProfile(payload);
+      console.log("✅ SAVE SUCCESS:", response);
 
-      console.log("SAVE RESPONSE:", response);
-
-      if (response?.error) {
-        throw new Error(response.message || "Failed to save profile");
-      }
-
-      // ✅ Update UI immediately (NO flicker)
-      setForm((prev) => ({
-        ...prev,
-        ...form,
-      }));
-
-      // ✅ Sync fresh data from backend
-      await refreshVendorProfile();
-      await refreshDashboard();
-
-      showToast("✅ Profile saved successfully! Your services are now visible to customers.", "success");
+      // OPTIMISTIC - update local form (no refresh needed)
+      showToast("✅ Profile saved! Services visible to customers.", "success");
     } catch (err: any) {
-      console.error("❌ Save failed:", err);
-      setError(err.message || "Could not save profile");
+      console.error("❌ SAVE FAILED:", err);
+      setError(err.message || "Save failed");
       showToast(err.message || "Save failed", "error");
     } finally {
       setSaving(false);
     }
   };
-  const handleProfileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files?.[0]) return;
 
-    const file = event.target.files[0];
+  const handleProfileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    console.log("🖼️ UPLOADING PROFILE:", file.name);
     setProfileImagePreview(URL.createObjectURL(file));
     setUploadingProfile(true);
 
-    const { uploadVendorFile } = await import("@/app/lib/vendorApi");
-    const response = await uploadVendorFile(file);
+    try {
+      const response = await uploadVendorFile(file);
+      console.log("📤 UPLOAD RESPONSE:", response);
 
-    if ((response as any)?.error) {
-      const message = String((response as any).message || "Profile image upload failed");
-      setError(message);
-      showToast(message, "error");
+      const imageUrl = response.fullUrl || response.url || response.filename ? `/uploads/${response.filename}` : '';
+      console.log("🖼️ SETTING IMAGE URL:", imageUrl);
+
+      // OPTIMISTIC UPDATE
+      setForm((prev) => ({ ...prev, profileImage: imageUrl }));
+      setProfileImagePreview(resolveImageUrl(imageUrl));
+      showToast("✅ Profile image updated", "success");
+    } catch (err: any) {
+      console.error("❌ UPLOAD FAILED:", err);
+      showToast(err.message || "Upload failed", "error");
+    } finally {
       setUploadingProfile(false);
-      return;
     }
-
-    // Update profile with the full URL
-    const updateResponse = await saveVendorProfile({
-      profileImage: (response as any).fullUrl,
-    });
-
-    if ((updateResponse as any)?.error) {
-      const message = String((updateResponse as any).message || "Could not update profile image");
-      setError(message);
-      showToast(message, "error");
-      setUploadingProfile(false);
-      return;
-    }
-
-    await refreshVendorProfile();
-    showToast("Profile image updated", "success");
-    setUploadingProfile(false);
   };
 
   const handlePortfolioUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -209,211 +186,255 @@ export default function BusinessProfile() {
     const selectedFiles = Array.from(event.target.files);
     const existingCount = galleryImages.length;
     if (existingCount + selectedFiles.length > 7) {
-      const message = "You can upload up to 7 portfolio images";
-      setError(message);
-      showToast(message, "error");
-      return;
-    }
-
-    const invalidFile = selectedFiles.find(
-      (file) => !["image/jpeg", "image/jpg", "image/png"].includes(file.type),
-    );
-    if (invalidFile) {
-      const message = "Only jpg, jpeg, and png files are allowed";
-      setError(message);
-      showToast(message, "error");
+      showToast("Max 7 portfolio images", "error");
       return;
     }
 
     setUploadingGallery(true);
+    try {
+      const response = await uploadVendorPortfolioMultiple(selectedFiles);
+      console.log("📤 PORTFOLIO RESPONSE:", response);
 
-    const response = await uploadVendorPortfolioMultiple(selectedFiles);
-    if ((response as any)?.error) {
-      const message = String((response as any).message || "Portfolio upload failed");
-      setError(message);
-      showToast(message, "error");
+      const newUrls = Array.isArray(response) ? response.map((item: any) => item.url || item.fullUrl).filter(Boolean) : [];
+      showToast(`${newUrls.length} images uploaded`, "success");
+      const portfolioUpdate = { portfolio: newUrls.map(url => ({ url, caption: '' })) };
+      await saveVendorProfile(portfolioUpdate);
+    } catch (err: any) {
+      console.error("PORTFOLIO FAILED:", err);
+      showToast(err.message || "Portfolio upload failed", "error");
+    } finally {
       setUploadingGallery(false);
-      return;
+      event.target.value = "";
     }
-
-    const uploaded = Array.isArray(response)
-      ? response
-      : Array.isArray((response as { data?: unknown[] })?.data)
-        ? ((response as { data: unknown[] }).data as Array<{ url?: string }>)
-        : [];
-
-    const incomingPortfolio = uploaded
-      .map((item) => ({
-        url: String(item?.url || ""),
-        caption: "",
-      }))
-      .filter((item) => Boolean(item.url));
-
-    if (!incomingPortfolio.length) {
-      const message = "No valid images were uploaded";
-      setError(message);
-      showToast(message, "error");
-      setUploadingGallery(false);
-      return;
-    }
-
-    const existingPortfolio = Array.isArray(typedVendorProfile?.portfolio)
-      ? typedVendorProfile.portfolio.map((item) => ({
-        url: String(item?.url || ""),
-        caption: String(item?.caption || ""),
-      }))
-      : [];
-
-    const nextPortfolio = [...existingPortfolio, ...incomingPortfolio].slice(0, 7);
-    const updateResponse = await saveVendorProfile({
-      portfolio: nextPortfolio,
-      gallery: nextPortfolio.map((item) => item.url),
-    });
-
-    if (updateResponse?.error) {
-      const message = String(updateResponse.message || "Failed to save portfolio");
-      setError(message);
-      showToast(message, "error");
-      setUploadingGallery(false);
-      return;
-    }
-
-    await refreshVendorProfile();
-    showToast("Portfolio updated", "success");
-    setUploadingGallery(false);
-    event.target.value = "";
   };
 
   const addPackageLocally = () => {
     if (!packageForm.name || !packageForm.price) {
-      const message = "Package name and price are required";
-      setError(message);
-      showToast(message, "error");
+      showToast("Name & price required", "error");
       return;
     }
 
-    setPackages((current) => [
-      ...current,
-      {
-        name: packageForm.name,
-        price: Number(packageForm.price),
-        description: packageForm.description,
-        servicesIncluded: packageForm.servicesIncluded
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean),
-      },
-    ]);
+    const newPackage = {
+      name: packageForm.name,
+      price: Number(packageForm.price),
+      description: packageForm.description,
+      servicesIncluded: packageForm.servicesIncluded.split(',').map(item => item.trim()).filter(Boolean),
+    };
 
+    console.log("📦 ADD PACKAGE:", newPackage);
+    setPackages((current) => [...current, newPackage]);
     setPackageForm(initialPackage);
-    showToast("Package added to draft", "info");
+    showToast("Package added", "info");
   };
 
   if (loadingProfile) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
-        <p className="text-muted-foreground">Loading business profile...</p>
-        <button 
-          onClick={() => refreshVendorProfile()}
-          className="px-4 py-2 border rounded-md text-sm"
-        >
-          Retry
-        </button>
+      <div className="space-y-4 p-8 text-center">
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto" />
+        <p>Loading business profile...</p>
       </div>
     );
   }
 
+  console.log("🎨 RENDER - form:", form, "profileImagePreview:", profileImagePreview);
+
   return (
     <div className="space-y-6">
-      {typedVendorProfile?.isVerified || typedVendorProfile?.verified ? (
-        <VerifiedVendor />
-      ) : null}
-
-      <div className="flex justify-between items-center">
+      {typedVendorProfile?.isVerified && <VerifiedVendor />}
+      
+      <div className="flex justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Business Profile</h1>
-          <p className="text-gray-500 text-sm">Manage your brand identity, services, and settings.</p>
+          <h1 className="text-2xl font-bold">Business Profile</h1>
+          <p className="text-muted-foreground">Manage your brand and services.</p>
         </div>
-
         <button
           onClick={() => void handleSave()}
           disabled={saving}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md text-sm disabled:opacity-60"
+          className="bg-primary hover:bg-primary/90 px-6 py-2 rounded-md text-sm font-medium"
         >
           {saving ? "Saving..." : "Save Profile"}
         </button>
       </div>
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && <div className="p-3 bg-destructive/10 border border-destructive rounded-md">{error}</div>}
 
-      <form onSubmit={handleSave} className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
-          <div className="theme-card p-5 space-y-3">
-            <h3 className="font-semibold">Basic Info</h3>
-            <input value={form.businessName} onChange={(e) => onFormChange("businessName", e.target.value)} placeholder="Business Name" className="w-full border rounded-md p-2" />
-            <textarea value={form.description} onChange={(e) => onFormChange("description", e.target.value)} placeholder="Description" className="w-full border rounded-md p-2" />
-            <input value={form.category} onChange={(e) => onFormChange("category", e.target.value)} placeholder="Category (comma separated)" className="w-full border rounded-md p-2" />
-            <input value={form.location} onChange={(e) => onFormChange("location", e.target.value)} placeholder="Location" className="w-full border rounded-md p-2" />
-            <input value={form.experience} onChange={(e) => onFormChange("experience", e.target.value)} placeholder="Experience" className="w-full border rounded-md p-2" />
+      <form onSubmit={(e) => handleSave(e)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left: Form */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="border rounded-xl p-6">
+            <h3 className="font-semibold mb-4">Basic Information</h3>
+            <div className="space-y-3">
+              <input 
+                value={form.businessName}
+                onChange={(e) => onFormChange("businessName", e.target.value)}
+                placeholder="Business Name *"
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+              />
+              <textarea 
+                value={form.description}
+                onChange={(e) => onFormChange("description", e.target.value)}
+                placeholder="Business description"
+                rows={3}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary resize-vertical"
+              />
+              <input 
+                value={form.category}
+                onChange={(e) => onFormChange("category", e.target.value)}
+                placeholder="Categories (comma separated)"
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+              />
+              <input 
+                value={form.location}
+                onChange={(e) => onFormChange("location", e.target.value)}
+                placeholder="Location / Service Area"
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+              />
+              <input 
+                value={form.experience}
+                onChange={(e) => onFormChange("experience", e.target.value)}
+                placeholder="Years of Experience"
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+              />
+            </div>
           </div>
 
-          <div className="theme-card p-5 space-y-3">
-            <h3 className="font-semibold">Packages</h3>
-
+          <div className="border rounded-xl p-6">
+            <h3 className="font-semibold mb-4">Service Packages</h3>
             {packages.length === 0 ? (
-              <p className="text-sm text-gray-500">No packages added yet</p>
+              <p className="text-muted-foreground">Add packages to showcase your pricing.</p>
             ) : (
-              <div className="space-y-2">
-                {packages.map((item, index) => (
-                  <div key={`${item.name}-${index}`} className="border rounded-md p-3">
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-gray-600">₹{Number(item.price || 0)}</p>
-                    {item.description && <p className="text-sm text-gray-500">{item.description}</p>}
+              <div className="space-y-3 mb-4">
+                {packages.map((pkg, index) => (
+                  <div key={index} className="p-4 border rounded-lg bg-muted/50">
+                    <div className="flex justify-between">
+                      <div>
+                        <p className="font-semibold">{pkg.name}</p>
+                        <p className="text-sm text-muted-foreground">₹{pkg.price}</p>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setPackages(p => p.filter((_, i) => i !== index))}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    {pkg.description && <p className="text-sm mt-1">{pkg.description}</p>}
                   </div>
                 ))}
               </div>
             )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <input value={packageForm.name} onChange={(e) => setPackageForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Package name" className="border rounded-md p-2" />
-              <input value={packageForm.price} onChange={(e) => setPackageForm((prev) => ({ ...prev, price: e.target.value }))} placeholder="Price" className="border rounded-md p-2" />
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
+              <input 
+                value={packageForm.name}
+                onChange={(e) => setPackageForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Package name"
+                className="w-full p-3 border rounded-lg"
+              />
+              <input 
+                value={packageForm.price}
+                onChange={(e) => setPackageForm(prev => ({ ...prev, price: e.target.value }))}
+                placeholder="Price (₹)"
+                className="w-full p-3 border rounded-lg"
+              />
+              <textarea 
+                value={packageForm.description}
+                onChange={(e) => setPackageForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Description"
+                rows={2}
+                className="w-full p-3 border rounded-lg"
+              />
+              <input 
+                value={packageForm.servicesIncluded}
+                onChange={(e) => setPackageForm(prev => ({ ...prev, servicesIncluded: e.target.value }))}
+                placeholder="Services (comma separated)"
+                className="w-full p-3 border rounded-lg"
+              />
+              <button 
+                type="button"
+                onClick={addPackageLocally}
+                className="w-full p-3 bg-secondary hover:bg-secondary/80 rounded-lg font-medium"
+              >
+                Add Package
+              </button>
             </div>
-            <input value={packageForm.description} onChange={(e) => setPackageForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" className="w-full border rounded-md p-2" />
-            <input value={packageForm.servicesIncluded} onChange={(e) => setPackageForm((prev) => ({ ...prev, servicesIncluded: e.target.value }))} placeholder="Services included (comma separated)" className="w-full border rounded-md p-2" />
-            <button type="button" onClick={addPackageLocally} className="border px-4 py-2 rounded-md text-sm">Add Package</button>
           </div>
         </div>
 
+        {/* Right: Preview & Upload */}
         <div className="space-y-6">
-          <div className="theme-card p-5 space-y-3">
-            <h3 className="font-semibold">Profile Image</h3>
-            <input type="file" accept="image/*" onChange={(e) => void handleProfileUpload(e)} />
-            {uploadingProfile && <p className="text-sm text-gray-500">Uploading...</p>}
-          </div>
-
-          <div className="theme-card p-5 space-y-3">
-            <h3 className="font-semibold">Portfolio</h3>
-            <input type="file" accept="image/jpeg,image/jpg,image/png" multiple onChange={(e) => void handlePortfolioUpload(e)} />
-            {uploadingGallery && <p className="text-sm text-gray-500">Uploading...</p>}
-            <div className="grid grid-cols-2 gap-2">
-              {galleryImages.slice(0, 7).map((imageUrl: string, index: number) => (
-                <img key={`${imageUrl}-${index}`} src={imageUrl} alt={`Gallery ${index + 1}`} className="w-full h-20 object-cover rounded" />
-              ))}
+          <div className="border rounded-xl p-6">
+            <h3 className="font-semibold mb-4">Profile Image</h3>
+            <div className="space-y-3">
+              <div className="relative">
+                <img 
+                  src={profileImagePreview || "/placeholder-avatar.jpg"} 
+                  alt="Profile preview"
+                  className="w-24 h-24 mx-auto rounded-full object-cover border-4 border-muted shadow-lg"
+                />
+                {uploadingProfile && (
+                  <div className="absolute inset-0 bg-primary/20 animate-pulse rounded-full" />
+                )}
+              </div>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleProfileUpload}
+                className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 cursor-pointer"
+              />
+              {uploadingProfile && <p className="text-sm text-muted-foreground text-center">Uploading...</p>}
             </div>
           </div>
 
-          <div className="theme-card p-5 space-y-2">
-            <h3 className="font-semibold">Live Preview</h3>
-            <img src={profileImagePreview || "/eventra_photos/photographer.jpg"} alt="Profile preview" className="w-16 h-16 rounded-full object-cover" />
-            <p className="font-medium">{form.businessName || "Business Name"}</p>
-            <p className="text-sm text-gray-600">{form.description || "Description preview"}</p>
-            <p className="text-sm text-gray-500">{form.location || "Location"}</p>
-            <p className="text-sm text-gray-500">{form.experience || "Experience"}</p>
-            <p className="text-sm text-gray-500">Packages: {packages.length}</p>
+          <div className="border rounded-xl p-6">
+            <h3 className="font-semibold mb-4">Portfolio (Max 7)</h3>
+            <input 
+              type="file" 
+              accept="image/jpeg,image/jpg,image/png"
+              multiple
+              max={7}
+              onChange={handlePortfolioUpload}
+              className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-secondary file:text-white hover:file:bg-secondary/80 cursor-pointer"
+            />
+            {uploadingGallery && <p className="text-sm text-muted-foreground text-center">Uploading...</p>}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
+              {galleryImages.slice(0, 7).map((imageUrl, index) => (
+                <div key={index} className="relative group">
+                  <img 
+                    src={imageUrl} 
+                    alt={`Portfolio ${index + 1}`}
+                    className="w-full h-20 object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                  />
+                  <div className="opacity-0 group-hover:opacity-100 absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center transition-all">
+                    <span className="text-white text-xs font-medium">✓</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {galleryImages.length >= 7 && (
+              <p className="text-xs text-muted-foreground mt-2">Portfolio full (max 7 images)</p>
+            )}
+          </div>
+
+          <div className="border rounded-xl p-6">
+            <h3 className="font-semibold mb-4">Live Preview</h3>
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full flex items-center justify-center p-1">
+                <img 
+                  src={profileImagePreview || "/placeholder-avatar.jpg"} 
+                  className="w-14 h-14 rounded-full object-cover shadow-lg border-2 border-background"
+                />
+              </div>
+              <p className="font-semibold">{form.businessName || "Your Business"}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2">{form.description}</p>
+              <p className="text-xs text-muted-foreground">{form.location}</p>
+              <p className="text-xs bg-muted px-2 py-1 rounded-full">{form.experience || "0+"} years</p>
+              <p className="text-xs text-muted-foreground">Packages: {packages.length}</p>
+            </div>
           </div>
         </div>
       </form>
     </div>
   );
 }
+
