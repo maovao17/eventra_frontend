@@ -68,26 +68,27 @@ export default function Ratings() {
     if (!text || !profile?.uid) return;
     setSending(reviewId);
     setError("");
+    try {
+      await apiFetch("/reviews/reply", {
+        method: "POST",
+        body: JSON.stringify({
+          reviewId,
+          actorUserId: profile.uid,
+          reply: text,
+        }),
+      });
 
-    const response = await apiFetch("/reviews/reply", {
-      method: "POST",
-      body: JSON.stringify({
-        reviewId,
-        actorUserId: profile.uid,
-        reply: text,
-      }),
-    });
-
-    if ((response as any)?.error) {
-      setError((response as any).message || "Reply failed.");
+      setReplyText((prev) => ({ ...prev, [reviewId]: "" }));
+      setLoading(true);
+      setRefreshKey((prev) => prev + 1);
+      showToast("Reply sent", "success");
+    } catch (replyError) {
+      const message = replyError instanceof Error ? replyError.message : "Reply failed.";
+      setError(message);
+      showToast(message, "error");
+    } finally {
       setSending("");
-      return;
     }
-
-    setReplyText((prev) => ({ ...prev, [reviewId]: "" }));
-    setLoading(true);
-    setRefreshKey((prev) => prev + 1);
-    setSending("");
   };
 
   if (loading) return <PageCardSkeleton count={3} className="md:grid-cols-1" />;

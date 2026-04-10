@@ -128,9 +128,7 @@ export default function ChatPage() {
       })
 
       setInputText("")
-      if (isRetry) {
-        showToast("Message sent successfully!", "success")
-      }
+      showToast("Message sent", "success")
     } catch (error: any) {
       setSendError(true)
 
@@ -165,7 +163,7 @@ export default function ChatPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading chat...</p>
+        <p>Loading...</p>
       </div>
     )
   }

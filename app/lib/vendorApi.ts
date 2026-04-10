@@ -8,6 +8,11 @@ export type UploadResponse = {
   url?: string;
 }
 
+const extractArray = <T,>(response: unknown): T[] => {
+  const data = (response as { data?: unknown } | null)?.data ?? response
+  return Array.isArray(data) ? (data as T[]) : []
+}
+
 export const getVendorMe = async (): Promise<any> => {
   console.log("📡 GET /vendors/me");
   const response = await apiFetch(`/vendors/me`);
@@ -108,11 +113,11 @@ export const markVendorNotificationRead = async (notificationId: string): Promis
 export const getVendorPayouts = async (): Promise<any[]> => {
   console.log("📡 GET /vendors/payouts");
   const response = await apiFetch("/vendors/payouts");
-  return Array.isArray(response) ? response : [];
+  return extractArray(response);
 };
 
 export const getVendorReviews = async (): Promise<any[]> => {
   console.log("📡 GET /vendors/reviews");
   const response = await apiFetch("/vendors/reviews");
-  return Array.isArray(response) ? response : [];
+  return extractArray(response);
 };

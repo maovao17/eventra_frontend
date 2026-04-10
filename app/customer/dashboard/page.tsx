@@ -181,7 +181,7 @@ export default function DashboardPage() {
                 )}
                 {['accepted', 'confirmed'].includes(booking.status) && (
                   <button
-                    onClick={() => router.push(`/customer/messages?bookingId=${booking.id}`)}
+                    onClick={() => router.push(`/chat/booking-${booking.id}`)}
                     className="theme-button text-sm py-1 px-3 rounded-lg"
                   >
                     Chat

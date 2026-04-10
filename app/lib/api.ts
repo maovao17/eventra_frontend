@@ -4,7 +4,17 @@ import { getAuth } from "firebase/auth";
 // force rebuild 
 
 export const API_URL =
-  (process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:3002") + "/api";
+  (() => {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
+      process.env.NEXT_PUBLIC_API_URL?.trim();
+
+    if (!baseUrl) {
+      throw new Error("NEXT_PUBLIC_BACKEND_URL is NOT set");
+    }
+
+    return `${baseUrl}/api`;
+  })();
 type ApiError = {
   message: string
   status?: number

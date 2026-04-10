@@ -24,7 +24,7 @@ function ConfirmationPageContent() {
           type="button"
           onClick={() =>
             router.push(
-              bookingId ? `/customer/messages?bookingId=${bookingId}` : "/customer/messages"
+              bookingId ? `/chat/booking-${bookingId}` : "/customer/messages"
             )
           }
           className="theme-button rounded-xl px-6 py-3"

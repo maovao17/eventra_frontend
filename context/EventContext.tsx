@@ -122,6 +122,10 @@ type EventContextValue = {
 const EventContext = createContext<EventContextValue | null>(null)
 
 const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : [])
+const unwrapData = <T,>(value: unknown): T[] => {
+  const payload = (value as { data?: unknown } | null)?.data ?? value
+  return asArray<T>(payload)
+}
 
 const buildLocationLabel = (location: unknown) => {
   if (typeof location === "string") return location
@@ -324,9 +328,9 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         shouldLoadServices ? apiFetch("/services").catch(() => []) : Promise.resolve([]),
       ])
 
-      const rawVendorList = asArray<Record<string, unknown>>(vendorResponse)
-      const reviews = asArray<Record<string, unknown>>(reviewResponse)
-      const serviceList = asArray<Service>(serviceResponse)
+      const rawVendorList = unwrapData<Record<string, unknown>>(vendorResponse)
+      const reviews = unwrapData<Record<string, unknown>>(reviewResponse)
+      const serviceList = unwrapData<Service>(serviceResponse)
       const mappedVendors = rawVendorList.map((vendor) => normalizeVendor(vendor, reviews))
 
       const [rawEventsResponse, rawRequestsResponse, rawBookingsResponse] =
@@ -344,7 +348,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
               ])
             : [[], [], []]
 
-      const rawRequests = asArray<Record<string, unknown>>(rawRequestsResponse)
+      const rawRequests = unwrapData<Record<string, unknown>>(rawRequestsResponse)
       const nestedRawEvents =
         profile.role === "vendor"
           ? (rawRequests
@@ -352,7 +356,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
               .filter(Boolean) as Record<string, unknown>[])
           : []
       const rawEvents = dedupeById(
-        [...asArray<Record<string, unknown>>(rawEventsResponse), ...nestedRawEvents],
+        [...unwrapData<Record<string, unknown>>(rawEventsResponse), ...nestedRawEvents],
         (event) => getEntityId(event),
       )
       const eventNameMap = new Map(
@@ -363,7 +367,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       )
       const bookingSources = dedupeById(
         [
-          ...asArray<Record<string, unknown>>(rawBookingsResponse),
+          ...unwrapData<Record<string, unknown>>(rawBookingsResponse),
           ...rawRequests
             .map((request) => request.booking as unknown)
             .filter(Boolean) as Record<string, unknown>[],
@@ -521,6 +525,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
 
     const requestId = getEntityId(response)
     await refreshData()
+    showToast("Request sent", "success")
     return {
       id: requestId,
       eventId,

@@ -353,7 +353,7 @@ function BookingDetailsPageContent() {
         <div className="bg-white border rounded-xl p-5 space-y-3">
           {['pending', 'accepted', 'confirmed'].includes(booking.status) && (
             <button
-              onClick={() => router.push(`/vendor/messages?bookingId=${booking._id}`)}
+              onClick={() => router.push(`/chat/booking-${booking._id}`)}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 rounded-lg transition-colors"
             >
               Message Client

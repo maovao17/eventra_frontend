@@ -1,171 +1,79 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { Suspense, useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { Suspense, useMemo } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
-import {
-  getChatIdForBooking as getChatIdForRequest,
-  initializeChatThread,
-  sendChatMessage,
-  subscribeToChatMessages,
-  type ChatMessage,
-} from "@/lib/chat"
+import { EmptyState, PageCardSkeleton } from "@/components/ui/PageState"
+import { getChatIdForBooking } from "@/lib/chat"
 
 function MessagesPageContent() {
+  const router = useRouter()
   const { profile } = useAuth()
-  const { requests, vendors, events, bookings } = useEvent()
-  const activeVendor = vendors.find((vendor) => vendor.userId === profile?.uid)
-  const currentVendorId = activeVendor?.id
-  const vendorRequests = currentVendorId
-    ? requests.filter((request) => request.vendorId === currentVendorId && request.status === "accepted")
-    : []
+  const { bookings, events, isLoading } = useEvent()
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId")
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [draft, setDraft] = useState("")
-
-  const activeRequestId =
-    selectedRequestId ??
-    vendorRequests.find((request) => {
-      const booking = bookings.find((item) => item.requestId === request.id && item.id === bookingId)
-      return Boolean(booking)
-    })?.id ??
-    vendorRequests[0]?.id ??
-    null
-
-  const activeRequest =
-    vendorRequests.find((request) => request.id === activeRequestId) ?? vendorRequests[0]
-  const activeEvent = events.find((event) => event.id === activeRequest?.eventId)
-  const activeBooking = bookings.find((item) => item.requestId === activeRequest?.id)
-  const activeBookingId = activeBooking?.id ?? bookingId ?? null
   const threads = useMemo(
     () =>
-      vendorRequests.map((request) => ({
-        request,
-        event: events.find((item) => item.id === request.eventId),
-        bookingId: bookings.find((item) => item.requestId === request.id)?.id ?? null,
-      })),
-    [bookings, events, vendorRequests],
+      bookings
+        .filter((booking) => booking.status === "accepted" || booking.status === "confirmed")
+        .map((booking) => ({
+          bookingId: String(booking.id ?? booking._id ?? ""),
+          eventName:
+            events.find((event) => event.id === booking.eventId)?.name ?? "Booked Event",
+          status: booking.status,
+          amount: Number(booking.amount ?? 0),
+        }))
+        .filter((thread) => Boolean(thread.bookingId)),
+    [bookings, events],
   )
 
-  useEffect(() => {
-    if (!activeRequest || !profile?.uid || !activeVendor?.userId || !activeBookingId) {
-      setMessages([])
-      return
-    }
+  if (isLoading) {
+    return <PageCardSkeleton count={3} className="md:grid-cols-1" />
+  }
 
-    let unsubscribe: (() => void) | undefined
-
-    void initializeChatThread({ bookingId: activeBookingId })
-      .then(({ chatId }) => {
-        unsubscribe = subscribeToChatMessages(chatId, setMessages)
-      })
-      .catch(() => {
-        setMessages([])
-      })
-
-    return () => {
-      unsubscribe?.()
-    }
-  }, [activeBookingId, activeRequest, activeVendor?.userId, profile?.uid])
-
-  if (!activeRequest) {
+  if (!profile?.uid || threads.length === 0) {
     return (
-      <div className="theme-card p-8">
-        No client chats yet. Accept a request to unlock vendor messaging.
-      </div>
+      <EmptyState
+        title="No chats yet"
+        description="Accepted bookings will appear here for vendor messaging."
+      />
     )
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[0.34fr_0.66fr]">
-      <motion.div
-        initial={{ opacity: 0, x: -18 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="theme-card p-4"
-      >
-        <h2 className="mb-4 text-lg font-semibold">Active Client Chats</h2>
-        <div className="space-y-3">
-          {threads.map(({ request, event, bookingId: threadBookingId }) => {
-            return (
-              <button
-                key={request.id}
-                type="button"
-                onClick={() => setSelectedRequestId(request.id)}
-                className={`w-full rounded-xl p-4 text-left ${
-                  activeRequest?.id === request.id ? "bg-[var(--primary-light)]" : "theme-surface"
-                }`}
-              >
-                <p className="font-medium">{request.clientName}</p>
-                <p className="theme-muted mt-1 text-sm">{event?.name}</p>
-                <p className="theme-muted mt-1 text-xs">
-                  {threadBookingId ? "Chat ready" : "Booking pending"}
-                </p>
-                <p className="theme-muted mt-2 text-xs">{request.createdAt}</p>
-              </button>
-            )
-          })}
-        </div>
-      </motion.div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Client Chats</h1>
+        <p className="theme-muted mt-2 text-sm">Open a booking to continue chatting with the customer.</p>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, x: 18 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="theme-card flex min-h-[32rem] flex-col justify-between p-6"
-      >
-        <div>
-          <h1 className="text-xl font-semibold">{activeRequest.clientName}</h1>
-          <p className="theme-muted mt-2 text-sm">
-            {activeEvent?.name} • {activeVendor?.category ?? "Vendor"} conversation
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`max-w-sm rounded-2xl p-4 ${
-                message.senderId === profile?.uid
-                  ? "ml-auto bg-[var(--primary)] text-white"
-                  : "theme-surface"
+      <div className="space-y-3">
+        {threads.map((thread) => {
+          const isSelected = bookingId === thread.bookingId
+          return (
+            <button
+              key={thread.bookingId}
+              type="button"
+              onClick={() => router.push(`/chat/${getChatIdForBooking(thread.bookingId)}`)}
+              className={`theme-card w-full rounded-2xl p-5 text-left transition ${
+                isSelected ? "ring-2 ring-[var(--primary)]" : ""
               }`}
             >
-              {message.text}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-3">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Reply to client"
-            className="input flex-1 p-3"
-          />
-          <button
-            type="button"
-            onClick={async () => {
-              if (!activeRequest || !activeBookingId) return
-              const { chatId } = await initializeChatThread({
-                bookingId: activeBookingId,
-              })
-
-              void sendChatMessage({
-                chatId,
-                senderId: profile?.uid ?? "vendor",
-                text: draft,
-              })
-              setDraft("")
-            }}
-            className="theme-button rounded-xl px-5"
-          >
-            Send
-          </button>
-        </div>
-      </motion.div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-semibold">{thread.eventName}</p>
+                  <p className="theme-muted mt-1 text-sm">Chat with Customer</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium capitalize">{thread.status}</p>
+                  <p className="theme-muted text-xs">Rs. {thread.amount.toLocaleString("en-IN")}</p>
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

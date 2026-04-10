@@ -64,7 +64,8 @@ export default function BookingRequests() {
 
     try {
       const response = await apiFetch(`/requests`)
-      setRequests(Array.isArray(response) ? response : [])
+      const data = (response as { data?: VendorRequest[] } | null)?.data ?? response
+      setRequests(Array.isArray(data) ? data : [])
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load booking requests"
       setError(message)
@@ -188,7 +189,7 @@ status={b.status}
 onAccept={b.status === "pending" ? () => void updateBookingStatusHandler(i, "accepted") : undefined}
 onDecline={b.status === "pending" ? () => void updateBookingStatusHandler(i, "rejected") : undefined}
 onDetails={b.bookingId ? () => router.push(`/vendor/bookedClientDetails?bookingId=${b.bookingId}`) : undefined}
-onChat={b.bookingId ? () => router.push(`/vendor/messages?bookingId=${b.bookingId}`) : undefined}
+onChat={b.bookingId ? () => router.push(`/chat/booking-${b.bookingId}`) : undefined}
 disabled={isMutating} 
 />
 ))}
