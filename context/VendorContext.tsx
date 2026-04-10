@@ -77,12 +77,12 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       }));
 
       const response = await apiSaveVendorProfile(data);
-      console.log("✅ SAVE RESPONSE:", response);
+      console.log("SAVE RESPONSE:", response);
       
       // NO REFRESH - optimistic only
       return response;
     } catch (error) {
-      console.error("❌ SAVE ERROR:", error);
+      console.error(" SAVE ERROR:", error);
       // Revert on fail
       await refreshVendorProfile();
       showToast("Save failed", "error");
