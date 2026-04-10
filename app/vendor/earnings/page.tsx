@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
 import { useVendorData } from "@/context/VendorContext";
-import { getVendorPayouts } from "@/app/lib/vendorApi";
+import { apiFetch } from "@/app/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Earnings() {
 const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
@@ -34,7 +35,8 @@ const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
       }
 
       try {
-        const payouts = await getVendorPayouts();
+        const { profile } = useAuth();
+        const payouts = await apiFetch(`/payouts?vendorId=${profile?.uid}`);
         const payoutList = Array.isArray(payouts) ? payouts : [];
 
         setStats({

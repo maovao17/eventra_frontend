@@ -25,7 +25,7 @@ export default function AdminVendorsPage() {
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch('/api/vendors/all');
+      const res = await fetch('/vendors/all');
       const data = await res.json();
       setVendors(data || []);
     } catch (err) {
@@ -37,7 +37,7 @@ export default function AdminVendorsPage() {
 
   const approveVendor = async (id: string) => {
     try {
-      const res = await fetch(`/api/vendors/approve/${id}`, { method: 'PATCH' });
+      const res = await fetch(`/vendors/approve/${id}`, { method: 'PATCH' });
       if (res.ok) {
         fetchVendors();
       }

@@ -65,12 +65,13 @@ export default function BusinessProfile() {
   const typedVendorProfile = vendorProfile as VendorProfileData | null;
 
   // Local form state - NOT overwritten by context
-  const [form, setForm] = useState({
+const [form, setForm] = useState({
     businessName: "",
     description: "",
     category: "",
     location: "",
     experience: "",
+    profileImage: "",
   });
   const [packages, setPackages] = useState<VendorPackage[]>([]);
   const [packageForm, setPackageForm] = useState<PackageInput>(initialPackage);
@@ -80,7 +81,6 @@ export default function BusinessProfile() {
   const [profileImagePreview, setProfileImagePreview] = useState("");
   const [error, setError] = useState("");
   
-  // ONE TIME INITIALIZE
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -93,12 +93,13 @@ export default function BusinessProfile() {
         category: Array.isArray(typedVendorProfile.category) ? typedVendorProfile.category.join(", ") : "",
         location: String(typedVendorProfile?.location?.address || ""),
         experience: String(typedVendorProfile.experience || ""),
+        profileImage: String(typedVendorProfile.profileImage || typedVendorProfile.image || ""),
       });
       setPackages(Array.isArray(typedVendorProfile.packages) ? typedVendorProfile.packages : []);
       setProfileImagePreview(resolveImageUrl(String(typedVendorProfile.profileImage || typedVendorProfile.image || "")));
       initialized.current = true;
     }
-  }, [typedVendorProfile]);
+  }, [profile?.uid]);
 
   const galleryImages = useMemo(() => {
     if (!typedVendorProfile) return [];
@@ -135,6 +136,7 @@ export default function BusinessProfile() {
       category: categories,
       location: { address: form.location },
       experience: form.experience,
+      profileImage: form.profileImage,
       packages,
     };
 
