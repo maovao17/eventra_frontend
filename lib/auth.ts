@@ -203,12 +203,10 @@ const withAuthorizationHeader = (
   Authorization: `Bearer ${token}`,
 })
 
-export const fetchBackendProfile = async (uid: string, token?: string) => {
+export const fetchBackendProfile = async (uid: string) => {
   try {
-    console.log("🔍 Backend profile fetch, token len:", token?.length || 0);
-    const data = await apiFetch("/users/me", {
-      headers: token ? withAuthorizationHeader(token) : undefined,
-    })
+    console.log("🔍 Backend profile fetch");
+    const data = await apiFetch("/users/me")
     console.log("✅ Backend profile:", !!data);
     return data ? mapBackendProfile(data, uid) : null
   } catch (error: any) {
@@ -232,7 +230,7 @@ export const ensureBackendProfile = async (
   let profile: AppUserProfile | null
 
   try {
-    profile = await fetchBackendProfile(user.uid, token)
+    profile = await fetchBackendProfile(user.uid)
   } catch (error) {
     if (error instanceof ApiFetchError && error.status === 401) {
       return null
@@ -248,7 +246,6 @@ export const ensureBackendProfile = async (
 
   await apiFetch("/users", {
     method: "POST",
-    headers: withAuthorizationHeader(token),
     body: JSON.stringify({
       name: payload.name,
       phoneNumber: payload.phoneNumber,
@@ -260,7 +257,7 @@ export const ensureBackendProfile = async (
     }),
   })
 
-  profile = await fetchBackendProfile(user.uid, token)
+  profile = await fetchBackendProfile(user.uid)
   if (!profile) {
     throw new Error("Could not load your Eventra account.")
   }

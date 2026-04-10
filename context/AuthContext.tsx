@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem("firebaseToken", token);
 
           // Sync socket immediately
-          syncSocketAuth(token);
+          // syncSocketAuth(token);
         }
       } catch (error) {
         console.error("Redirect login error:", error);
@@ -77,10 +77,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Fetch profile with retry
-  const fetchUserProfile = async (uid: string, token?: string): Promise<AppUserProfile | null> => {
+  const fetchUserProfile = async (uid: string): Promise<AppUserProfile | null> => {
     try {
-      console.log("Fetching profile for uid:", uid, "token len:", token?.length || 0);
-      const data = await fetchBackendProfile(uid, token);
+      console.log("Fetching profile for uid:", uid);
+      const data = await fetchBackendProfile(uid);
       console.log("Profile fetched:", !!data);
       return data;
     } catch (error: any) {
@@ -90,8 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         retryCount.current++;
         console.log(`🔄 Profile retry ${retryCount.current}/${maxRetries}`);
         await new Promise(r => setTimeout(r, 1000));
-        const freshToken = await auth.currentUser!.getIdToken(true);
-        return fetchUserProfile(uid, freshToken);
+        return fetchUserProfile(uid);
       }
       showToast("Couldn't load account. Please login again.", "error");
       return null;
@@ -122,7 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!firebaseUser) {
           setUser(null);
           await syncAuthToken(null);
-          disconnectSocket();
+          // disconnectSocket();
           setProfile(null);
           clearStoredUserProfile();
           setLoading(false);
@@ -135,9 +134,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const token = await firebaseUser.getIdToken(true);
         localStorage.setItem('firebaseToken', token);
         console.log("🔑 Firebase token ready, len:", token.length);
-        syncSocketAuth(token);
+        // syncSocketAuth(token);
 
-        const fetchedProfile = await fetchUserProfile(firebaseUser.uid, token);
+        const fetchedProfile = await fetchUserProfile(firebaseUser.uid);
 
         if (!fetchedProfile) {
           setProfile(null);

@@ -1,18 +1,5 @@
-import { auth, } from "@/lib/firebase";
-import { getAuth } from "firebase/auth";
+const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
-// force rebuild 
-
-export const API_URL =
-  (() => {
-    const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
-
-    if (!baseUrl) {
-      throw new Error("NEXT_PUBLIC_BACKEND_URL is NOT set");
-    }
-
-    return `${baseUrl}/api`;
-  })();
 type ApiError = {
   message: string
   status?: number
@@ -31,105 +18,43 @@ export class ApiFetchError extends Error {
   }
 }
 
-const resolveAuthToken = async (endpoint: string) => {
-  if (typeof window === "undefined") return null;
-
-  const authInstance = getAuth();
-  const user = authInstance.currentUser;
-
-  if (!user) {
-    const storedToken = localStorage.getItem('firebaseToken');
-    if (storedToken) {
-      console.log(`📡 Using stored token for ${endpoint}`);
-      return storedToken;
-    }
-    console.warn(`⚠️ No Firebase user for API call`);
-    return null;
-  }
-
-  try {
-    const token = await user.getIdToken(true);
-    console.log(`📡 API [${endpoint}] token len: ${token?.length || 0}`);
-    return token;
-  } catch (err) {
-    console.error("Token error:", err);
-    return null;
-  }
-};
-
-
 export async function apiFetch(
-  endpoint: string,
-  options?: RequestInit
+  path: string, 
+  options: RequestInit = {}
 ) {
-  const token = await resolveAuthToken(endpoint);
+  const token = localStorage.getItem("firebaseToken");
 
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
+      ...options.headers,
+    },
+  });
 
-  try {
-    const isFormData = typeof FormData !== "undefined" && options?.body instanceof FormData;
-    const headers: Record<string, string> = {
-      ...((options?.headers as Record<string, string> | undefined) ?? {}),
-    };
-
-    if (!isFormData && !headers["Content-Type"]) {
-      headers["Content-Type"] = "application/json";
-    }
-
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-    const res = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-
-    if (res.status === 204) {
-      return null;
-    }
-
+  if (!res.ok) {
     const text = await res.text();
-    let parsed: unknown = null;
+    let parsed = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch {}
+    
+    const errorMessage = parsed?.message || parsed?.error || `API error: ${res.status}`;
+    throw new ApiFetchError({
+      message: errorMessage,
+      status: res.status,
+      data: parsed,
+    });
+  }
 
-    if (text) {
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        if (!res.ok) {
-          throw new ApiFetchError({
-            message: "Invalid JSON response from server",
-            status: res.status,
-          })
-        }
-        return text;
-      }
-    }
-
-    if (!res.ok) {
-      const errorMessage =
-        (parsed as any)?.message ||
-        (parsed as any)?.error ||
-        `HTTP ${res.status}`;
-
-      throw new ApiFetchError({
-        message: String(errorMessage),
-        status: res.status,
-        data: parsed,
-      })
-    }
-
-    return parsed;
-  } catch (error) {
-    if (error instanceof ApiFetchError) {
-      throw error
-    }
-
-    const message = error instanceof Error ? error.message : "Network error";
-    throw new ApiFetchError({ message });
+  const text = await res.text();
+  if (!text) return null;
+  
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
   }
 }
+
