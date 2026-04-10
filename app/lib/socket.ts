@@ -1,7 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 import type { Booking, Notification } from '@/app/types/eventra';
 
-const endpoint = process.env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:3002';
+const endpoint =
+  process.env.NEXT_PUBLIC_BACKEND_URL?.trim() || 'http://localhost:3002';
 
 let socket: Socket | null = null;
 
@@ -9,6 +10,7 @@ export const getSocket = () => {
   if (!socket) {
     socket = io(endpoint, {
       transports: ['websocket'],
+      withCredentials: true,
       autoConnect: false,
       auth: { token: null },
     });
