@@ -20,7 +20,6 @@ import {
   storeUserProfile,
   syncAuthToken,
 } from "@/lib/auth";
-import { disconnectSocket, syncSocketAuth } from "@/app/lib/socket";
 
 type UserRole = "customer" | "vendor" | "admin";
 
@@ -114,7 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       if (hasInitialized.current) return;
-      
+
       try {
         hasInitialized.current = true;
 
@@ -136,7 +135,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("🔑 Firebase token ready, len:", token.length);
         // syncSocketAuth(token);
 
-        const fetchedProfile = await fetchUserProfile(firebaseUser.uid);
+        let fetchedProfile = await fetchUserProfile(firebaseUser.uid);
+
+        if (!fetchedProfile) {
+          try {
+            console.log("No backend profile → creating user...");
+
+            await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("firebaseToken")}`,
+              },
+              body: JSON.stringify({
+                name: firebaseUser.displayName || "New User",
+                phoneNumber: firebaseUser.phoneNumber || "",
+                email: firebaseUser.email || "",
+                userId: firebaseUser.uid,
+                authProvider: firebaseUser.phoneNumber ? "phone" : "google",
+                role: "customer",
+              }),
+            });
+
+            fetchedProfile = await fetchUserProfile(firebaseUser.uid);
+          } catch (err) {
+            console.error("Failed to auto-create user:", err);
+          }
+        }
 
         if (!fetchedProfile) {
           setProfile(null);
@@ -144,10 +169,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setLoading(false);
           return;
         }
-
         setProfile(fetchedProfile);
         storeUserProfile(fetchedProfile);
-        
+
         // 🚀 Auto-redirect after successful profile load
         const redirectPath = getDashboardPathForRole(fetchedProfile.role);
         const shouldRedirect =
@@ -157,7 +181,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (shouldRedirect && String(pathname) !== String(redirectPath)) {
           router.replace(redirectPath);
         }
-        
+
         setLoading(false);
         setIsReady(true);
       } catch (error) {
