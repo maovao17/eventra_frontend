@@ -32,9 +32,36 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
   const [reviewsLoading, setReviewsLoading] = useState(true)
   const [reviews, setReviews] = useState<any[]>([])
   const [error, setError] = useState("")
-  const existingRequest = currentEvent?.id && vendor?._id
+const existingRequest = currentEvent?.id && vendor?._id
     ? getRequestForVendor(currentEvent.id, String(vendor._id))
     : undefined
+
+  const handleSendRequest = async () => {
+    console.log("BUTTON CLICKED");
+    console.log("Event ID:", currentEvent?.id);
+    console.log("Vendor ID:", vendor?._id);
+
+    if (!currentEvent?.id) {
+      showToast("Please create/select an event first before contacting vendors.", "error");
+      return;
+    }
+
+    setRequesting(true);
+    try {
+      const request = await sendVendorRequest(currentEvent.id, String(vendor._id));
+      console.log("SUCCESS:", request);
+      if (request) {
+        showToast("Request sent successfully.", "success");
+      } else {
+        showToast("Could not send vendor request.", "error");
+      }
+    } catch (err) {
+      console.error("ERROR:", err);
+      showToast("Could not send vendor request.", "error");
+    } finally {
+      setRequesting(false);
+    }
+  };
 
   useEffect(() => {
     const loadVendor = async () => {
@@ -211,28 +238,17 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
           </div>
 
           <div className="theme-surface rounded-3xl p-6 lg:sticky lg:top-8 lg:max-h-screen lg:overflow-y-auto">
+            {!currentEvent?.id && (
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+                <p className="text-sm text-yellow-800">
+                  Please <Link href="/customer/dashboard" className="font-medium underline">create or select an event</Link> first to send vendor requests.
+                </p>
+              </div>
+            )}
             <button
               type="button"
-              onClick={async () => {
-                if (!currentEvent?.id) {
-                  showToast("Create an event first before contacting vendors.", "error")
-                  return
-                }
-
-                setRequesting(true)
-                try {
-                  const request = await sendVendorRequest(currentEvent.id, String(vendor._id))
-                  if (request) {
-                    showToast("Request sent successfully.", "success")
-                  } else {
-                    showToast("Could not send vendor request.", "error")
-                  }
-                } catch {
-                  showToast("Could not send vendor request.", "error")
-                }
-                setRequesting(false)
-              }}
-              disabled={requesting || Boolean(existingRequest)}
+              onClick={handleSendRequest}
+              disabled={requesting || Boolean(existingRequest) || !currentEvent?.id}
               className="w-full rounded-xl py-3 theme-button disabled:opacity-50 mb-4"
             >
               {requesting ? "Sending..." : existingRequest ? "Request Sent" : "Send Request"}
