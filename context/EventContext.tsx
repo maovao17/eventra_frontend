@@ -336,15 +336,15 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       const [rawEventsResponse, rawRequestsResponse, rawBookingsResponse] =
         profile.role === "customer"
           ? await Promise.all([
-              apiFetch(`/api/events?customerId=${profile.uid}`),
+              apiFetch(`/events?customerId=${profile.uid}`),
               apiFetch(`/api/requests?userId=${profile.uid}`),
-              apiFetch(`/api/bookings?customerId=${profile.uid}`),
+              apiFetch(`/bookings?customerId=${profile.uid}`),
             ])
           : profile.role === "vendor"
             ? await Promise.all([
                 Promise.resolve([]),
-                apiFetch(`/api/requests`),
-                apiFetch(`/api/bookings`),
+                apiFetch(`/requests`),
+                apiFetch(`/bookings`),
               ])
             : [[], [], []]
 
@@ -455,7 +455,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
   const createEvent = async (event: CreateEventInput) => {
     if (!profile?.uid) return null
 
-    const response = await apiFetch("/api/events", {
+    const response = await apiFetch("/events", {
       method: "POST",
       body: JSON.stringify({
         name: event.name || `${event.type ?? "Custom"} Event`,
@@ -481,7 +481,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const updateEventServices = async (eventId: string, nextServices: string[]) => {
-    await apiFetch(`/api/events/${eventId}`, {
+    await apiFetch(`/events/${eventId}`, {
       method: "PATCH",
       body: JSON.stringify({ services: nextServices }),
     })
