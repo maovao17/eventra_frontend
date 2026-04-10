@@ -323,9 +323,9 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       const shouldLoadServices = profile.role === "customer"
 
       const [vendorResponse, reviewResponse, serviceResponse] = await Promise.all([
-        apiFetch("/api/vendors"),
-        shouldLoadReviews ? apiFetch("/api/reviews").catch(() => []) : Promise.resolve([]),
-        shouldLoadServices ? apiFetch("/api/services").catch(() => []) : Promise.resolve([]),
+        apiFetch("/vendors"),
+        shouldLoadReviews ? apiFetch("/reviews").catch(() => []) : Promise.resolve([]),
+        shouldLoadServices ? apiFetch("/services").catch(() => []) : Promise.resolve([]),
       ])
 
       const rawVendorList = unwrapData<Record<string, unknown>>(vendorResponse)
