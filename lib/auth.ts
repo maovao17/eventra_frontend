@@ -8,10 +8,10 @@ import {
   browserLocalPersistence,
   onAuthStateChanged,
   setPersistence,
-  signInWithPopup,
   signInWithPhoneNumber,
   onIdTokenChanged,
   type Auth,
+  signInWithRedirect
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { ApiFetchError, apiFetch } from "@/app/lib/api"
@@ -270,29 +270,20 @@ export const ensureBackendProfile = async (
 
 
 
-export const signInWithGoogle = async ({
-  role = "customer",
-  name,
-  businessName,
-}: GoogleSignupOptions = {}) => {
-  try {
-    await enableAuthPersistence()
+export const signInWithGoogle = async ({ role }: { role: string }) => {
+  const provider = new GoogleAuthProvider();
 
-    const result = await signInWithPopup(auth, googleProvider)
-    const user = result.user
+  provider.setCustomParameters({
+    prompt: "select_account",
+  });
 
-    return ensureBackendProfile(user, {
-      name: user.displayName || name || "Eventra User",
-      email: user.email || undefined,
-      authProvider: "google",
-      role,
-      businessName: role === "vendor" ? businessName : undefined,
-    })
-  } catch (error) {
-    console.error("Google sign-in failed:", error)
-    throw error
-  }
-}
+  // store role temporarily if needed
+  sessionStorage.setItem("loginRole", role);
+
+  await signInWithRedirect(auth, provider);
+
+  return null; // IMPORTANT: do not return user
+};
 
 export const subscribeToAuthState = (
   callback: (user: User | null) => void

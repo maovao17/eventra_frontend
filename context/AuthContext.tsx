@@ -1,4 +1,4 @@
-  "use client";
+"use client";
 
 import {
   createContext,
@@ -9,6 +9,7 @@ import {
   useRef,
 } from "react";
 import { getIdToken, onIdTokenChanged, User } from "firebase/auth";
+import { getRedirectResult } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -49,6 +50,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const retryCount = useRef(0);
   const maxRetries = 3;
 
+  useEffect(() => {
+    const handleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+
+        if (result?.user) {
+          console.log("Redirect login success:", result.user.uid);
+
+          const token = await result.user.getIdToken();
+          localStorage.setItem("firebaseToken", token);
+
+          // Sync socket immediately
+          syncSocketAuth(token);
+        }
+      } catch (error) {
+        console.error("Redirect login error:", error);
+      }
+    };
+
+    handleRedirect();
+  }, []);
+
   // Fetch profile with retry
   const fetchUserProfile = async (uid: string, token?: string): Promise<AppUserProfile | null> => {
     try {
@@ -82,6 +105,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     return userProfile;
   };
+
+
 
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {

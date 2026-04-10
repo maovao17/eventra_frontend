@@ -19,6 +19,8 @@ import {
 import { getDashboardPathForRole } from "@/lib/routes"
 import { validateLogin } from "@/lib/validation/authValidation"
 
+import { signInWithRedirect } from "firebase/auth";
+
 type Step = "phone" | "otp"
 
 const STEP_COPY: Record<Step, { title: string; description: string; number: string }> = {
@@ -145,17 +147,9 @@ export default function LoginPage() {
       setErrors({})
       setStatusMessage("Signing in with Google...")
 
-      const googleProfile = await signInWithGoogle({ role: "customer" })
-      setStatusMessage("Fetching your account...")
-      const profile = await refreshProfile()
-      const resolvedProfile = profile ?? googleProfile
+      await signInWithGoogle({ role: "customer" });
 
-      if (!resolvedProfile?.role) {
-        throw new Error("Could not load your Eventra account.")
-      }
-
-      showToast("Logged in successfully.", "success")
-      router.replace(getDashboardPathForRole(resolvedProfile.role))
+      showToast("Redirecting to Google...", "success")
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Google login failed"

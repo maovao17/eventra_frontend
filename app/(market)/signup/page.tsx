@@ -194,21 +194,11 @@ export default function SignupPage() {
       setApiError("")
       setStatusMessage("Signing in with Google...")
 
-      const googleProfile = await signInWithGoogle({
+      await signInWithGoogle({
         role,
-        name,
-        businessName: role === "vendor" ? businessName : undefined,
-      })
-      setStatusMessage("Fetching your account...")
-      const profile = await refreshProfile()
-      const resolvedProfile = profile ?? googleProfile
+      });
 
-      if (!resolvedProfile?.role) {
-        throw new Error("Could not load your Eventra account.")
-      }
-
-      showToast("Logged in successfully.", "success")
-      router.replace(getDashboardPathForRole(resolvedProfile.role))
+      showToast("Redirecting to Google...", "success")
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Google login failed"
