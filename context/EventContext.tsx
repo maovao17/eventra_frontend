@@ -511,7 +511,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
     )
     if (existing) return existing
 
-    const response = await apiFetch("/api/requests", {
+    const response = await apiFetch("/requests", {
       method: "POST",
       body: JSON.stringify({
         customerId: profile.uid,
