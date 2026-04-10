@@ -8,7 +8,7 @@ import {
   getVendorMe,
   updateVendorMe,
   updateVendorBookingStatus,
-  getVendorDashboard,
+  // getVendorDashboard, // disabled
 } from "@/app/lib/vendorApi";
 import { getSocket, onSocketConnect, onSocketDisconnect } from "@/app/lib/socket";
 import type { Booking, Notification } from "@/app/types/eventra";
@@ -69,15 +69,14 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
 
     setLoadingDashboard(true);
     try {
-      const res = await getVendorDashboard();
-      setDashboard(res || null);
+      // Disabled dashboard - 404
+      setDashboard({});
     } catch {
       setDashboard(null);
-      showToast("We couldn't load your dashboard stats.", "error");
     } finally {
       setLoadingDashboard(false);
     }
-  }, [profile?.uid, profile?.role, showToast]);
+  }, [profile?.uid, profile?.role]);
 
   // 💾 Save Profile + Refresh
   const saveVendorProfile = useCallback(async (data: any) => {
@@ -144,13 +143,16 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     refreshRef.current = { refreshDashboard, refreshVendorProfile };
   }, [refreshDashboard, refreshVendorProfile]);
 
-  // 🚀 Initial Load
+  const hasFetched = useRef(false);
+
+  // 🚀 Initial Load - single fetch
   useEffect(() => {
-    if (profile?.role === "vendor") {
+    if (profile?.role === "vendor" && !hasFetched.current) {
+      hasFetched.current = true;
       refreshVendorProfile();
-      refreshDashboard();
+      // Skip dashboard if 404 - only profile for businessProfile
     }
-  }, [profile?.role, refreshVendorProfile, refreshDashboard]);
+  }, [profile?.role, refreshVendorProfile]);
 
   useEffect(() => {
     if (profile?.role !== "vendor") {

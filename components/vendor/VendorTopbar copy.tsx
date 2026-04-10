@@ -30,7 +30,7 @@ export default function VendorTopbar() {
 
   const displayName = vendor?.businessName || vendor?.name || profile?.name || "Vendor";
   const displayCategory = vendor?.category || "Vendor Service";
-  const displayImage = vendor?.profileImage || vendor?.image || "/eventra_photos/photographer.jpg";
+  const displayImage = vendor?.profileImage || vendor?.image || "/eventra_photos/profile.png";
 
   return (
     <div className="theme-card border-b px-6 py-4 flex justify-between items-center">

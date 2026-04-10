@@ -86,9 +86,10 @@ export const updateVendorBookingStatus = async (
   return true
 }
 
-export const getVendorDashboard = async () => {
-  return apiFetch(`/vendors/dashboard`)
-};
+// Disabled - 404 on prod backend
+// export const getVendorDashboard = async () => {
+//   return apiFetch(`/vendors/dashboard`)
+// };
 
 export const getVendorReviews = async () => {
   return apiFetch(`/vendors/reviews`)

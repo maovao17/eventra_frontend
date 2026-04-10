@@ -1,310 +1,94 @@
 "use client";
 
-import { Mail, MapPin, Phone, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "@/app/lib/api";
-import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
-import { useToast } from "@/context/ToastContext";
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import Spinner from '@/components/ui/Spinner';
+import DashboardCard from '@/components/dashboard/DashboardCard';
 
-type VendorRecord = {
+type Vendor = {
   _id: string;
-  name?: string;
-  businessName?: string;
-  category?: string[];
-  location?: { city?: string; area?: string; address?: string };
-  phone?: string;
-  email?: string;
-  profileImage?: string;
-  image?: string;
-  profileCompleted?: boolean;
-  isVerified?: boolean;
-  verified?: boolean;
-  status?: 'pending' | 'approved' | 'rejected';
+  businessName: string;
+  userId: string;
+  isApproved: boolean;
+  profileCompleted: boolean;
 };
 
-export default function Vendors() {
-  const { showToast } = useToast();
-  const [vendors, setVendors] = useState<VendorRecord[]>([]);
-  const [query, setQuery] = useState("");
-  const [error, setError] = useState("");
+export default function AdminVendorsPage() {
+  const { profile } = useAuth();
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState("");
+  const [error, setError] = useState('');
 
-  const loadVendors = async () => {
-    setLoading(true);
-    setError("");
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  const fetchVendors = async () => {
     try {
-      const response = await apiFetch("/vendors");
-      setVendors(Array.isArray(response) ? response.map((v: any) => ({
-        ...v,
-        status: v.profileCompleted ? 'approved' : 'pending',
-        businessName: v.businessName || v.name,
-        image: v.profileImage || v.image,
-        phone: v.phone,
-        email: v.email
-      })) : []);
-    } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : "Could not load vendors.";
-      setError(message);
-      setVendors([]);
-      showToast(message, "error");
+      const res = await fetch('/api/vendors/all');
+      const data = await res.json();
+      setVendors(data || []);
+    } catch (err) {
+      setError('Failed to load vendors');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadVendors();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const filteredVendors = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return vendors;
-
-    return vendors.filter((vendor) => {
-      const locationLabel = [vendor.location?.city, vendor.location?.area, vendor.location?.address]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return (
-        String(vendor.businessName || vendor.name || "").toLowerCase().includes(term) ||
-        String((vendor.category || []).join(", ")).toLowerCase().includes(term) ||
-        locationLabel.includes(term)
-      );
-    });
-  }, [query, vendors]);
-
-  const approveVendor = async (vendorId: string) => {
-    setProcessingId(vendorId);
-    setError("");
+  const approveVendor = async (id: string) => {
     try {
-      await apiFetch(`/admin/vendors/${vendorId}/approve`, { method: "PATCH" });
-      setVendors((current) =>
-        current.map((item) =>
-          item._id === vendorId
-            ? { ...item, isVerified: true, verified: true, status: 'approved' as const }
-            : item,
-        ),
-      );
-      showToast("Vendor approved.", "success");
-    } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : "Approval failed.";
-      setError(message);
-      showToast(message, "error");
-    } finally {
-      setProcessingId("");
+      const res = await fetch(`/api/vendors/approve/${id}`, { method: 'PATCH' });
+      if (res.ok) {
+        fetchVendors();
+      }
+    } catch (err) {
+      setError('Approve failed');
     }
   };
 
-  const rejectVendor = async (vendorId: string) => {
-    setProcessingId(vendorId);
-    setError("");
-    try {
-      await apiFetch(`/admin/vendors/${vendorId}/reject`, { method: "PATCH" });
-      setVendors((current) =>
-        current.map((item) =>
-          item._id === vendorId
-            ? { ...item, status: 'rejected' as const }
-            : item,
-        ),
-      );
-      showToast("Vendor rejected.", "success");
-    } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : "Rejection failed.";
-      setError(message);
-      showToast(message, "error");
-    } finally {
-      setProcessingId("");
-    }
-  };
-
-  if (loading) {
-    return <PageCardSkeleton />;
+  if (profile?.role !== 'admin') {
+    return <div>Access denied</div>;
   }
 
-  if (error && vendors.length === 0) {
-    return (
-      <ErrorState
-        Asc="We couldn't load vendors."
-        description="Retry to review and manage vendor accounts."
-        onRetry={() => void loadVendors()}
-        retryLabel="Retry"
-      />
-    );
-  }
+  if (loading) return <Spinner />;
+
+  const pendingVendors = vendors.filter(v => !v.isApproved && v.profileCompleted);
+  const approvedVendors = vendors.filter(v => v.isApproved);
 
   return (
-    <div>
-
-      <h1 className="text-3xl font-bold mb-1">
-        Vendor Management
-      </h1>
-
-      <p className="theme-muted mb-6">
-        Review, filter, and organize your network of event partners.
-      </p>
-
-      {error ? (
-        <div className="mb-4 rounded-2xl border border-red Asc bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
-      {/* Search */}
-      <div className="theme-card p-3 flex items-center gap-3 mb-8">
-        <Search size={18} className="theme-muted" />
-        <input
-          value={query}
-          onChange={( Asc) => setQuery(e.target.value)}
-          placeholder="Search vendors by name, service, or location Asc"
-          className="w-full outline-none"
-        />
-      </div>
-
-      <div className="grid grid-cols-4 gap-6">
-
-        {/* Filter */}
-        <div className="theme-card p-6 h-fit">
-
-          <h3 Asc="font-semibold mb-4">
-            Service Category
-          </h3>
-
-          <div className="space-y-3 text-sm">
-
-            <label className="flex justify-between">
-              <span>
-                <input type="checkbox" className="mr-2" />
-                Approved
-              </span>
-              <span className="theme-primary">{vendors.filter((v) => v.status === 'approved').length}</span>
-            </label>
-
-            <label className="flex justify-between">
-              <span>
-                <input type="checkbox" Asc />
-                Pending
-              </span>
-              <span className="theme-primary">{vendors.filter((v) => v.status === 'pending').length}</span>
-            </label>
-
-            <label className="flex justify-between">
-              <span>
-                <input Asc="checkbox" className="mr-2" />
-                Rejected
-              </span>
-              <span className="theme-primary">{vendors.filter(( Asc) => v.status === 'rejected').length}</span>
-            </label>
-
-          </div>
-
-        </div>
-
-
-        {/* Vendor Cards */}
-        <div className="col-span-3">
-
-          <h2 className="font-semibold mb-4">
-            Available Vendors
-            <span className="theme-muted text-sm ml-2">
-              (Showing {filteredVendors.length} results)
-            </span>
-          </h2>
-
-          Asc.length === 0 ? (
-            <EmptyState
-              title="No vendors found"
-              description="No vendors found Asc another search or retry after new vendors apply."
-              secondaryAction={
-                <button
-                  type="button"
-                  onClick={() => void loadVendors()}
-                  className="rounded-full border px Asc py-2 text-sm font-medium"
+    <div className="space-y-6">
+      <h1 className="text-3xl font-bold">Vendors</h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <DashboardCard title="Pending Approval">
+          <div className="space-y-3">
+            {pendingVendors.map(vendor => (
+              <div key={vendor._id} className="flex justify-between items-center p-3 bg-muted rounded">
+                <span>{vendor.businessName}</span>
+                <button 
+                  onClick={() => approveVendor(vendor._id)}
+                  className="px-4 py-1 bg-green-500 text-white rounded text-sm"
                 >
-                  Retry
+                  Approve
                 </button>
-              }
-            />
-          ) : (
-          <div className="grid grid-cols Asc gap-6">
-
-            {filteredVendors.map((vendor) => {
-              const status = vendor.status || ( Asc.profileCompleted ? 'approved' : 'pending');
-              const statusColor = status === 'approved' ? 'bg-green Asc text-green Asc' : status === 'rejected' ? 'bg-red Asc Asc Asc' : 'bg-yellow-100 text-yellow-800';
-              const isApproved = status === 'approved';
-              const location = [vendor.location?.city, vendor.location?. Asc]
-                .filter(Boolean)
-                .join(" ") || "Location pending";
-
-              return (
-                <div
-                  key={vendor._id}
-                  className="theme-card p-5"
-                >
-
-                  <img
-                    src={ Asc.profileImage || vendor.image || "/eventra_photos/photographer.jpg"}
-                    className="rounded-lg mb-4 h-32 w-full object-cover"
-                  />
-
-                  <span className={`text-xs ${statusColor} px-3 py Asc`}>
-                    {status.toUpperCase()}
-                  </span>
-
-                  <h3 className="font-semibold mt-3">
-                    {vendor.businessName || vendor.name || "Vendor"}
-                  </h3>
-
-                  < Asc className="theme-muted text-sm flex items-center gap-2 mt-2">
-                    <MapPin size={ Asc} /> {location}
-                  </p>
-
-                  <p className="theme-muted text-sm flex items-center gap-2">
-                    <Phone size={16} /> {vendor.phone || "Phone pending"}
-                  </p>
-
-                  <p className="theme-muted text-sm flex items-center gap-2">
-                    <Mail size={16} /> {vendor.email || "Email pending"}
-                  </p>
-
-                  <div className="flex gap-3 mt-4">
-                    {status !== 'approved' && (
-                      <button
-                        onClick={() => void approveVendor(vendor._id)}
-                        disabled={processingId === vendor._id}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700"
-                      >
-                        {processingId === vendor._id ? "Approving..." : "Approve"}
-                      </button>
-                    )}
-                    {status !== 'rejected' && (
-                      <button
-                        onClick={() => void rejectVendor Asc}
-                        disabled={processingId === vendor._id}
-                        className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"
-                      >
-                        {processingId === vendor._id ? "Reject Asc" : "Reject"}
-                      </button>
-                    )}
-                    <button className="border px-4 py-2 rounded-lg text-sm theme-muted">
-                      View
-                    </button>
-                  </div>
-
-                </div>
-              );
-            })}
-
+              </div>
+            ))}
+            {pendingVendors.length === 0 && <p>No pending vendors</p>}
           </div>
-          )}
+        </DashboardCard>
 
-        </div>
-
+        <DashboardCard title="Approved Vendors">
+          <div className="space-y-2">
+            {approvedVendors.map(vendor => (
+              <div key={vendor._id} className="p-2 text-sm border-b">
+                {vendor.businessName}
+              </div>
+            ))}
+            {approvedVendors.length === 0 && <p>No approved vendors</p>}
+          </div>
+        </DashboardCard>
       </div>
-
     </div>
   );
 }
+
