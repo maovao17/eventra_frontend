@@ -8,6 +8,8 @@ import {
   ReactNode,
   useRef,
 } from "react";
+import { useRouter } from "next/navigation";
+import { getDashboardPathForRole } from "@/lib/routes";
 import { getIdToken, onIdTokenChanged, User } from "firebase/auth";
 import { getRedirectResult } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -41,6 +43,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
   const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUserProfile | null>(null);
@@ -144,6 +147,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         setProfile(fetchedProfile);
         storeUserProfile(fetchedProfile);
+        
+        // 🚀 Auto-redirect after successful profile load
+        const redirectPath = getDashboardPathForRole(fetchedProfile.role);
+        router.replace(redirectPath);
+        
         setLoading(false);
         setIsReady(true);
       } catch (error) {
