@@ -30,6 +30,11 @@ const resolveAuthToken = async (endpoint: string) => {
   const user = authInstance.currentUser;
 
   if (!user) {
+    const storedToken = localStorage.getItem('firebaseToken');
+    if (storedToken) {
+      console.log(`📡 Using stored token for ${endpoint}`);
+      return storedToken;
+    }
     console.warn(`⚠️ No Firebase user for API call`);
     return null;
   }

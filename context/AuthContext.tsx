@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 
 import {
   createContext,
@@ -104,6 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(firebaseUser);
 
         const token = await firebaseUser.getIdToken(true);
+        localStorage.setItem('firebaseToken', token);
         console.log("🔑 Firebase token ready, len:", token.length);
         syncSocketAuth(token);
 
