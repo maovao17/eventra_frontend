@@ -51,7 +51,7 @@ export default function Earnings() {
       try {
         const res = await getVendorPayouts();
 
-        const safePayouts = Array.isArray(res) ? res : (res as any)?.data || [];
+        const safePayouts = (res as any)?.data ?? (Array.isArray(res) ? res : []);
 
         setStats({
           totalBookings: Number(dashboard?.totalBookings || 0),
@@ -91,7 +91,7 @@ export default function Earnings() {
     };
 
     void loadPayouts();
-  }, [dashboard, profile?.uid]);
+  }, [profile?.uid]);
 
   if (loading || loadingDashboard) {
     return <PageCardSkeleton count={4} className="md:grid-cols-2 xl:grid-cols-4" />;

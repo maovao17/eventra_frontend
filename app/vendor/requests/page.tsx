@@ -46,7 +46,7 @@ type BookingCardItem = {
   status: RequestStatus
 }
 
-export default function BookingRequests() {
+export default function Requests() {
   const router = useRouter()
   const { profile } = useAuth()
   const { showToast } = useToast()
@@ -200,3 +200,4 @@ export default function BookingRequests() {
 
   )
 }
+
