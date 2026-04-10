@@ -11,6 +11,7 @@ import { useToast } from "@/context/ToastContext"
 type VendorListItem = {
   _id: string
   name: string
+  businessName?: string
   category: string
   price?: number
   image?: string
@@ -32,7 +33,12 @@ function VendorsPageContent() {
 
     try {
       const data = await apiFetch("/vendors")
-      setVendors(Array.isArray(data) ? data : [])
+      setVendors(Array.isArray(data) ? data.map(v => ({
+        ...v,
+        name: v.businessName || v.name || 'Unnamed Vendor',
+        price: (v as any).price,
+        image: v.profileImage || v.image
+      })) : [])
     } catch (fetchError) {
       const message =
         fetchError instanceof Error ? fetchError.message : "Could not load vendors."

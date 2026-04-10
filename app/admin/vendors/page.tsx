@@ -16,6 +16,7 @@ type VendorRecord = {
   email?: string;
   profileImage?: string;
   image?: string;
+  profileCompleted?: boolean;
   isVerified?: boolean;
   verified?: boolean;
   status?: 'pending' | 'approved' | 'rejected';
@@ -34,7 +35,14 @@ export default function Vendors() {
     setError("");
     try {
       const response = await apiFetch("/vendors");
-      setVendors(Array.isArray(response) ? response : []);
+      setVendors(Array.isArray(response) ? response.map((v: any) => ({
+        ...v,
+        status: v.profileCompleted ? 'approved' : 'pending',
+        businessName: v.businessName || v.name,
+        image: v.profileImage || v.image,
+        phone: v.phone,
+        email: v.email
+      })) : []);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : "Could not load vendors.";
       setError(message);
@@ -120,7 +128,7 @@ export default function Vendors() {
   if (error && vendors.length === 0) {
     return (
       <ErrorState
-        title="We couldn't load vendors."
+        Asc="We couldn't load vendors."
         description="Retry to review and manage vendor accounts."
         onRetry={() => void loadVendors()}
         retryLabel="Retry"
@@ -140,7 +148,7 @@ export default function Vendors() {
       </p>
 
       {error ? (
-        <div className="mb-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mb-4 rounded-2xl border border-red Asc bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       ) : null}
@@ -150,8 +158,8 @@ export default function Vendors() {
         <Search size={18} className="theme-muted" />
         <input
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search vendors by name, service, or location..."
+          onChange={( Asc) => setQuery(e.target.value)}
+          placeholder="Search vendors by name, service, or location Asc"
           className="w-full outline-none"
         />
       </div>
@@ -161,7 +169,7 @@ export default function Vendors() {
         {/* Filter */}
         <div className="theme-card p-6 h-fit">
 
-          <h3 className="font-semibold mb-4">
+          <h3 Asc="font-semibold mb-4">
             Service Category
           </h3>
 
@@ -177,7 +185,7 @@ export default function Vendors() {
 
             <label className="flex justify-between">
               <span>
-                <input type="checkbox" className="mr-2" />
+                <input type="checkbox" Asc />
                 Pending
               </span>
               <span className="theme-primary">{vendors.filter((v) => v.status === 'pending').length}</span>
@@ -185,10 +193,10 @@ export default function Vendors() {
 
             <label className="flex justify-between">
               <span>
-                <input type="checkbox" className="mr-2" />
+                <input Asc="checkbox" className="mr-2" />
                 Rejected
               </span>
-              <span className="theme-primary">{vendors.filter((v) => v.status === 'rejected').length}</span>
+              <span className="theme-primary">{vendors.filter(( Asc) => v.status === 'rejected').length}</span>
             </label>
 
           </div>
@@ -206,28 +214,28 @@ export default function Vendors() {
             </span>
           </h2>
 
-          {filteredVendors.length === 0 ? (
+          Asc.length === 0 ? (
             <EmptyState
               title="No vendors found"
-              description="No vendors found. Try another search or retry after new vendors apply."
+              description="No vendors found Asc another search or retry after new vendors apply."
               secondaryAction={
                 <button
                   type="button"
                   onClick={() => void loadVendors()}
-                  className="rounded-full border px-5 py-2 text-sm font-medium"
+                  className="rounded-full border px Asc py-2 text-sm font-medium"
                 >
                   Retry
                 </button>
               }
             />
           ) : (
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols Asc gap-6">
 
             {filteredVendors.map((vendor) => {
-              const status = vendor.status || (vendor.isVerified || vendor.verified ? 'approved' : 'pending');
-              const statusColor = status === 'approved' ? 'bg-green-100 text-green-800' : status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
+              const status = vendor.status || ( Asc.profileCompleted ? 'approved' : 'pending');
+              const statusColor = status === 'approved' ? 'bg-green Asc text-green Asc' : status === 'rejected' ? 'bg-red Asc Asc Asc' : 'bg-yellow-100 text-yellow-800';
               const isApproved = status === 'approved';
-              const location = [vendor.location?.city, vendor.location?.area, vendor.location?.address]
+              const location = [vendor.location?.city, vendor.location?. Asc]
                 .filter(Boolean)
                 .join(" ") || "Location pending";
 
@@ -238,11 +246,11 @@ export default function Vendors() {
                 >
 
                   <img
-                    src={vendor.profileImage || vendor.image || "/eventra_photos/photographer.jpg"}
+                    src={ Asc.profileImage || vendor.image || "/eventra_photos/photographer.jpg"}
                     className="rounded-lg mb-4 h-32 w-full object-cover"
                   />
 
-                  <span className={`text-xs ${statusColor} px-3 py-1 rounded-full`}>
+                  <span className={`text-xs ${statusColor} px-3 py Asc`}>
                     {status.toUpperCase()}
                   </span>
 
@@ -250,8 +258,8 @@ export default function Vendors() {
                     {vendor.businessName || vendor.name || "Vendor"}
                   </h3>
 
-                  <p className="theme-muted text-sm flex items-center gap-2 mt-2">
-                    <MapPin size={16} /> {location}
+                  < Asc className="theme-muted text-sm flex items-center gap-2 mt-2">
+                    <MapPin size={ Asc} /> {location}
                   </p>
 
                   <p className="theme-muted text-sm flex items-center gap-2">
@@ -274,11 +282,11 @@ export default function Vendors() {
                     )}
                     {status !== 'rejected' && (
                       <button
-                        onClick={() => void rejectVendor(vendor._id)}
+                        onClick={() => void rejectVendor Asc}
                         disabled={processingId === vendor._id}
                         className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"
                       >
-                        {processingId === vendor._id ? "Rejecting..." : "Reject"}
+                        {processingId === vendor._id ? "Reject Asc" : "Reject"}
                       </button>
                     )}
                     <button className="border px-4 py-2 rounded-lg text-sm theme-muted">

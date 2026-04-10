@@ -142,7 +142,7 @@ export default function BusinessProfile() {
     try {
       const response = await saveVendorProfile(payload);
 
-      console.log("✅ SAVE RESPONSE:", response);
+      console.log("SAVE RESPONSE:", response);
 
       if (response?.error) {
         throw new Error(response.message || "Failed to save profile");
@@ -311,10 +311,15 @@ export default function BusinessProfile() {
 
   if (loadingProfile) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 w-64 bg-gray-200 rounded animate-pulse" />
-        <div className="h-24 w-full bg-gray-200 rounded animate-pulse" />
-        <div className="h-48 w-full bg-gray-200 rounded animate-pulse" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+        <p className="text-muted-foreground">Loading business profile...</p>
+        <button 
+          onClick={() => refreshVendorProfile()}
+          className="px-4 py-2 border rounded-md text-sm"
+        >
+          Retry
+        </button>
       </div>
     );
   }

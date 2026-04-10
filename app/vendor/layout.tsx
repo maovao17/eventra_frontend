@@ -34,6 +34,11 @@ export default React.memo(function VendorLayout({
         return;
       }
 
+      // Don't redirect if already on businessProfile page
+      if (pathname.startsWith('/vendor/businessProfile')) {
+        return;
+      }
+
       try {
         const response = await getVendorMe();
         if ((response as any)?.profileCompleted === false) {
@@ -45,7 +50,7 @@ export default React.memo(function VendorLayout({
     };
 
     void validateVendorAccess();
-  }, [loading]);
+  }, [loading, profile?.role, pathname]);
 
   if (loading) {
     return <ProtectedLayoutLoading title="Loading vendor dashboard" subtitle="One moment..." />;
