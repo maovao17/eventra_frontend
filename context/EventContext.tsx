@@ -23,8 +23,8 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value)
 
-const DEFAULT_VENDOR_IMAGE = "/eventra_photos/photographer.jpg"
-const DEFAULT_EVENT_IMAGE = "/eventra_photos/event3.jpg"
+const DEFAULT_VENDOR_IMAGE = "/eventra_photos/profile.png"
+const DEFAULT_EVENT_IMAGE = "/eventra_photos/event5.jpg"
 
 export type Service = {
   _id: string
@@ -323,9 +323,9 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       const shouldLoadServices = profile.role === "customer"
 
       const [vendorResponse, reviewResponse, serviceResponse] = await Promise.all([
-        apiFetch("/vendors"),
-        shouldLoadReviews ? apiFetch("/reviews").catch(() => []) : Promise.resolve([]),
-        shouldLoadServices ? apiFetch("/services").catch(() => []) : Promise.resolve([]),
+        apiFetch("/api/vendors"),
+        shouldLoadReviews ? apiFetch("/api/reviews").catch(() => []) : Promise.resolve([]),
+        shouldLoadServices ? apiFetch("/api/services").catch(() => []) : Promise.resolve([]),
       ])
 
       const rawVendorList = unwrapData<Record<string, unknown>>(vendorResponse)
@@ -336,15 +336,15 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       const [rawEventsResponse, rawRequestsResponse, rawBookingsResponse] =
         profile.role === "customer"
           ? await Promise.all([
-              apiFetch(`/events?customerId=${profile.uid}`),
-              apiFetch(`/requests?userId=${profile.uid}`),
-              apiFetch(`/bookings?customerId=${profile.uid}`),
+              apiFetch(`/api/events?customerId=${profile.uid}`),
+              apiFetch(`/api/requests?userId=${profile.uid}`),
+              apiFetch(`/api/bookings?customerId=${profile.uid}`),
             ])
           : profile.role === "vendor"
             ? await Promise.all([
                 Promise.resolve([]),
-                apiFetch(`/requests`),
-                apiFetch(`/bookings`),
+                apiFetch(`/api/requests`),
+                apiFetch(`/api/bookings`),
               ])
             : [[], [], []]
 
@@ -455,7 +455,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
   const createEvent = async (event: CreateEventInput) => {
     if (!profile?.uid) return null
 
-    const response = await apiFetch("/events", {
+    const response = await apiFetch("/api/events", {
       method: "POST",
       body: JSON.stringify({
         name: event.name || `${event.type ?? "Custom"} Event`,
@@ -481,7 +481,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const updateEventServices = async (eventId: string, nextServices: string[]) => {
-    await apiFetch(`/events/${eventId}`, {
+    await apiFetch(`/api/events/${eventId}`, {
       method: "PATCH",
       body: JSON.stringify({ services: nextServices }),
     })
@@ -511,7 +511,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
     )
     if (existing) return existing
 
-    const response = await apiFetch("/requests", {
+    const response = await apiFetch("/api/requests", {
       method: "POST",
       body: JSON.stringify({
         customerId: profile.uid,
@@ -539,7 +539,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
 
   const acceptRequest = async (requestId: string) => {
     if (!profile?.uid) return
-    await apiFetch(`/requests/${requestId}/accept`, {
+    await apiFetch(`/api/requests/${requestId}/accept`, {
       method: "PATCH",
       body: JSON.stringify({ actorUserId: profile.uid }),
     })
@@ -548,7 +548,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
 
   const declineRequest = async (requestId: string) => {
     if (!profile?.uid) return
-    await apiFetch(`/requests/${requestId}/reject`, {
+    await apiFetch(`/api/requests/${requestId}/reject`, {
       method: "PATCH",
       body: JSON.stringify({ actorUserId: profile.uid }),
     })
