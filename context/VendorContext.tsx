@@ -1,15 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/context/ToastContext";
-import {
-  getVendorMe,
-  saveVendorProfile as apiSaveVendorProfile,
-  updateVendorBookingStatus,
-} from "@/app/lib/vendorApi";
-import { getSocket, onSocketConnect, onSocketDisconnect } from "@/app/lib/socket";
-import type { Booking, Notification } from "@/app/types/eventra";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
+import { getVendorMe, saveVendorProfile as apiSaveVendorProfile, updateVendorBookingStatus} from '@/app/lib/vendorApi';
+import { getSocket, onSocketConnect, onSocketDisconnect } from '@/app/lib/socket';
+import type { Booking, Notification } from '@/app/types/eventra';
 
 type VendorBookingStatus = "pending" | "accepted" | "rejected" | "completed";
 type BookingRealtimeUpdate = Partial<Booking> & { vendorUserId?: string };
@@ -18,6 +14,8 @@ type VendorContextType = {
   vendorProfile: any;
   loadingProfile: boolean;
   isMutating: boolean;
+  dashboard?: any;
+  loadingDashboard?: boolean;
   refreshVendorProfile: () => Promise<void>;
   saveVendorProfile: (data: any) => Promise<any>;
   updateBookingStatus: (bookingId: string, status: VendorBookingStatus) => Promise<boolean>;
@@ -36,7 +34,6 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const hasInitialized = useRef(false);
   const isUpdating = useRef(false);
 
-  // SINGLE FETCH - NO LOOP
   const refreshVendorProfile = useCallback(async () => {
     if (!profile?.uid || profile.role !== "vendor" || loadingProfile) {
       console.log("⏳ Skip fetch - loading or invalid");
@@ -47,10 +44,10 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     setLoadingProfile(true);
     try {
       const res = await getVendorMe();
-      console.log("✅ PROFILE:", res);
+      console.log("PROFILE:", res);
       setVendorProfile(res || null);
     } catch (error) {
-      console.error("❌ PROFILE ERROR:", error);
+      console.error(" PROFILE ERROR:", error);
       setVendorProfile(null);
       showToast("Failed to load profile", "error");
     } finally {
@@ -58,7 +55,6 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [profile?.uid, profile?.role, loadingProfile, showToast]);
 
-  // OPTIMISTIC SAVE - NO AUTO REFETCH
   const saveVendorProfile = useCallback(async (data: any) => {
     if (!profile?.uid || isMutating) {
       console.log("⏳ Save skip - mutating");
@@ -69,7 +65,6 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     setIsMutating(true);
 
     try {
-      // OPTIMISTIC UI
       setVendorProfile((prev: any) => ({ 
         ...prev || {},
         ...data,
@@ -79,11 +74,9 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       const response = await apiSaveVendorProfile(data);
       console.log("SAVE RESPONSE:", response);
       
-      // NO REFRESH - optimistic only
       return response;
     } catch (error) {
       console.error(" SAVE ERROR:", error);
-      // Revert on fail
       await refreshVendorProfile();
       showToast("Save failed", "error");
       return null;
@@ -107,22 +100,23 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [profile?.uid, showToast]);
 
-  // INIT - ONCE
   useEffect(() => {
     if (profile?.role === "vendor" && !hasInitialized.current) {
-      console.log("🚀 INIT LOAD");
+      console.log("INIT LOAD");
       hasInitialized.current = true;
       refreshVendorProfile();
     }
   }, [profile?.role, refreshVendorProfile]);
 
-  console.log("🎨 Context render - profile:", !!vendorProfile, "loading:", loadingProfile, "mutating:", isMutating);
+  console.log("Context render - profile:", !!vendorProfile, "loading:", loadingProfile, "mutating:", isMutating);
 
   return (
     <VendorContext.Provider value={{
       vendorProfile,
       loadingProfile,
       isMutating,
+      dashboard: vendorProfile?.dashboard || null,
+      loadingDashboard: loadingProfile,
       refreshVendorProfile,
       saveVendorProfile,
       updateBookingStatus,

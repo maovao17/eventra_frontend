@@ -71,3 +71,46 @@ export const updateVendorBookingStatus = async (
 
 export const getAllServices = async () => apiFetch("/services?limit=1000&offset=0");
 
+export const assignVendorServices = async (serviceIds: string[]): Promise<any> => {
+  console.log("📡 PATCH /vendors/services:", serviceIds.length);
+  return apiFetch("/vendors/services", {
+    method: "PATCH",
+    body: JSON.stringify({ servicesOffered: serviceIds }),
+  });
+};
+
+export type VendorBooking = any;
+
+export const getVendorBookings = async (): Promise<VendorBooking[]> => {
+  console.log("📡 GET /vendors/bookings");
+  const response = await apiFetch("/vendors/bookings");
+  return Array.isArray(response) ? response : [];
+};
+
+export type VendorNotification = any;
+
+export const getVendorNotifications = async (): Promise<VendorNotification[]> => {
+  console.log("📡 GET /vendors/notifications");
+  const response = await apiFetch("/vendors/notifications");
+  return Array.isArray(response) ? response : [];
+};
+
+export const markVendorNotificationRead = async (notificationId: string): Promise<any> => {
+  console.log("📡 PATCH /vendors/notifications/", notificationId, "/read");
+  return apiFetch(`/vendors/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+};
+
+export const getVendorPayouts = async (): Promise<any[]> => {
+  console.log("📡 GET /vendors/payouts");
+  const response = await apiFetch("/vendors/payouts");
+  return Array.isArray(response) ? response : [];
+};
+
+export const getVendorReviews = async (): Promise<any[]> => {
+  console.log("📡 GET /vendors/reviews");
+  const response = await apiFetch("/vendors/reviews");
+  return Array.isArray(response) ? response : [];
+};
+
