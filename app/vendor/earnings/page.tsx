@@ -9,8 +9,10 @@ import { getVendorPayouts } from "@/app/lib/vendorApi";
 export default function Earnings() {
   const { dashboard, loadingDashboard, refreshVendorProfile } = useVendorData();
   const { profile } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [stats, setStats] = useState({
     totalBookings: 0,
     pendingRequests: 0,
@@ -19,45 +21,70 @@ export default function Earnings() {
     pendingPayouts: 0,
     paidOut: 0,
   });
+
   const [payoutList, setPayoutList] = useState<any[]>([]);
 
+  // Refresh vendor profile
   useEffect(() => {
     setLoading(true);
     setError("");
-    void refreshVendorProfile().finally(() => setLoading(false));
+
+    void refreshVendorProfile().finally(() => {
+      setLoading(false);
+    });
   }, [refreshVendorProfile]);
 
+  // Load payouts
   useEffect(() => {
     const loadPayouts = async () => {
       if (!profile?.uid || !dashboard) {
         setLoading(false);
         return;
       }
-      if (Boolean(dashboard?.error)) {
-        setError(String(dashboard.message || "Failed to load earnings."));
+
+      if ((dashboard as any)?.error) {
+        setError(String((dashboard as any).message || "Failed to load earnings."));
+        setLoading(false);
         return;
       }
 
       try {
-        const payoutList = await getVendorPayouts();
+        const res = await getVendorPayouts();
+
+        const safePayouts = Array.isArray(res) ? res : (res as any)?.data || [];
 
         setStats({
           totalBookings: Number(dashboard?.totalBookings || 0),
           pendingRequests: Number(dashboard?.pendingRequests || 0),
-          revenue: Number(
-            payoutList.reduce((sum, payout) => sum + Number(payout.payoutAmount || 0), 0) || 0,
+          revenue: safePayouts.reduce(
+            (sum: number, payout: any) =>
+              sum + Number(payout?.payoutAmount || 0),
+            0
           ),
           upcomingEvents: Number(dashboard?.upcomingEvents || 0),
-          pendingPayouts: payoutList
-            .filter((payout) => payout.status === "pending")
-            .reduce((sum, payout) => sum + Number(payout.payoutAmount || 0), 0),
-          paidOut: payoutList
-            .filter((payout) => payout.status === "paid")
-            .reduce((sum, payout) => sum + Number(payout.payoutAmount || 0), 0),
+
+          pendingPayouts: safePayouts
+            .filter((p: any) => p?.status === "pending")
+            .reduce(
+              (sum: number, p: any) =>
+                sum + Number(p?.payoutAmount || 0),
+              0
+            ),
+
+          paidOut: safePayouts
+            .filter((p: any) => p?.status === "paid")
+            .reduce(
+              (sum: number, p: any) =>
+                sum + Number(p?.payoutAmount || 0),
+              0
+            ),
         });
-        setPayoutList(payoutList);
-      } catch (fetchError) {
-        setError(fetchError instanceof Error ? fetchError.message : "Failed to load payouts.");
+
+        setPayoutList(safePayouts);
+      } catch (err: any) {
+        console.error("Earnings error:", err);
+        setError(err?.message || "Failed to load payouts.");
+        setPayoutList([]);
       } finally {
         setLoading(false);
       }
@@ -118,19 +145,30 @@ export default function Earnings() {
 
       <div className="mt-8">
         <h2 className="text-xl font-bold mb-4">Pending Payouts List</h2>
+
         <div className="space-y-3">
-          {payoutList.filter((payout: any) => payout.status === "pending").map((payout: any) => (
-            <div key={payout._id} className="theme-card p-4 flex justify-between items-center">
-              <div>
-                <p className="font-semibold">₹{Number(payout.payoutAmount).toLocaleString("en-IN")}</p>
-                <p className="text-sm text-gray-500">Booking: {payout.bookingId?.slice(-6)}</p>
+          {payoutList
+            .filter((p: any) => p?.status === "pending")
+            .map((p: any) => (
+              <div
+                key={p?._id}
+                className="theme-card p-4 flex justify-between items-center"
+              >
+                <div>
+                  <p className="font-semibold">
+                    ₹{Number(p?.payoutAmount || 0).toLocaleString("en-IN")}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Booking: {p?.bookingId?.slice?.(-6) || "N/A"}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-          {payoutList.filter((p: any) => p.status === "pending").length === 0 && (
+            ))}
+
+          {payoutList.filter((p: any) => p?.status === "pending").length === 0 && (
             <EmptyState
               title="No pending payouts"
-              description="Completed paid bookings will appear here until the admin marks them as paid."
+              description="Completed paid bookings will appear here."
             />
           )}
         </div>
