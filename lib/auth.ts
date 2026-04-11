@@ -286,12 +286,15 @@ export const subscribeToAuthState = (
   callback: (user: User | null) => void
 ) => onIdTokenChanged(auth, callback)
 
-export const syncAuthToken = async (user: User | null) => {
-  if (!user) {
+export const syncAuthToken = async (tokenOrUser: string | User | null) => {
+  if (typeof tokenOrUser === 'string') {
+    return tokenOrUser;
+  }
+  if (!tokenOrUser) {
     return null
   }
 
-  const token = await user.getIdToken(true)
+  const token = await tokenOrUser.getIdToken(true)
   return token
 }
 

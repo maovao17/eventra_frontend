@@ -10,8 +10,12 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getDashboardPathForRole } from "@/lib/routes";
-import { getIdToken, onIdTokenChanged, User } from "firebase/auth";
-import { getRedirectResult } from "firebase/auth";
+import {
+  onIdTokenChanged,
+  User,
+  getRedirectResult,
+  signOut,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -20,7 +24,6 @@ import {
   storeUserProfile,
   syncAuthToken,
 } from "@/lib/auth";
-import { signOut } from "firebase/auth";
 
 type UserRole = "customer" | "vendor" | "admin";
 
@@ -47,27 +50,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { showToast } = useToast();
+
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isReady, setIsReady] = useState(false);
-  const hasInitialized = useRef(false);
+
   const retryCount = useRef(0);
   const maxRetries = 3;
 
+  // prevent stale loading
+  const loadingRef = useRef(true);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  // handle redirect login
   useEffect(() => {
     const handleRedirect = async () => {
       try {
         const result = await getRedirectResult(auth);
-
         if (result?.user) {
-          console.log("Redirect login success:", result.user.uid);
-
           const token = await result.user.getIdToken();
           localStorage.setItem("firebaseToken", token);
-
-          // Sync socket immediately
-          // syncSocketAuth(token);
+          await syncAuthToken(token);
         }
       } catch (error) {
         console.error("Redirect login error:", error);
@@ -75,24 +81,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     handleRedirect();
+
+    const timeout = setTimeout(() => {
+      if (loadingRef.current) {
+        setLoading(false);
+        setIsReady(true);
+      }
+    }, 7000);
+
+    return () => clearTimeout(timeout);
   }, []);
 
-  // Fetch profile with retry
-  const fetchUserProfile = async (uid: string): Promise<AppUserProfile | null> => {
+  // fetch profile with retry + timeout
+  const fetchUserProfile = async (
+    uid: string
+  ): Promise<AppUserProfile | null> => {
     try {
-      console.log("Fetching profile for uid:", uid);
-      const data = await fetchBackendProfile(uid);
-      console.log("Profile fetched:", !!data);
-      return data;
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 5000)
+      );
+
+      const data = await Promise.race([
+        fetchBackendProfile(uid),
+        timeout,
+      ]);
+
+      retryCount.current = 0;
+      return data as AppUserProfile;
     } catch (error: any) {
-      const status = (error as any).status || 0;
-      console.log("Profile fetch failed:", status, error);
+      const status = error?.status || 0;
+
       if (status === 401 && retryCount.current < maxRetries) {
         retryCount.current++;
-        console.log(`🔄 Profile retry ${retryCount.current}/${maxRetries}`);
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 1000));
         return fetchUserProfile(uid);
       }
+
       showToast("Couldn't load account. Please login again.", "error");
       return null;
     }
@@ -100,29 +124,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshProfile = async () => {
     if (!auth.currentUser) return null;
+
     retryCount.current = 0;
-    const uid = auth.currentUser.uid;
-    const userProfile = await fetchUserProfile(uid);
-    if (userProfile) {
-      setProfile(userProfile);
-      storeUserProfile(userProfile);
+    const currentUser = auth.currentUser!;
+    const profile = await fetchUserProfile(currentUser.uid);
+
+    if (profile) {
+      setProfile(profile);
+      storeUserProfile(profile);
     }
-    return userProfile;
+
+    return profile;
   };
 
-
-
+  // main auth listener
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-      if (hasInitialized.current) return;
-
       try {
-        hasInitialized.current = true;
-
         if (!firebaseUser) {
           setUser(null);
           await syncAuthToken(null);
-          // disconnectSocket();
           setProfile(null);
           clearStoredUserProfile();
           setLoading(false);
@@ -133,29 +154,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(firebaseUser);
 
         const token = await firebaseUser.getIdToken(true);
-        localStorage.setItem('firebaseToken', token);
-        console.log("🔑 Firebase token ready, len:", token.length);
-        // syncSocketAuth(token);
+        localStorage.setItem("firebaseToken", token);
+        await syncAuthToken(token);
 
-        let fetchedProfile = await fetchUserProfile(firebaseUser.uid);
+        const fetchedProfile = await fetchUserProfile(firebaseUser.uid as string);
 
         if (!fetchedProfile) {
-          console.log("No backend profile after auto-create");
+          await signOut(auth);
+          localStorage.removeItem("firebaseToken");
+
+          setUser(null);
           setProfile(null);
-          setIsReady(true);
+          clearStoredUserProfile();
+
           setLoading(false);
+          setIsReady(true);
+
+          router.push("/login");
           return;
         }
+
         setProfile(fetchedProfile);
         storeUserProfile(fetchedProfile);
 
-        // 🚀 Auto-redirect after successful profile load
         const redirectPath = getDashboardPathForRole(fetchedProfile.role);
-        const shouldRedirect =
-          pathname === "/" ||
-          pathname === "/login" ||
-          pathname === "/signup";
-        if (shouldRedirect && String(pathname) !== String(redirectPath)) {
+        const isLoginPage = pathname === "/" || pathname === "/login" || pathname === "/signup";
+
+        if (isLoginPage) {
           router.replace(redirectPath);
         }
 
@@ -174,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, [pathname, router, showToast]);
 
-  const handleLogout = async () => {
+  const logout = async () => {
     try {
       await signOut(auth);
       localStorage.removeItem("firebaseToken");
@@ -195,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         isReady,
         refreshProfile,
-        logout: handleLogout,
+        logout,
       }}
     >
       {children}
