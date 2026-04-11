@@ -267,7 +267,8 @@ export const ensureBackendProfile = async (
 
 
 
-export const signInWithGoogle = async ({ role }: { role: string }) => {
+export const signInWithGoogle = async (options?: { role?: string }) => {
+  const role = options?.role ?? "customer";
   const provider = new GoogleAuthProvider();
 
   provider.setCustomParameters({
