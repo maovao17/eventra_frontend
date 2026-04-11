@@ -86,28 +86,44 @@ export default function VendorDashboardPage() {
               <div className="space-y-1">
                 <div className="text-2xl font-bold">{dashboard?.totalBookings || 0}</div>
                 <p className="text-2xs text-muted-foreground">Bookings this month</p>
-                <p className="text-2xs text-green-600 font-medium">+12%</p>
+                {dashboard?.totalBookings > 0 ? (
+                  <p className="text-2xs text-green-600 font-medium">+12%</p>
+                ) : (
+                  <p className="text-2xs text-muted-foreground">No data yet</p>
+                )}
               </div>
             </DashboardCard>
             <DashboardCard title="Revenue">
               <div className="space-y-1">
                 <div className="text-2xl font-bold">₹{(dashboard?.revenue || 0).toLocaleString()}</div>
                 <p className="text-2xs text-muted-foreground">This month</p>
-                <p className="text-2xs text-green-600 font-medium">+28%</p>
+                {dashboard?.revenue > 0 ? (
+                  <p className="text-2xs text-green-600 font-medium">+28%</p>
+                ) : (
+                  <p className="text-2xs text-muted-foreground">No data yet</p>
+                )}
               </div>
             </DashboardCard>
             <DashboardCard title="Pending Requests">
               <div className="space-y-1">
                 <div className="text-2xl font-bold">{dashboard?.pendingBookings || 0}</div>
                 <p className="text-2xs text-muted-foreground">Awaiting response</p>
-                <p className="text-2xs text-amber-600 font-medium">-2%</p>
+                {dashboard?.pendingBookings > 0 ? (
+                  <p className="text-2xs text-amber-600 font-medium">-2%</p>
+                ) : (
+                  <p className="text-2xs text-muted-foreground">No data yet</p>
+                )}
               </div>
             </DashboardCard>
             <DashboardCard title="Ratings">
               <div className="space-y-1">
                 <div className="text-2xl font-bold">{(dashboard?.averageRating || 0).toFixed(1)}</div>
                 <p className="text-2xs text-muted-foreground">Average rating</p>
-                <p className="text-2xs text-green-600 font-medium">+0.3</p>
+                {dashboard?.averageRating > 0 ? (
+                  <p className="text-2xs text-green-600 font-medium">+0.3</p>
+                ) : (
+                  <p className="text-2xs text-muted-foreground">—</p>
+                )}
               </div>
             </DashboardCard>
           </DashboardGrid>
