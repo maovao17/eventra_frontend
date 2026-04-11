@@ -116,28 +116,47 @@ function BookingDetailsPageContent() {
   }, [profile?.uid, bookingId, requestId]);
 
   const handleUploadProof = async (eventInput: ChangeEvent<HTMLInputElement>) => {
-    if (!booking?._id || !eventInput.target.files?.[0] || !profile?.uid) return;
+    const file = eventInput.target.files?.[0];
+    if (!booking?._id || !file || !profile?.uid) return;
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_FILE_SIZE) {
+      setError("File too large. Maximum size is 5MB.");
+      return;
+    }
+
     setUploading(true);
     setError("");
     setSuccess("");
 
     try {
       const formData = new FormData();
-      formData.append("file", eventInput.target.files[0]);
+      formData.append("file", file);
       formData.append("actorUserId", profile.uid);
 
-      const response = await apiFetch(`/bookings/${booking._id}/upload-proof`, {
+      const response = await fetch(`/bookings/${booking._id}/upload-proof`, {
         method: "POST",
         body: formData,
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${errorText || response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Upload success:", data);
+      
       setSuccess("Completion proof uploaded! Booking auto-marked complete.");
-      setBooking(response as BookingDetails);
+      setBooking(data as BookingDetails);
+      
       // Auto-mark complete after upload success
       await apiFetch(`/bookings/${booking._id}/complete`, {
         method: "PATCH",
         body: JSON.stringify({ actorUserId: profile.uid }),
       });
     } catch (uploadError) {
+      console.error("Upload error:", uploadError);
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
     } finally {
       setUploading(false);

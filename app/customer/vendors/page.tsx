@@ -27,18 +27,31 @@ function VendorsPageContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
+  const resolveVendorImage = (imagePath?: string): string => {
+    if (!imagePath || imagePath === "") return "/placeholder-avatar.jpg";
+    // If already full URL
+    if (imagePath.startsWith("http")) return imagePath;
+    // Backend relative path → full URL
+    return `http://localhost:3001${imagePath}`;
+  };
+
   const loadVendors = async () => {
     setLoading(true)
     setError("")
 
     try {
       const data = await apiFetch("/vendors")
-      setVendors(Array.isArray(data) ? data.map(v => ({
-        ...v,
-        name: v.businessName || v.name || 'Unnamed Vendor',
-        price: (v as any).price,
-        image: v.profileImage || v.image
-      })) : [])
+      const processedVendors = Array.isArray(data) ? data.map(v => {
+        console.log("🔍 Raw vendor data:", v); // DEBUG: Check actual fields
+        return {
+          ...v,
+          name: v.businessName || v.name || 'Unnamed Vendor',
+          price: (v as any).price,
+          image: resolveVendorImage(v.profileImage || v.image || v.avatar)
+        }
+      }) : [];
+      console.log("🖼️ Processed vendors with images:", processedVendors); // DEBUG
+      setVendors(processedVendors)
     } catch (fetchError) {
       const message =
         fetchError instanceof Error ? fetchError.message : "Could not load vendors."
@@ -115,9 +128,13 @@ function VendorsPageContent() {
           >
             <div className="relative h-44">
               <img
-                src={vendor.image || "/eventra_photos/photographer.jpg"}
-                alt={vendor.name}
+                src={vendor.image || "/placeholder-avatar.jpg"}
+                alt={`${vendor.name} - ${vendor.category}`}
                 className="h-full w-full rounded-t-xl object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/placeholder-avatar.jpg";
+                  console.log("❌ Image failed to load for vendor:", vendor.name);
+                }}
               />
             </div>
 
