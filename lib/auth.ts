@@ -10,8 +10,8 @@ import {
   setPersistence,
   signInWithPhoneNumber,
   onIdTokenChanged,
+  signInWithPopup,
   type Auth,
-  signInWithRedirect
 } from "firebase/auth"
 import { auth } from "@/lib/firebase"
 import { ApiFetchError, apiFetch } from "@/app/lib/api"
@@ -275,12 +275,10 @@ export const signInWithGoogle = async (options?: { role?: string }) => {
     prompt: "select_account",
   });
 
-  // store role temporarily if needed
   sessionStorage.setItem("loginRole", role);
 
-  await signInWithRedirect(auth, provider);
-
-  return null; // IMPORTANT: do not return user
+  const result = await signInWithPopup(auth, provider);
+  return result;
 };
 
 export const subscribeToAuthState = (

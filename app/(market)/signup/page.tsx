@@ -190,7 +190,7 @@ export default function SignupPage() {
         role,
       });
 
-      showToast("Redirecting to Google...", "success")
+      showToast("Signed in with Google.", "success")
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Google login failed"

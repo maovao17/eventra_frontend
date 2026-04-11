@@ -13,7 +13,6 @@ import { getDashboardPathForRole } from "@/lib/routes";
 import {
   onIdTokenChanged,
   User,
-  getRedirectResult,
   signOut,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -67,27 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // handle redirect login
 useEffect(() => {
-  const handleRedirect = async () => {
-    try {
-      const result = await getRedirectResult(auth);
-
-      if (result?.user) {
-        console.log("Redirect success:", result.user.uid);
-
-        const token = await result.user.getIdToken();
-        localStorage.setItem("firebaseToken", token);
-
-        await syncAuthToken(token);
-
-        window.location.href = "/";
-      }
-    } catch (error) {
-      console.error("Redirect login error:", error);
-    }
-  };
-
-  handleRedirect();
-
     const timeout = setTimeout(() => {
       if (loadingRef.current) {
         setLoading(false);
