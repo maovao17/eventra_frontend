@@ -22,31 +22,32 @@ export default function VendorSidebar() {
         MAIN MENU
       </p>
 
-      <nav className="flex flex-col text-sm">
+      <nav className="flex flex-col text-sm gap-1">
 
-        <Link href="/vendor/dashboard" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/dashboard" className="group rounded-xl px-5 py-3 font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20">
           Dashboard
         </Link>
 
-        <Link href="/vendor/requests" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/requests" className="group rounded-xl px-5 py-3 font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20">
           Booking Requests
         </Link>
 
-        <Link href="/vendor/events" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/events" className="group rounded-xl px-5 py-3 font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20">
           Upcoming Events
         </Link>
 
-        <Link href="/vendor/messages" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/messages" className="group rounded-xl px-5 py-3 font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20">
           Messages
         </Link>
 
-        <Link href="/vendor/earnings" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/earnings" className="group rounded-xl px-5 py-3 font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20">
           Earnings & Analytics
         </Link>
 
-        <Link href="/vendor/ratings" className="px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/ratings" className="group rounded-xl px-5 py-3 font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20">
           Reviews & Ratings
         </Link>
+
 
       </nav>
 

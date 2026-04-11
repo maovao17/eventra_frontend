@@ -252,7 +252,7 @@ const [form, setForm] = useState({
         <button
           onClick={() => void handleSave()}
           disabled={saving}
-          className="bg-primary hover:bg-primary/90 px-6 py-2 rounded-md text-sm font-medium"
+          className="theme-button text-sm font-medium"
         >
           {saving ? "Saving..." : "Save Profile"}
         </button>
@@ -270,32 +270,32 @@ const [form, setForm] = useState({
                 value={form.businessName}
                 onChange={(e) => onFormChange("businessName", e.target.value)}
                 placeholder="Business Name *"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="input"
               />
               <textarea 
                 value={form.description}
                 onChange={(e) => onFormChange("description", e.target.value)}
                 placeholder="Business description"
                 rows={3}
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary resize-vertical"
+                className="input resize-vertical"
               />
               <input 
                 value={form.category}
                 onChange={(e) => onFormChange("category", e.target.value)}
                 placeholder="Categories (comma separated)"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="input"
               />
               <input 
                 value={form.location}
                 onChange={(e) => onFormChange("location", e.target.value)}
                 placeholder="Location / Service Area"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="input"
               />
               <input 
                 value={form.experience}
                 onChange={(e) => onFormChange("experience", e.target.value)}
                 placeholder="Years of Experience"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-primary"
+                className="input"
               />
             </div>
           </div>
@@ -331,31 +331,31 @@ const [form, setForm] = useState({
                 value={packageForm.name}
                 onChange={(e) => setPackageForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Package name"
-                className="w-full p-3 border rounded-lg"
+                className="input"
               />
               <input 
                 value={packageForm.price}
                 onChange={(e) => setPackageForm(prev => ({ ...prev, price: e.target.value }))}
                 placeholder="Price (₹)"
-                className="w-full p-3 border rounded-lg"
+                className="input"
               />
               <textarea 
                 value={packageForm.description}
                 onChange={(e) => setPackageForm(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Description"
                 rows={2}
-                className="w-full p-3 border rounded-lg"
+                className="input"
               />
               <input 
                 value={packageForm.servicesIncluded}
                 onChange={(e) => setPackageForm(prev => ({ ...prev, servicesIncluded: e.target.value }))}
                 placeholder="Services (comma separated)"
-                className="w-full p-3 border rounded-lg"
+                className="input"
               />
               <button 
                 type="button"
                 onClick={addPackageLocally}
-                className="w-full p-3 bg-secondary hover:bg-secondary/80 rounded-lg font-medium"
+                className="theme-button-secondary w-full font-medium"
               >
                 Add Package
               </button>

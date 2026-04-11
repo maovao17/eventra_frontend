@@ -49,7 +49,7 @@ export default function VendorTopbar() {
     <div className="theme-card border-b px-6 py-4 flex justify-between items-center">
       <input
         placeholder="Search bookings, clients, or services..."
-        className="input w-96 px-4 py-2"
+        className="input w-96"
       />
 
       <div className="flex items-center gap-4">

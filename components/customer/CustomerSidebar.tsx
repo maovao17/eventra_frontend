@@ -20,13 +20,13 @@ export default function Sidebar() {
         </h1>
       </div>
 
-      <nav className="flex flex-col gap-4">
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/dashboard">Dashboard</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/templates">Templates</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/vendors">Vendors</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/messages">Messages</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/events">My Events</Link>
-        <Link className="rounded-lg px-3 py-2 transition hover:bg-[var(--primary-light)] hover:text-[var(--primary)]" href="/customer/payment">Payments</Link>
+      <nav className="flex flex-col gap-3">
+        <Link className="group rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20" href="/customer/dashboard">Dashboard</Link>
+        <Link className="group rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20" href="/customer/templates">Templates</Link>
+        <Link className="group rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20" href="/customer/vendors">Vendors</Link>
+        <Link className="group rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20" href="/customer/messages">Messages</Link>
+        <Link className="group rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20" href="/customer/events">My Events</Link>
+        <Link className="group rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-[var(--primary-light)] hover:text-[var(--primary)] focus-visible:ring-2 focus-visible:ring-primary/20" href="/customer/payment">Payments</Link>
       </nav>
     </aside>
   );

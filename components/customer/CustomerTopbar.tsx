@@ -11,7 +11,7 @@ export default function CustomerTopbar() {
       <input
         type="text"
         placeholder="Search vendors..."
-        className="input w-80 px-4 py-2"
+        className="input w-80"
       />
 
       <div className="flex items-center gap-4">

@@ -42,7 +42,7 @@ export default function VendorDashboardPage() {
           <button 
             onClick={handleRefresh}
             disabled={loadingProfile || loadingDashboard}
-            className="px-4 py-2 border rounded-md text-sm"
+            className="btn-secondary"
           >
             {loadingProfile ? <Spinner /> : 'Refresh'}
           </button>
@@ -61,7 +61,7 @@ export default function VendorDashboardPage() {
             </div>
             <Link 
               href="/vendor/businessProfile" 
-              className="ml-auto px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded-md font-medium"
+              className="ml-auto theme-button text-sm font-medium"
             >
               Complete Profile
             </Link>

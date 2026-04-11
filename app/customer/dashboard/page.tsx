@@ -210,12 +210,12 @@ export default function DashboardPage() {
       )}
 
 
-      <div className="flex gap-4">
+        <div className="flex gap-4">
 
         <button
           type="button"
           onClick={() => router.push("/customer/templates")}
-          className="theme-button rounded-xl px-6 py-3"
+          className="theme-button"
         >
           Go to Templates
         </button>
@@ -223,7 +223,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => router.push("/customer/messages")}
-          className="rounded-xl border px-6 py-3"
+          className="btn-secondary"
         >
           Open Chats
         </button>
