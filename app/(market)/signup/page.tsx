@@ -15,7 +15,6 @@ import {
   normalizePhoneInput,
   sendOtp,
   signInWithGoogle,
-  syncAuthToken,
   verifyOtp,
 } from "@/lib/auth"
 import { getDashboardPathForRole } from "@/lib/routes"
@@ -130,8 +129,8 @@ export default function SignupPage() {
 
     try {
       const credential = await verifyOtp(confirmationResult, otp)
-      await credential.user.getIdToken(true)
-      await syncAuthToken(credential.user)
+      const token = await credential.user.getIdToken(true)
+      localStorage.setItem("firebaseToken", token)
       setStatusMessage("Creating your profile...")
 
       const phoneInput = phone.toString().trim()
@@ -152,21 +151,6 @@ export default function SignupPage() {
 
       // ✅ ensure backend finishes writing
       await new Promise((r) => setTimeout(r, 500));
-
-      if (role === "vendor") {
-        await apiFetch("/vendors", {
-          method: "POST",
-          body: JSON.stringify({
-            name: businessName || name,
-            category: "Vendor Service",
-            businessName: businessName || name,
-            userId: credential.user.uid,
-            price: 0,
-            description: `${businessName || name} is now available on Eventra.`,
-            responseTime: "1 hour",
-          }),
-        });
-      }
 
       setStatusMessage("Fetching your account...");
 

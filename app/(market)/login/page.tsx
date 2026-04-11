@@ -13,13 +13,11 @@ import {
   normalizePhoneInput,
   sendOtp,
   signInWithGoogle,
-  syncAuthToken,
   verifyOtp,
 } from "@/lib/auth"
 import { getDashboardPathForRole } from "@/lib/routes"
 import { validateLogin } from "@/lib/validation/authValidation"
 
-import { signInWithRedirect } from "firebase/auth";
 
 type Step = "phone" | "otp"
 
@@ -115,8 +113,8 @@ export default function LoginPage() {
       setStatusMessage("Verifying OTP...")
 
       const credential = await verifyOtp(confirmationResult, otp)
-      await credential.user.getIdToken(true)
-      await syncAuthToken(credential.user)
+      const token = await credential.user.getIdToken(true)
+      localStorage.setItem("firebaseToken", token)
 
       setStatusMessage("Fetching your account...")
       const profile = await refreshProfile()
