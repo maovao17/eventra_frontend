@@ -145,8 +145,22 @@ export default function LoginPage() {
       setErrors({})
       setStatusMessage("Signing in with Google...")
 
-      await signInWithGoogle();
+      const result = await signInWithGoogle()
+      if (!result) return
+
+      const token = await result.user.getIdToken(true)
+      localStorage.setItem("firebaseToken", token)
+      setStatusMessage("Fetching your account...")
+
+      const profile = await refreshProfile()
+      if (!profile) {
+        setErrors({ phone: "No Eventra account found for this Google account. Please sign up first." })
+        setStatusMessage("")
+        return
+      }
+
       showToast("Signed in with Google.", "success")
+      router.replace(getDashboardPathForRole(profile.role))
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Google login failed"

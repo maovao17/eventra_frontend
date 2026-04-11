@@ -186,11 +186,38 @@ export default function SignupPage() {
       setApiError("")
       setStatusMessage("Signing in with Google...")
 
-      await signInWithGoogle({
-        role,
-      });
+      const result = await signInWithGoogle({ role })
+      if (!result) return
+
+      const token = await result.user.getIdToken(true)
+      localStorage.setItem("firebaseToken", token)
+      setStatusMessage("Creating your profile...")
+
+      // Create backend user if not already exists
+      try {
+        await apiFetch("/users", {
+          method: "POST",
+          body: JSON.stringify({
+            name: result.user.displayName || "Eventra User",
+            email: result.user.email,
+            userId: result.user.uid,
+            authProvider: "google",
+            role,
+            businessName: role === "vendor" ? businessName : undefined,
+          }),
+        })
+      } catch {
+        // 409 Conflict = user already exists, that's fine
+      }
+
+      const profile = await refreshProfile()
+      if (!profile) {
+        setApiError("Account could not be loaded. Please try again.")
+        return
+      }
 
       showToast("Signed in with Google.", "success")
+      router.replace(getDashboardPathForRole(profile.role))
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Google login failed"
