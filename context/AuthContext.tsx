@@ -144,17 +144,17 @@ useEffect(() => {
         const fetchedProfile = await fetchUserProfile(firebaseUser.uid as string);
 
         if (!fetchedProfile) {
-          await signOut(auth);
-          localStorage.removeItem("firebaseToken");
-
-          setUser(null);
+          // Keep the Firebase session alive — signup page needs it to create the backend user.
+          // Only redirect away from protected pages; login/signup pages handle this themselves.
           setProfile(null);
           clearStoredUserProfile();
-
           setLoading(false);
           setIsReady(true);
 
-          router.push("/login");
+          const isPublicPage = pathname === "/" || pathname === "/login" || pathname === "/signup";
+          if (!isPublicPage) {
+            router.push("/login");
+          }
           return;
         }
 
