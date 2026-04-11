@@ -66,21 +66,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [loading]);
 
   // handle redirect login
-  useEffect(() => {
-    const handleRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result?.user) {
-          const token = await result.user.getIdToken();
-          localStorage.setItem("firebaseToken", token);
-          await syncAuthToken(token);
-        }
-      } catch (error) {
-        console.error("Redirect login error:", error);
-      }
-    };
+useEffect(() => {
+  const handleRedirect = async () => {
+    try {
+      const result = await getRedirectResult(auth);
 
-    handleRedirect();
+      if (result?.user) {
+        console.log("Redirect success:", result.user.uid);
+
+        const token = await result.user.getIdToken();
+        localStorage.setItem("firebaseToken", token);
+
+        await syncAuthToken(token);
+
+        window.location.href = "/";
+      }
+    } catch (error) {
+      console.error("Redirect login error:", error);
+    }
+  };
+
+  handleRedirect();
 
     const timeout = setTimeout(() => {
       if (loadingRef.current) {
@@ -92,7 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => clearTimeout(timeout);
   }, []);
 
-  // fetch profile with retry + timeout
   const fetchUserProfile = async (
     uid: string
   ): Promise<AppUserProfile | null> => {
@@ -198,7 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [pathname, router, showToast]);
+  }, []);
 
   const logout = async () => {
     try {

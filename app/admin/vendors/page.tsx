@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Spinner from '@/components/ui/Spinner';
 import DashboardCard from '@/components/dashboard/DashboardCard';
+import { apiFetch } from '@/app/lib/api';
 
 type Vendor = {
   _id: string;
@@ -25,8 +26,7 @@ export default function AdminVendorsPage() {
 
   const fetchVendors = async () => {
     try {
-      const res = await fetch('/vendors/all');
-      const data = await res.json();
+      const data = await apiFetch('/vendors/all');
       setVendors(data || []);
     } catch (err) {
       setError('Failed to load vendors');
@@ -37,10 +37,8 @@ export default function AdminVendorsPage() {
 
   const approveVendor = async (id: string) => {
     try {
-      const res = await fetch(`/vendors/approve/${id}`, { method: 'PATCH' });
-      if (res.ok) {
-        fetchVendors();
-      }
+      await apiFetch(`/vendors/approve/${id}`, { method: 'PATCH' });
+      fetchVendors();
     } catch (err) {
       setError('Approve failed');
     }
