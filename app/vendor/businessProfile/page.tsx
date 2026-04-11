@@ -382,7 +382,7 @@ const [form, setForm] = useState({
                 type="file" 
                 accept="image/*"
                 onChange={handleProfileUpload}
-                className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90 cursor-pointer"
+                className="input file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--primary-light)] file:text-[var(--primary)] hover:file:bg-[var(--primary)] hover:file:text-white file:cursor-pointer file:transition-all"
               />
               {uploadingProfile && <p className="text-sm text-muted-foreground text-center">Uploading...</p>}
             </div>
@@ -396,7 +396,7 @@ const [form, setForm] = useState({
               multiple
               max={7}
               onChange={handlePortfolioUpload}
-              className="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-secondary file:text-white hover:file:bg-secondary/80 cursor-pointer"
+              className="input file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--secondary-soft)] file:text-[var(--secondary)] hover:file:bg-[var(--secondary)] hover:file:text-white file:cursor-pointer file:transition-all"
             />
             {uploadingGallery && <p className="text-sm text-muted-foreground text-center">Uploading...</p>}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
