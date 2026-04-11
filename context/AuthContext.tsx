@@ -107,7 +107,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
       retryCount.current = 0;
-      return data as AppUserProfile;
+      const profileData = (data as any)?.data || data;
+      return profileData as AppUserProfile;
     } catch (error: any) {
       const status = error?.status || 0;
 

@@ -147,8 +147,7 @@ export default function LoginPage() {
       setErrors({})
       setStatusMessage("Signing in with Google...")
 
-      await signInWithGoogle({ role: "customer" });
-
+      await signInWithGoogle();
       showToast("Redirecting to Google...", "success")
     } catch (error) {
       const message =

@@ -21,11 +21,6 @@ interface LoginData {
   [key: string]: unknown
 }
 
-/**
- * Basic frontend validation for signup form fields.
- * Returns an object where each key is a field name and the
- * value is the corresponding error message.
- */
 export function validateSignup(data: SignupData) {
   const errors: Record<string, string> = {}
 
@@ -59,9 +54,6 @@ export function validateSignup(data: SignupData) {
   return errors
 }
 
-/**
- * Basic frontend validation for login form fields.
- */
 export function validateLogin(data: LoginData) {
   const errors: Record<string, string> = {}
 
@@ -83,8 +75,6 @@ export function validateLogin(data: LoginData) {
       errors.password = "Password must be at least 6 characters"
     }
   }
-
-  // OTP is optional and usually validated separately
 
   return errors
 }

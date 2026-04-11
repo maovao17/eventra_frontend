@@ -539,7 +539,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
 
   const acceptRequest = async (requestId: string) => {
     if (!profile?.uid) return
-    await apiFetch(`/api/requests/${requestId}/accept`, {
+    await apiFetch(`/requests/${requestId}/accept`, {
       method: "PATCH",
       body: JSON.stringify({ actorUserId: profile.uid }),
     })
@@ -548,7 +548,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
 
   const declineRequest = async (requestId: string) => {
     if (!profile?.uid) return
-    await apiFetch(`/api/requests/${requestId}/reject`, {
+    await apiFetch(`/requests/${requestId}/reject`, {
       method: "PATCH",
       body: JSON.stringify({ actorUserId: profile.uid }),
     })

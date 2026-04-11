@@ -148,7 +148,10 @@ export default function SignupPage() {
           role,
           businessName: role === "vendor" ? businessName : undefined,
         }),
-      })
+      });
+
+      // ✅ ensure backend finishes writing
+      await new Promise((r) => setTimeout(r, 500));
 
       if (role === "vendor") {
         await apiFetch("/vendors", {
@@ -162,12 +165,17 @@ export default function SignupPage() {
             description: `${businessName || name} is now available on Eventra.`,
             responseTime: "1 hour",
           }),
-        })
+        });
       }
 
-      setStatusMessage("Fetching your account...")
-      const profile = await refreshProfile()
+      setStatusMessage("Fetching your account...");
 
+      let profile = null;
+      for (let i = 0; i < 3; i++) {
+        profile = await refreshProfile();
+        if (profile) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
       if (!profile) {
         setApiError("Your phone is verified, but your Eventra profile could not be loaded yet.")
         setStatusMessage("Verification complete, but account setup is incomplete.")
@@ -270,9 +278,8 @@ export default function SignupPage() {
                 type="button"
                 onClick={() => setRole("customer")}
                 disabled={isSendingOtp || isVerifyingOtp || isGoogleLoading}
-                className={`flex-1 rounded-full py-2 text-sm transition ${
-                  role === "customer" ? "bg-white text-[#E87D5F] shadow" : "text-gray-500"
-                }`}
+                className={`flex-1 rounded-full py-2 text-sm transition ${role === "customer" ? "bg-white text-[#E87D5F] shadow" : "text-gray-500"
+                  }`}
               >
                 Customer
               </button>
@@ -280,9 +287,8 @@ export default function SignupPage() {
                 type="button"
                 onClick={() => setRole("vendor")}
                 disabled={isSendingOtp || isVerifyingOtp || isGoogleLoading}
-                className={`flex-1 rounded-full py-2 text-sm transition ${
-                  role === "vendor" ? "bg-white text-[#E87D5F] shadow" : "text-gray-500"
-                }`}
+                className={`flex-1 rounded-full py-2 text-sm transition ${role === "vendor" ? "bg-white text-[#E87D5F] shadow" : "text-gray-500"
+                  }`}
               >
                 Vendor
               </button>
