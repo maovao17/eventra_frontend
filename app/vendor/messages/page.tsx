@@ -57,7 +57,7 @@ function MessagesPageContent() {
     };
 
     fetchBookings();
-  }, []);
+  }, [profile?.uid]);
 
   if (contextLoading) {
     return <PageCardSkeleton count={3} className="md:grid-cols-1" />
