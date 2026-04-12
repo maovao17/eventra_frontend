@@ -94,12 +94,16 @@ function VendorMessagesContent() {
                   <button
                     type="button"
                     onClick={async () => {
+                      console.log('CONSOLE LOG: Clicking Chat for booking:', chat.bookingId);
                       try {
                         const res = await apiFetch("/chats/init", {
                           method: "POST",
                           body: JSON.stringify({ bookingId: chat.bookingId }),
                         });
-                        router.push(`/chat/${res.chatId}`);
+                        console.log('CONSOLE LOG: /chats/init response:', JSON.stringify(res, null, 2));
+                        const chatId = res.chatId || getChatIdForBooking(chat.bookingId);
+                        console.log('CONSOLE LOG: Navigating to chat:', `/chat/${chatId}`);
+                        router.push(`/chat/${chatId}`);
                       } catch (error) {
                         console.error("Failed to init chat:", error);
                       }

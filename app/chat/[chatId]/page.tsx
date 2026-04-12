@@ -32,21 +32,26 @@ export default function ChatPage() {
         : "/customer/dashboard"
 
   useEffect(() => {
+    console.log(`🔍 CHAT DEBUG: ChatPage mounted - uid: ${senderId}, chatId: ${chatId}`);
     if (!senderId) {
+      console.log('🔍 CHAT DEBUG: No senderId, redirecting to login');
       router.push("/login")
       return
     }
 
     const verifyChatAccess = async () => {
+      console.log(`🔍 CHAT DEBUG: Calling /chats/${chatId}/verify`);
       try {
         const response = await apiFetch(`/chats/${chatId}/verify`) as { allowed: boolean }
+        console.log('🔍 CHAT DEBUG: Verify response:', JSON.stringify(response, null, 2));
         if (response.allowed) {
           setAccessVerified(true)
         } else {
           setAccessVerified(false)
           setError("You don't have access to this chat")
         }
-      } catch {
+      } catch (error) {
+        console.error('🔍 CHAT DEBUG: Verify error:', error);
         setAccessVerified(false)
         setError("Unable to verify chat access")
       }
@@ -104,14 +109,24 @@ export default function ChatPage() {
   useEffect(() => {
     if (!chatId || accessVerified !== true) return
 
-    setLoading(true)
-    const unsubscribe = subscribeToChatMessages(chatId, (newMessages) => {
-      setMessages(newMessages)
-      setLoading(false)
-    })
-
-    return () => {
-      unsubscribe()
+    console.log(`🔍 CHAT DEBUG: Subscribing to Firestore chats/${chatId}/messages (accessVerified: ${accessVerified})`);
+    
+    setLoading(true);
+    
+    try {
+      const unsubscribe = subscribeToChatMessages(chatId, (newMessages) => {
+        console.log(`🔍 CHAT DEBUG: Firestore snapshot received - messages:`, newMessages.length, newMessages);
+        setMessages(newMessages)
+        setLoading(false)
+      })
+  
+      return () => {
+        console.log(`🔍 CHAT DEBUG: Unsubscribing from Firestore`);
+        unsubscribe()
+      }
+    } catch (error) {
+      console.error('🔍 CHAT DEBUG: Firestore subscription error:', error);
+      setLoading(false);
     }
   }, [chatId, accessVerified])
 
