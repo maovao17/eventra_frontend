@@ -346,8 +346,8 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
           : profile.role === "vendor"
             ? await Promise.all([
                 Promise.resolve([]),
-                apiFetch(`/requests`),
-                apiFetch(`/bookings`),
+                apiFetch(`/requests`).catch(() => []),
+                apiFetch(`/bookings`).catch(() => []),
               ])
             : [[], [], []]
 

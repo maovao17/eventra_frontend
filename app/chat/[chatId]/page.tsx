@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { ChatMessage, subscribeToChatMessages, sendChatMessage } from "@/lib/chat"
 import { apiFetch } from "@/app/lib/api"
+import { initializeChatThread } from "@/lib/chat"
 import { useToast } from "@/context/ToastContext"
 
 export default function ChatPage() {
@@ -44,8 +45,17 @@ export default function ChatPage() {
     const verify = async () => {
       try {
         const res = await apiFetch(`/chats/${chatId}/verify`) as { allowed: boolean }
-        setAccessVerified(res.allowed)
-        if (!res.allowed) setAccessError("You don't have access to this chat")
+        if (!res.allowed) {
+          setAccessVerified(false)
+          setAccessError("You don't have access to this chat")
+          return
+        }
+        // Lazy-init the Firestore chat doc if it doesn't exist yet
+        const bookingIdMatch = chatId.match(/^booking-(.+)$/)
+        if (bookingIdMatch) {
+          await initializeChatThread({ bookingId: bookingIdMatch[1] }).catch(() => null)
+        }
+        setAccessVerified(true)
       } catch {
         setAccessVerified(false)
         setAccessError("Unable to verify chat access")
