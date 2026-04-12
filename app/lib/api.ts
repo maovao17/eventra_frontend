@@ -1,3 +1,5 @@
+import { getAuth } from "firebase/auth";
+
 export const API_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
 
@@ -19,22 +21,28 @@ export class ApiFetchError extends Error {
   }
 }
 
+const getFirebaseToken = async () => {
+  if (typeof window === "undefined") return null;
+
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  if (!user) return null;
+
+  return await user.getIdToken(); 
+};
+
 export async function apiFetch(
   path: string,
   options: RequestInit = {}
 ) {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("firebaseToken")
-      : null;
+  const token = await getFirebaseToken();
 
   const isFormData = options.body instanceof FormData;
 
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
-      // Don't set Content-Type for FormData — browser sets it automatically
-      // with the correct multipart boundary. Overriding it breaks file uploads.
       ...(!isFormData && { "Content-Type": "application/json" }),
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
@@ -47,7 +55,7 @@ export async function apiFetch(
 
     try {
       parsed = JSON.parse(text);
-    } catch {}
+    } catch { }
 
     throw new ApiFetchError({
       message: parsed?.message || parsed?.error || `API error: ${res.status}`,

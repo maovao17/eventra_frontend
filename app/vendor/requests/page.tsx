@@ -105,13 +105,12 @@ export default function Requests() {
 
     try {
       setIsMutating(true)
-      const response = await apiFetch(`/requests/${target.requestId}/${status === "accepted" ? "accept" : "reject"}`, {
+      await apiFetch(`/requests/${target.requestId}/${status === "accepted" ? "accept" : "reject"}`, {
         method: "PATCH",
       })
-
       showToast(status === "accepted" ? "Request accepted" : "Request rejected", "success")
       if (status === "accepted") {
-        const bookingId = String((response as any)?.booking?._id || "")
+        const bookingId = String((Response as any)?.booking?._id || "")
         if (bookingId) {
           router.push(`/vendor/bookedClientDetails?bookingId=${bookingId}`)
         }
