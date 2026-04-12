@@ -9,6 +9,7 @@ import OTPInput from "@/components/auth/OTPInput"
 import { useAuth } from "@/context/AuthContext"
 import { useToast } from "@/context/ToastContext"
 import {
+  ensureBackendProfile,
   getAuthErrorMessage,
   normalizePhoneInput,
   sendOtp,
@@ -152,13 +153,21 @@ export default function LoginPage() {
       localStorage.setItem("firebaseToken", token)
       setStatusMessage("Fetching your account...")
 
-      const profile = await refreshProfile()
+      // Auto-create account if it doesn't exist yet (needed for admin Google login)
+      const profile = await ensureBackendProfile(result.user, {
+        name: result.user.displayName || "Eventra User",
+        email: result.user.email || undefined,
+        authProvider: "google",
+        role: "customer",
+      })
+
       if (!profile) {
-        setErrors({ phone: "No Eventra account found for this Google account. Please sign up first." })
+        setErrors({ phone: "Could not load your account. Please try again." })
         setStatusMessage("")
         return
       }
 
+      await refreshProfile()
       showToast("Signed in with Google.", "success")
       router.replace(getDashboardPathForRole(profile.role))
     } catch (error) {

@@ -8,6 +8,9 @@ import { useAuth } from '@/context/AuthContext';
 import Spinner from '@/components/ui/Spinner';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import RevenueChart from '@/components/vendor/RevenueChart';
+import UpcomingEventsTable from '@/components/vendor/UpcomingEventsTable';
+import QuickActions from '@/components/vendor/QuickActions';
 
 export default function VendorDashboardPage() {
   const pathname = usePathname();
@@ -139,10 +142,10 @@ export default function VendorDashboardPage() {
                       <p className="text-sm text-muted-foreground">{new Date(booking.createdAt).toLocaleDateString()}</p>
                     </div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      booking.status === 'pending' 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : booking.status === 'accepted' 
-                        ? 'bg-green-100 text-green-800' 
+                      booking.status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : booking.status === 'accepted'
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
                       {booking.status?.toUpperCase()}
@@ -152,6 +155,13 @@ export default function VendorDashboardPage() {
               </div>
             </div>
           )}
+
+          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_280px]">
+            <RevenueChart />
+            <QuickActions />
+          </div>
+
+          <UpcomingEventsTable />
         </DashboardContainer>
       )}
     </div>
