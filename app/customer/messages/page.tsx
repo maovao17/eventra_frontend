@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useMemo } from "react"
+import { Suspense, useMemo, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
@@ -11,8 +11,15 @@ function MessagesPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { profile } = useAuth()
-  const { bookings, vendors, isLoading } = useEvent()
+  const { bookings, vendors, isLoading, refreshData } = useEvent()
   const bookingId = searchParams.get("bookingId")
+
+  useEffect(() => {
+    if (profile?.uid && refreshData) {
+      refreshData()
+    }
+  }, [profile?.uid, refreshData])
+
   const chats = useMemo(
     () =>
       bookings
