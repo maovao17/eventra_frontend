@@ -595,7 +595,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
           request.eventId === currentEvent.id && request.status === "accepted"
       )
       .map((request) => {
-        const vendor = vendors.find((item) => item.id === request.vendorId)
+        const vendor = vendors.find((item) => item.id === String(request.vendorId))
         const booking = bookings.find((item) => item.requestId === request.id)
 
         return {

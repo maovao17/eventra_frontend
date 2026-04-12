@@ -7,7 +7,7 @@ import { useEvent } from "@/context/EventContext"
 import { EmptyState, PageCardSkeleton } from "@/components/ui/PageState"
 import { getChatIdForBooking } from "@/lib/chat"
 
-function MessagesPageContent() {
+function VendorMessagesContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { profile } = useAuth()
@@ -25,11 +25,13 @@ function MessagesPageContent() {
       bookings
         .filter((booking) => ["accepted", "confirmed"].includes(booking.status?.toLowerCase() || ""))
         .map((booking) => {
-          const vendor = vendors.find((v) => v.id === booking.vendorId || v._id === booking.vendorId)
+          const vendor = vendors.find((v) => v.id === String(booking.vendorId))
           const request = requests.find((r) => r.id === booking.requestId)
+          const customer = vendors.find((v) => v.id === String(booking.customerId)) // Reuse vendors or add customers
           return {
             bookingId: String(booking.id ?? booking._id ?? ""),
             vendorName: vendor?.name ?? "Vendor",
+            customerName: customer?.name ?? "Customer",
             amount: Number(booking.amount ?? 0),
             status: booking.status,
             paymentStatus: booking.paymentStatus,
@@ -48,7 +50,7 @@ function MessagesPageContent() {
     return (
       <EmptyState
         title="No chats yet"
-        description="Chats unlock after a vendor accepts your booking. Go to Discover Vendors to send requests."
+        description="Chats appear after customers send requests and you accept them."
       />
     )
   }
@@ -56,15 +58,14 @@ function MessagesPageContent() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Vendor Chats</h1>
-        <p className="theme-muted mt-2 text-sm">Chat with vendors and pay to confirm your booking.</p>
+        <h1 className="text-3xl font-bold">Customer Chats</h1>
+        <p className="theme-muted mt-2 text-sm">Manage chats and bookings with customers.</p>
       </div>
 
       <div className="space-y-3">
         {chats.map((chat) => {
           const isSelected = bookingId === chat.bookingId
-          const canPay =
-            chat.status === "accepted" && chat.paymentStatus !== "paid" && chat.requestId
+          const canComplete = chat.status === "confirmed" && chat.paymentStatus === "paid"
 
           return (
             <div
@@ -80,7 +81,7 @@ function MessagesPageContent() {
                   className="flex-1 text-left"
                 >
                   <div>
-                    <p className="font-semibold">{chat.vendorName}</p>
+                    <p className="font-semibold">{chat.customerName}</p>
                     <p className="theme-muted mt-1 text-sm">
                       {chat.status === "accepted" ? "Awaiting payment" : "Booking confirmed"} •{" "}
                       {formatCurrency(chat.amount)}
@@ -97,22 +98,10 @@ function MessagesPageContent() {
                     Chat
                   </button>
 
-                  {canPay && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        router.push(`/customer/payment?requestId=${chat.requestId}`)
-                      }
-                      className="rounded-xl theme-button px-4 py-2 text-sm font-medium"
-                    >
-                      Pay Now
+                  {canComplete && (
+                    <button className="rounded-xl bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-sm font-medium">
+                      Mark Complete
                     </button>
-                  )}
-
-                  {chat.status === "confirmed" && (
-                    <span className="rounded-xl bg-green-100 text-green-800 px-3 py-2 text-sm font-medium">
-                      Paid ✓
-                    </span>
                   )}
                 </div>
               </div>
@@ -124,10 +113,10 @@ function MessagesPageContent() {
   )
 }
 
-export default function MessagesPage() {
+export default function VendorMessagesPage() {
   return (
     <Suspense fallback={<div className="theme-card p-8">Loading messages...</div>}>
-      <MessagesPageContent />
+      <VendorMessagesContent />
     </Suspense>
   )
 }

@@ -35,6 +35,7 @@ export interface Request {
 }
 
 export interface Vendor {
+  _id: string;
   id: string;
   userId?: string;
   name: string;
