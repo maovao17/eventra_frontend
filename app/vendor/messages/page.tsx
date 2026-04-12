@@ -1,21 +1,32 @@
 "use client"
 
-import { Suspense, useMemo } from "react"
+import { Suspense, useMemo, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import { EmptyState, PageCardSkeleton } from "@/components/ui/PageState"
 import { getChatIdForBooking } from "@/lib/chat"
+import { getVendorBookings } from "@/app/lib/vendorApi"
+import type { Booking } from "@/app/types/eventra"
 
 function MessagesPageContent() {
   const router = useRouter()
   const { profile } = useAuth()
-  const { bookings, events, isLoading } = useEvent()
+  const { bookings: contextBookings, events, isLoading: contextLoading } = useEvent()
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId")
+
+  // *** ADDED: Local state for vendor bookings ***
+const [vendorBookings, setVendorBookings] = useState<Booking[]>([])
+  const [vendorLoading, setVendorLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  // *** UPDATED: Merge context + vendor bookings ***
+  const allBookings = useMemo(() => [...contextBookings, ...vendorBookings], [contextBookings, vendorBookings])
+
   const threads = useMemo(
     () =>
-      bookings
+      allBookings
         .filter((booking) => booking.status === "accepted" || booking.status === "confirmed")
         .map((booking) => ({
           bookingId: String(booking.id ?? booking._id ?? ""),
@@ -25,18 +36,42 @@ function MessagesPageContent() {
           amount: Number(booking.amount ?? 0),
         }))
         .filter((thread) => Boolean(thread.bookingId)),
-    [bookings, events],
+    [allBookings, events],  // *** CHANGED: Use allBookings ***
   )
 
-  if (isLoading) {
+  // *** ADDED: Fetch vendor bookings on mount ***
+  useEffect(() => {
+    const fetchBookings = async () => {
+      if (!profile?.uid || vendorLoading || vendorBookings.length > 0) return
+      
+      setVendorLoading(true)
+      setFetchError(null)
+      
+      try {
+        console.log("📡 Fetching vendor bookings for messages page")
+        const fetched = await getVendorBookings()
+        setVendorBookings(fetched)
+      } catch (error) {
+        console.error("Failed to fetch vendor bookings:", error)
+        setFetchError("Failed to load bookings")
+      } finally {
+        setVendorLoading(false)
+      }
+    }
+
+    fetchBookings()
+  }, [profile?.uid, vendorLoading, vendorBookings.length])
+
+  // *** UPDATED: Combined loading state ***
+  if (contextLoading || vendorLoading) {
     return <PageCardSkeleton count={3} className="md:grid-cols-1" />
   }
 
   if (!profile?.uid || threads.length === 0) {
     return (
       <EmptyState
-        title="No chats yet"
-        description="Accepted bookings will appear here for vendor messaging."
+        title={fetchError ? "Error Loading Chats" : "No chats yet"}
+        description={fetchError || "Accepted bookings will appear here for vendor messaging."}
       />
     )
   }
@@ -85,3 +120,4 @@ export default function MessagesPage() {
     </Suspense>
   )
 }
+
