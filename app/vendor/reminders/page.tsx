@@ -129,21 +129,6 @@ export default function Reminders() {
           )}
         </div>
 
-        <div className="theme-card p-5 rounded-lg shadow">
-          <h3 className="font-semibold mb-3">
-            Automation Panel
-          </h3>
-
-          <label className="flex justify-between mb-2">
-            SMS Reminders
-            <input type="checkbox" defaultChecked />
-          </label>
-
-          <label className="flex justify-between">
-            Email Alerts
-            <input type="checkbox" defaultChecked />
-          </label>
-        </div>
       </div>
     </div>
   );

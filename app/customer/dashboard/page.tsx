@@ -209,25 +209,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-
-        <div className="flex gap-4">
-
-        <button
-          type="button"
-          onClick={() => router.push("/customer/templates")}
-          className="theme-button"
-        >
-          Go to Templates
-        </button>
-
-        <button
-          type="button"
-          onClick={() => router.push("/customer/messages")}
-          className="btn-secondary"
-        >
-          Open Chats
-        </button>
-      </div>
     </DashboardContainer>
   )
 }

@@ -209,12 +209,12 @@ export default function EventsPage() {
                       >
                         {deletingId === String(event._id || event.id) ? "Removing..." : "Delete"}
                       </button>
-                      <button
-                        type="button"
+                      <Link
+                        href={`/admin/events/${String(event._id || event.id)}`}
                         className="theme-button px-3 py-1.5 text-xs font-medium rounded-lg"
                       >
                         View Details
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>

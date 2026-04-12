@@ -49,7 +49,7 @@ function MessagesPageContent() {
       try {
         console.log("📡 GET /vendors/bookings");
         const data = await getVendorBookings();
-        setVendorBookings(Array.isArray(data) ? data : data?.data || []);
+        setVendorBookings(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to fetch vendor bookings", err);
         setFetchError("Failed to load bookings");

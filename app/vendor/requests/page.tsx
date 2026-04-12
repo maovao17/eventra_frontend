@@ -8,6 +8,7 @@ import { apiFetch } from "@/app/lib/api"
 import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useAuth } from "@/context/AuthContext"
 import { useToast } from "@/context/ToastContext"
+import { initializeChatThread } from "@/lib/chat"
 
 type RequestStatus = "pending" | "accepted" | "rejected"
 
@@ -105,13 +106,15 @@ export default function Requests() {
 
     try {
       setIsMutating(true)
-      await apiFetch(`/requests/${target.requestId}/${status === "accepted" ? "accept" : "reject"}`, {
+      const response = await apiFetch(`/requests/${target.requestId}/${status === "accepted" ? "accept" : "reject"}`, {
         method: "PATCH",
       })
       showToast(status === "accepted" ? "Request accepted" : "Request rejected", "success")
       if (status === "accepted") {
-        const bookingId = String((Response as any)?.booking?._id || "")
+        const bookingId = String((response as any)?.booking?._id || (response as any)?.booking?.id || "")
         if (bookingId) {
+          // Init Firestore chat thread so both parties can message immediately
+          await initializeChatThread({ bookingId }).catch(() => null)
           router.push(`/vendor/bookedClientDetails?bookingId=${bookingId}`)
         }
       }

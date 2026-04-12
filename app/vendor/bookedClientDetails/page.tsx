@@ -132,21 +132,12 @@ function BookingDetailsPageContent() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("actorUserId", profile.uid);
 
-      const response = await fetch(`/bookings/${booking._id}/upload-proof`, {
+      const data = await apiFetch(`/bookings/${booking._id}/upload-proof`, {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Upload failed: ${errorText || response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Upload success:", data);
-      
       setSuccess("Completion proof uploaded! Booking auto-marked complete.");
       setBooking(data as BookingDetails);
       

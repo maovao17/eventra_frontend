@@ -194,7 +194,7 @@ const normalizeVendor = (vendor: Record<string, unknown>, reviews: Array<Record<
         .filter(Boolean)
     : []
   const portfolio = Array.from(new Set([...portfolioFromItems, ...portfolioFromGallery]))
-  const primaryImage = resolveMediaUrl(vendor.image) || portfolio[0] || DEFAULT_VENDOR_IMAGE
+  const primaryImage = resolveMediaUrl(vendor.profileImage) || resolveMediaUrl(vendor.image) || portfolio[0] || DEFAULT_VENDOR_IMAGE
 
   return {
     id: vendorId,

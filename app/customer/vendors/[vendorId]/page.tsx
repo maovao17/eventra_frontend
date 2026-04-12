@@ -16,7 +16,7 @@ import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageSt
 import { useEvent } from "@/context/EventContext"
 import { useToast } from "@/context/ToastContext"
 
-export default function VendorDetailPage({ params }: { params: { vendorId: string } }) {
+export default function VendorDetailPage() {
   const { vendorId } = useParams();
   if (!vendorId) {
     return (
@@ -31,7 +31,7 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
     );
   }
 
-  const { currentEvent, sendVendorRequest, getRequestForVendor } = useEvent()
+  const { currentEvent, getRequestForVendor } = useEvent()
   const { showToast } = useToast()
   const [vendor, setVendor] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -39,15 +39,13 @@ export default function VendorDetailPage({ params }: { params: { vendorId: strin
   const [reviewsLoading, setReviewsLoading] = useState(true)
   const [reviews, setReviews] = useState<any[]>([])
   const [error, setError] = useState("")
-const existingRequest = currentEvent?.id && vendor?._id
+  const [selectedPackage, setSelectedPackage] = useState<any>(null)
+
+  const existingRequest = currentEvent?.id && vendor?._id
     ? getRequestForVendor(currentEvent.id, String(vendor._id))
     : undefined
 
   const handleSendRequest = async () => {
-    console.log("BUTTON CLICKED");
-    console.log("Event ID:", currentEvent?.id);
-    console.log("Vendor ID:", vendor?._id);
-
     if (!currentEvent?.id) {
       showToast("Please create/select an event first before contacting vendors.", "error");
       return;
@@ -55,16 +53,33 @@ const existingRequest = currentEvent?.id && vendor?._id
 
     setRequesting(true);
     try {
-      const request = await sendVendorRequest(currentEvent.id, String(vendor._id));
-      console.log("SUCCESS:", request);
-      if (request) {
-        showToast("Request sent successfully.", "success");
+      const packageAmount = selectedPackage?.price ?? 0;
+      const packageName = selectedPackage?.name ?? "";
+
+      // Send request with package price as the agreed amount
+      const response = await apiFetch("/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: "", // filled by backend from token
+          vendorId: String(vendor._id),
+          eventId: currentEvent.id,
+          amount: packageAmount,
+          packageName,
+        }),
+      }) as any;
+
+      if (response?._id || response?.id) {
+        showToast(
+          selectedPackage
+            ? `Request sent with package: ${selectedPackage.name} (₹${Number(selectedPackage.price).toLocaleString("en-IN")})`
+            : "Request sent successfully.",
+          "success"
+        );
       } else {
         showToast("Could not send vendor request.", "error");
       }
-    } catch (err) {
-      console.error("ERROR:", err);
-      showToast("Could not send vendor request.", "error");
+    } catch (err: any) {
+      showToast(err?.message || "Could not send vendor request.", "error");
     } finally {
       setRequesting(false);
     }
@@ -77,6 +92,10 @@ const existingRequest = currentEvent?.id && vendor?._id
       try {
         const data = await apiFetch(`/vendors/${vendorId}`)
         setVendor(data ?? null)
+        // Auto-select the first package if available
+        if (Array.isArray((data as any)?.packages) && (data as any).packages.length > 0) {
+          setSelectedPackage((data as any).packages[0])
+        }
       } catch (fetchError) {
         const message = fetchError instanceof Error ? fetchError.message : "Vendor not found"
         setError(message)
@@ -160,8 +179,8 @@ const existingRequest = currentEvent?.id && vendor?._id
             ))}
           </div>
         ) : (
-          <div className="h-64 rounded-xl bg-gray-200 flex items-center justify-center mb-8 p-8">
-            No portfolio images
+          <div className="h-40 rounded-xl bg-gray-100 flex items-center justify-center mb-4 p-4 mx-8 mt-6">
+            <p className="text-gray-400 text-sm">No portfolio images uploaded yet</p>
           </div>
         )}
 
@@ -179,30 +198,56 @@ const existingRequest = currentEvent?.id && vendor?._id
               <p className="theme-muted mt-4 max-w-2xl text-lg">{vendor.description}</p>
             )}
 
+            {/* Packages */}
             {vendor.packages && vendor.packages.length > 0 && (
               <div className="mt-8">
                 <h2 className="text-xl font-semibold mb-4">Service Packages</h2>
-                <ul className="space-y-2">
-                  {vendor.packages.map((pkg: any, index: number) => (
-                    <li key={index} className="theme-card p-4">
-                      <div className="font-semibold">{pkg.name}</div>
-                      <div className="text-sm theme-muted">₹{pkg.price?.toLocaleString('en-IN') || pkg.price}</div>
-{pkg.description && <p className="mt-2 text-sm">{pkg.description}</p>}
-                      {pkg.servicesIncluded && (
-                        <div className="mt-2">
-                          <p className="text-xs theme-muted">Services:</p>
-                          <ul className="list-disc list-inside mt-1 text-xs">
-                            {Array.isArray(pkg.servicesIncluded) ? pkg.servicesIncluded.map((service: string, sIndex: number) => (
-                              <li key={sIndex}>{service}</li>
-                            )) : pkg.servicesIncluded.split(', ').map((service: string, sIndex: number) => (
-                              <li key={sIndex}>{service}</li>
-                            ))}
-                          </ul>
+                <p className="theme-muted text-sm mb-4">Select a package before sending a request.</p>
+                <div className="space-y-3">
+                  {vendor.packages.map((pkg: any, index: number) => {
+                    const isSelected = selectedPackage?.name === pkg.name && selectedPackage?.price === pkg.price;
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => setSelectedPackage(pkg)}
+                        className={`w-full text-left theme-card p-4 border-2 transition-all ${
+                          isSelected
+                            ? "border-[var(--primary)] bg-[var(--primary)]/5"
+                            : "border-transparent hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                              isSelected ? "border-[var(--primary)] bg-[var(--primary)]" : "border-gray-300"
+                            }`} />
+                            <div>
+                              <p className="font-semibold">{pkg.name}</p>
+                              {pkg.description && <p className="text-sm theme-muted mt-1">{pkg.description}</p>}
+                              {pkg.servicesIncluded && (
+                                <div className="mt-2">
+                                  <p className="text-xs theme-muted">Includes:</p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {(Array.isArray(pkg.servicesIncluded)
+                                      ? pkg.servicesIncluded
+                                      : pkg.servicesIncluded.split(", ")
+                                    ).map((service: string, sIndex: number) => (
+                                      <span key={sIndex} className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">{service}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <span className="theme-primary font-bold text-lg whitespace-nowrap ml-4">
+                            ₹{Number(pkg.price || 0).toLocaleString("en-IN")}
+                          </span>
                         </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
@@ -246,24 +291,59 @@ const existingRequest = currentEvent?.id && vendor?._id
             </div>
           </div>
 
-          <div className="theme-surface rounded-3xl p-6 lg:sticky lg:top-8 lg:max-h-screen lg:overflow-y-auto">
+          {/* Sticky booking sidebar */}
+          <div className="theme-surface rounded-3xl p-6 lg:sticky lg:top-8 lg:max-h-screen lg:overflow-y-auto space-y-4">
             {!currentEvent?.id && (
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
                 <p className="text-sm text-yellow-800">
-                  Please <Link href="/customer/dashboard" className="font-medium underline">create or select an event</Link> first to send vendor requests.
+                  Please <Link href="/customer/dashboard" className="font-medium underline">create or select an event</Link> first.
                 </p>
               </div>
             )}
+
+            {selectedPackage && (
+              <div className="p-4 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-xl">
+                <p className="text-xs theme-muted uppercase tracking-wide mb-1">Selected Package</p>
+                <p className="font-semibold">{selectedPackage.name}</p>
+                <p className="theme-primary font-bold text-xl mt-1">
+                  ₹{Number(selectedPackage.price || 0).toLocaleString("en-IN")}
+                </p>
+              </div>
+            )}
+
+            {!selectedPackage && vendor.packages?.length > 0 && (
+              <p className="text-sm text-amber-600">↑ Select a package above to book</p>
+            )}
+
             <button
               type="button"
               onClick={handleSendRequest}
-              disabled={requesting || Boolean(existingRequest) || !currentEvent?.id}
-              className="w-full rounded-xl py-3 theme-button disabled:opacity-50 mb-4"
+              disabled={
+                requesting ||
+                Boolean(existingRequest) ||
+                !currentEvent?.id ||
+                (vendor.packages?.length > 0 && !selectedPackage)
+              }
+              className="w-full rounded-xl py-3 theme-button disabled:opacity-50"
             >
-              {requesting ? "Sending..." : existingRequest ? "Request Sent" : "Send Request"}
+              {requesting
+                ? "Sending..."
+                : existingRequest
+                  ? "Request Sent ✓"
+                  : selectedPackage
+                    ? `Book ${selectedPackage.name}`
+                    : "Send Request"}
             </button>
-            <Link 
-              href="/customer/vendors" 
+
+            {existingRequest && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-xl text-center">
+                <p className="text-sm text-green-700 font-medium">Request sent! Waiting for vendor response.</p>
+                <p className="text-xs text-green-600 mt-1">You'll be notified when they accept.</p>
+              </div>
+            )}
+
+            <Link
+              href="/customer/vendors"
               className="block w-full rounded-xl border px-4 py-3 text-center text-sm"
             >
               ← Back to Vendors

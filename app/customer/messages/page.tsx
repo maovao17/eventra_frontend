@@ -11,7 +11,7 @@ function MessagesPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { profile } = useAuth()
-  const { bookings, vendors, isLoading, refreshData } = useEvent()
+  const { bookings, vendors, requests, isLoading, refreshData, formatCurrency } = useEvent()
   const bookingId = searchParams.get("bookingId")
 
   useEffect(() => {
@@ -24,15 +24,20 @@ function MessagesPageContent() {
     () =>
       bookings
         .filter((booking) => booking.status === "accepted" || booking.status === "confirmed")
-        .map((booking) => ({
-          bookingId: String(booking.id ?? booking._id ?? ""),
-          vendorName:
-            vendors.find((vendor) => vendor.id === booking.vendorId)?.name ?? "Vendor",
-          amount: Number(booking.amount ?? 0),
-          status: booking.status,
-        }))
+        .map((booking) => {
+          const vendor = vendors.find((v) => v.id === booking.vendorId)
+          const request = requests.find((r) => r.id === booking.requestId)
+          return {
+            bookingId: String(booking.id ?? booking._id ?? ""),
+            vendorName: vendor?.name ?? "Vendor",
+            amount: Number(booking.amount ?? 0),
+            status: booking.status,
+            paymentStatus: booking.paymentStatus,
+            requestId: request?.id ?? "",
+          }
+        })
         .filter((chat) => Boolean(chat.bookingId)),
-    [bookings, vendors],
+    [bookings, vendors, requests],
   )
 
   if (isLoading) {
@@ -43,7 +48,7 @@ function MessagesPageContent() {
     return (
       <EmptyState
         title="No chats yet"
-        description="Chats unlock after a vendor accepts your booking."
+        description="Chats unlock after a vendor accepts your booking. Go to Discover Vendors to send requests."
       />
     )
   }
@@ -52,32 +57,66 @@ function MessagesPageContent() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Vendor Chats</h1>
-        <p className="theme-muted mt-2 text-sm">Select a booking to continue the conversation.</p>
+        <p className="theme-muted mt-2 text-sm">Chat with vendors and pay to confirm your booking.</p>
       </div>
 
       <div className="space-y-3">
         {chats.map((chat) => {
           const isSelected = bookingId === chat.bookingId
+          const canPay =
+            chat.status === "accepted" && chat.paymentStatus !== "paid" && chat.requestId
+
           return (
-            <button
+            <div
               key={chat.bookingId}
-              type="button"
-              onClick={() => router.push(`/chat/${getChatIdForBooking(chat.bookingId)}`)}
-              className={`theme-card w-full rounded-2xl p-5 text-left transition ${
+              className={`theme-card rounded-2xl p-5 transition ${
                 isSelected ? "ring-2 ring-[var(--primary)]" : ""
               }`}
             >
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-semibold">{chat.vendorName}</p>
-                  <p className="theme-muted mt-1 text-sm">Chat with Vendor</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium capitalize">{chat.status}</p>
-                  <p className="theme-muted text-xs">Rs. {chat.amount.toLocaleString("en-IN")}</p>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/chat/${getChatIdForBooking(chat.bookingId)}`)}
+                  className="flex-1 text-left"
+                >
+                  <div>
+                    <p className="font-semibold">{chat.vendorName}</p>
+                    <p className="theme-muted mt-1 text-sm">
+                      {chat.status === "accepted" ? "Awaiting payment" : "Booking confirmed"} •{" "}
+                      {formatCurrency(chat.amount)}
+                    </p>
+                  </div>
+                </button>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/chat/${getChatIdForBooking(chat.bookingId)}`)}
+                    className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-gray-50 transition"
+                  >
+                    Chat
+                  </button>
+
+                  {canPay && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        router.push(`/customer/payment?requestId=${chat.requestId}`)
+                      }
+                      className="rounded-xl theme-button px-4 py-2 text-sm font-medium"
+                    >
+                      Pay Now
+                    </button>
+                  )}
+
+                  {chat.status === "confirmed" && (
+                    <span className="rounded-xl bg-green-100 text-green-800 px-3 py-2 text-sm font-medium">
+                      Paid ✓
+                    </span>
+                  )}
                 </div>
               </div>
-            </button>
+            </div>
           )
         })}
       </div>

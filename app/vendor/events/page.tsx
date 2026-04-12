@@ -35,7 +35,7 @@ export default function VendorUpcomingEventsPage() {
       try {
         const response = await getVendorBookings()
         const list = Array.isArray(response) ? response : []
-        setEvents(list.filter((item) => item.status === "confirmed"))
+        setEvents(list.filter((item) => ["accepted", "confirmed"].includes(item.status)))
       } catch (fetchError) {
         const message =
           fetchError instanceof Error ? fetchError.message : "Could not load upcoming events"
@@ -83,7 +83,16 @@ export default function VendorUpcomingEventsPage() {
       <div className="space-y-3">
         {events.map((event) => (
           <div key={event._id} className="theme-card p-4">
-            <p className="font-medium">{event.eventDetails?.type || "Event"}</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-medium">{event.eventDetails?.type || "Event"}</p>
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                event.status === "confirmed"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-amber-100 text-amber-800"
+              }`}>
+                {event.status === "confirmed" ? "Confirmed" : "Awaiting Payment"}
+              </span>
+            </div>
             <p className="text-sm text-gray-500">{event.eventDetails?.date || "Date pending"} • {event.eventDetails?.time || "Time pending"}</p>
             <p className="text-sm text-gray-500">{event.eventDetails?.location || "Location pending"}</p>
             <p className="text-sm text-gray-500">Guests: {Number(event.eventDetails?.guests || 0)} • Amount: ₹{Number(event.amount || 0).toLocaleString("en-IN")}</p>

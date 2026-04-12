@@ -23,6 +23,7 @@ import {
   storeUserProfile,
   syncAuthToken,
 } from "@/lib/auth";
+import { syncSocketAuth, disconnectSocket } from "@/app/lib/socket";
 
 type UserRole = "customer" | "vendor" | "admin";
 
@@ -128,6 +129,7 @@ useEffect(() => {
         if (!firebaseUser) {
           setUser(null);
           await syncAuthToken(null);
+          disconnectSocket();
           setProfile(null);
           clearStoredUserProfile();
           setLoading(false);
@@ -140,6 +142,7 @@ useEffect(() => {
         const token = await firebaseUser.getIdToken(true);
         localStorage.setItem("firebaseToken", token);
         await syncAuthToken(token);
+        syncSocketAuth(token);
 
         const fetchedProfile = await fetchUserProfile(firebaseUser.uid as string);
 
@@ -187,6 +190,7 @@ useEffect(() => {
     try {
       await signOut(auth);
       localStorage.removeItem("firebaseToken");
+      disconnectSocket();
       clearStoredUserProfile();
       setUser(null);
       setProfile(null);
