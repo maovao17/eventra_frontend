@@ -29,7 +29,7 @@ export default function RevenueChart() {
               tickFormatter={(v) => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`}
             />
             <Tooltip
-              formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "Revenue"]}
+              formatter={(value) => [`₹${Number(value).toLocaleString("en-IN")}`, "Revenue"]}
             />
             <Line
               type="monotone"
