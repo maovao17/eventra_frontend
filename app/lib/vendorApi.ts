@@ -121,3 +121,9 @@ export const getVendorReviews = async (): Promise<any[]> => {
   const response = await apiFetch("/vendors/reviews");
   return extractArray(response);
 };
+
+export const getRevenueData = async () => {
+  console.log("📡 GET /payments/revenue");
+  const response = await apiFetch("/payments/revenue");
+  return response;
+};
