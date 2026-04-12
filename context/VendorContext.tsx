@@ -65,11 +65,14 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
     setIsMutating(true);
 
     try {
-      setVendorProfile((prev: any) => ({ 
-        ...prev || {},
-        ...data,
-        profileCompleted: !!(data.packages?.length || data.category?.length || data.businessName)
-      }));
+      setVendorProfile((prev: any) => {
+        const merged = { ...prev || {}, ...data };
+        // Preserve existing profileCompleted unless the new data explicitly overrides it
+        return {
+          ...merged,
+          profileCompleted: prev?.profileCompleted || !!(merged.packages?.length || merged.category?.length || merged.businessName),
+        };
+      });
 
       const response = await apiSaveVendorProfile(data);
       console.log("SAVE RESPONSE:", response);
