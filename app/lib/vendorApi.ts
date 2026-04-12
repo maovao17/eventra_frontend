@@ -132,3 +132,21 @@ export const getRevenueData = async () => {
   const response = await apiFetch("/payments/revenue");
   return response;
 };
+
+export const addVendorPackage = async (pkg: {
+  name: string;
+  price: number;
+  description?: string;
+  servicesIncluded?: string[];
+}): Promise<any> => {
+  return apiFetch("/vendors/packages", {
+    method: "POST",
+    body: JSON.stringify(pkg),
+  });
+};
+
+export const removeVendorPackage = async (packageId: string): Promise<any> => {
+  return apiFetch(`/vendors/packages/${packageId}`, {
+    method: "DELETE",
+  });
+};

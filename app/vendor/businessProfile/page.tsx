@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { uploadVendorPortfolioMultiple, uploadVendorFile } from "@/app/lib/vendorApi";
+import { uploadVendorPortfolioMultiple, uploadVendorFile, addVendorPackage, removeVendorPackage } from "@/app/lib/vendorApi";
 import { useToast } from "@/context/ToastContext";
 import { useVendorData } from "@/context/VendorContext";
 import { API_URL } from "@/app/lib/api";
@@ -41,6 +41,7 @@ type PackageInput = {
 };
 
 type VendorPackage = {
+  _id?: string;
   name?: string;
   price?: number;
   description?: string;
@@ -100,6 +101,8 @@ export default function BusinessProfile() {
   const [packageForm, setPackageForm] = useState<PackageInput>(initialPackage);
   const [portfolioUrls, setPortfolioUrls] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [addingPackage, setAddingPackage] = useState(false);
+  const [removingPackageId, setRemovingPackageId] = useState<string | null>(null);
   const [uploadingProfile, setUploadingProfile] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState("");
@@ -159,7 +162,6 @@ export default function BusinessProfile() {
       location: { address: form.location },
       experience: form.experience,
       profileImage: form.profileImage,
-      packages,
       portfolio: portfolioUrls.map(url => ({ url, caption: "" })),
     };
 
@@ -256,20 +258,47 @@ export default function BusinessProfile() {
     }
   };
 
-  const addPackageLocally = () => {
+  const addPackage = async () => {
     if (!packageForm.name || !packageForm.price) {
       showToast("Name & price required", "error");
       return;
     }
-    const newPackage = {
-      name: packageForm.name,
-      price: Number(packageForm.price),
-      description: packageForm.description,
-      servicesIncluded: packageForm.servicesIncluded.split(",").map(s => s.trim()).filter(Boolean),
-    };
-    setPackages(current => [...current, newPackage]);
-    setPackageForm(initialPackage);
-    showToast("Package added — click Save Profile to persist", "info");
+    setAddingPackage(true);
+    try {
+      const updated = await addVendorPackage({
+        name: packageForm.name,
+        price: Number(packageForm.price),
+        description: packageForm.description,
+        servicesIncluded: packageForm.servicesIncluded.split(",").map(s => s.trim()).filter(Boolean),
+      });
+      const savedPackages = (updated as any)?.packages ?? [];
+      setPackages(savedPackages.filter((p: any) => p?.name));
+      setPackageForm(initialPackage);
+      showToast("Package added!", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Failed to add package", "error");
+    } finally {
+      setAddingPackage(false);
+    }
+  };
+
+  const deletePackage = async (pkg: VendorPackage, index: number) => {
+    const id = pkg._id;
+    setRemovingPackageId(id ?? String(index));
+    try {
+      if (id) {
+        const updated = await removeVendorPackage(id);
+        const savedPackages = (updated as any)?.packages ?? [];
+        setPackages(savedPackages.filter((p: any) => p?.name));
+      } else {
+        setPackages(p => p.filter((_, i) => i !== index));
+      }
+      showToast("Package removed", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Failed to remove package", "error");
+    } finally {
+      setRemovingPackageId(null);
+    }
   };
 
   if (loadingProfile) {
@@ -356,8 +385,9 @@ export default function BusinessProfile() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setPackages(p => p.filter((_, i) => i !== index))}
-                      className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                      onClick={() => void deletePackage(pkg, index)}
+                      disabled={removingPackageId === (pkg._id ?? String(index))}
+                      className="text-red-400 hover:text-red-600 p-1 rounded transition-colors disabled:opacity-40"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -396,10 +426,11 @@ export default function BusinessProfile() {
               />
               <button
                 type="button"
-                onClick={addPackageLocally}
-                className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-colors"
+                onClick={() => void addPackage()}
+                disabled={addingPackage}
+                className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
               >
-                + Add Package
+                {addingPackage ? "Adding..." : "+ Add Package"}
               </button>
             </div>
           </div>
