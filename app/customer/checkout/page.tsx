@@ -3,12 +3,13 @@
 import { motion } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { useEvent } from "@/context/EventContext"
+import { PLATFORM_FEE } from "@/lib/payment"
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { checkoutSummary, checkoutTotal, formatCurrency } = useEvent()
   const subtotal = checkoutTotal
-  const platformFee = 2500
+  const platformFee = PLATFORM_FEE
   const total = subtotal + platformFee
   const paymentTarget = checkoutSummary.find(
     (item) =>
@@ -57,10 +58,12 @@ export default function CheckoutPage() {
             <span className="theme-muted">Vendor subtotal</span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="theme-muted">Platform coordination fee</span>
-            <span>{formatCurrency(platformFee)}</span>
-          </div>
+          {platformFee > 0 && (
+            <div className="flex justify-between">
+              <span className="theme-muted">Platform coordination fee</span>
+              <span>{formatCurrency(platformFee)}</span>
+            </div>
+          )}
           <hr className="my-4" />
           <div className="flex justify-between text-lg font-semibold">
             <span>Total</span>

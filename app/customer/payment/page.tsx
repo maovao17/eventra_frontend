@@ -200,10 +200,12 @@ function PaymentsPageContent() {
             <span className="font-medium">Subtotal</span>
             <span className="font-medium">{total > 0 ? formatCurrency(total) : "—"}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm theme-muted">Platform Fee</span>
-            <span className="text-sm theme-muted">{formatCurrency(PLATFORM_FEE)}</span>
-          </div>
+          {PLATFORM_FEE > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm theme-muted">Platform Fee</span>
+              <span className="text-sm theme-muted">{formatCurrency(PLATFORM_FEE)}</span>
+            </div>
+          )}
         </div>
 
         <div className="mt-6 rounded-2xl bg-[linear-gradient(135deg,var(--secondary),#4f8e89)] p-6 text-white">

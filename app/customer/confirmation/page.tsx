@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
 import { apiFetch } from "@/app/lib/api"
 import { useEvent } from "@/context/EventContext"
+import { PLATFORM_FEE } from "@/lib/payment"
 
 function ConfirmationPageContent() {
   const searchParams = useSearchParams()
@@ -39,7 +40,7 @@ function ConfirmationPageContent() {
   }, [bookingId])
 
   const amount = booking?.amount ?? 0
-  const platformFee = 2500
+  const platformFee = PLATFORM_FEE
   const total = amount + platformFee
 
   return (
