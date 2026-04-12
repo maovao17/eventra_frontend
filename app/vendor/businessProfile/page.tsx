@@ -1,15 +1,15 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState, useRef } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { uploadVendorPortfolioMultiple, uploadVendorFile } from "@/app/lib/vendorApi";
 import { useToast } from "@/context/ToastContext";
 import { useVendorData } from "@/context/VendorContext";
-import { API_URL } from "@/app/lib/api"
-
-// Static uploads are served at the backend origin without /api prefix
-const BACKEND_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+import { API_URL } from "@/app/lib/api";
+import { Trash2 } from "lucide-react";
 import VerifiedVendor from "@/components/vendor/VerifiedVendor";
+
+const BACKEND_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 
 type VendorProfileData = {
   name?: string;
@@ -47,14 +47,8 @@ type VendorPackage = {
   servicesIncluded?: string[] | string;
 };
 
-const initialPackage: PackageInput = {
-  name: "",
-  price: "",
-  description: "",
-  servicesIncluded: "",
-};
+const initialPackage: PackageInput = { name: "", price: "", description: "", servicesIncluded: "" };
 
-/** Compress an image file to max 800px wide, JPEG quality 0.75, max ~300KB */
 const compressImage = (file: File, maxPx = 800, quality = 0.75): Promise<File> =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -83,7 +77,7 @@ const compressImage = (file: File, maxPx = 800, quality = 0.75): Promise<File> =
 
 const resolveImageUrl = (path?: string) => {
   if (!path) return "";
-  if (path.startsWith("http") || path.startsWith("https")) return path;
+  if (path.startsWith("http")) return path;
   if (path.startsWith("/")) return `${BACKEND_ORIGIN}${path}`;
   return `${BACKEND_ORIGIN}/${path}`;
 };
@@ -94,8 +88,7 @@ export default function BusinessProfile() {
   const { vendorProfile, loadingProfile, saveVendorProfile } = useVendorData();
   const typedVendorProfile = vendorProfile as VendorProfileData | null;
 
-  // Local form state - NOT overwritten by context
-const [form, setForm] = useState({
+  const [form, setForm] = useState({
     businessName: "",
     description: "",
     category: "",
@@ -105,18 +98,16 @@ const [form, setForm] = useState({
   });
   const [packages, setPackages] = useState<VendorPackage[]>([]);
   const [packageForm, setPackageForm] = useState<PackageInput>(initialPackage);
+  const [portfolioUrls, setPortfolioUrls] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploadingProfile, setUploadingProfile] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState("");
   const [error, setError] = useState("");
-  
   const initialized = useRef(false);
 
   useEffect(() => {
-    console.log("🔄 Profile effect - typedVendorProfile:", !!typedVendorProfile);
     if (typedVendorProfile && !initialized.current) {
-      console.log("📥 SET INITIAL FORM ONCE");
       setForm({
         businessName: String(typedVendorProfile.businessName || typedVendorProfile.name || ""),
         description: String(typedVendorProfile.description || ""),
@@ -126,40 +117,33 @@ const [form, setForm] = useState({
         profileImage: String(typedVendorProfile.profileImage || typedVendorProfile.image || ""),
       });
       setPackages(Array.isArray(typedVendorProfile.packages) ? typedVendorProfile.packages : []);
-      setProfileImagePreview(resolveImageUrl(String(typedVendorProfile.profileImage || typedVendorProfile.image || "")));
+
+      // Load portfolio into local state
+      const existingPortfolio = Array.isArray(typedVendorProfile.portfolio)
+        ? typedVendorProfile.portfolio.map(item => item.url || "").filter(Boolean)
+        : Array.isArray(typedVendorProfile.gallery)
+        ? typedVendorProfile.gallery
+        : [];
+      setPortfolioUrls(existingPortfolio as string[]);
+
+      const img = typedVendorProfile.profileImage || typedVendorProfile.image || "";
+      setProfileImagePreview(resolveImageUrl(img));
       initialized.current = true;
     }
   }, [profile?.uid]);
 
-  const galleryImages = useMemo(() => {
-    if (!typedVendorProfile) return [];
-    if (Array.isArray(typedVendorProfile.portfolio) && typedVendorProfile.portfolio.length) {
-      return typedVendorProfile.portfolio
-        .map((item) => item.url)
-        .filter(Boolean)
-        .map(resolveImageUrl);
-    }
-    const gallery = Array.isArray(typedVendorProfile.gallery) ? typedVendorProfile.gallery : [];
-    return gallery.map(resolveImageUrl);
-  }, [typedVendorProfile]);
-
   const onFormChange = (key: keyof typeof form, value: string) => {
-    console.log("📝 Form change", key, value);
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm(prev => ({ ...prev, [key]: value }));
     setError("");
   };
 
   const handleSave = async (event?: FormEvent) => {
     event?.preventDefault();
     if (!profile?.uid) return;
-
-    console.log("🚀 SAVING - form:", form, "packages:", packages);
-
     setSaving(true);
     setError("");
 
-    const categories = form.category.split(",").map((item) => item.trim()).filter(Boolean);
-
+    const categories = form.category.split(",").map(item => item.trim()).filter(Boolean);
     const payload = {
       businessName: form.businessName,
       description: form.description,
@@ -168,16 +152,13 @@ const [form, setForm] = useState({
       experience: form.experience,
       profileImage: form.profileImage,
       packages,
+      portfolio: portfolioUrls.map(url => ({ url, caption: "" })),
     };
 
     try {
-      const response = await saveVendorProfile(payload);
-      console.log("✅ SAVE SUCCESS:", response);
-
-      // OPTIMISTIC - update local form (no refresh needed)
-      showToast("✅ Profile saved! Services visible to customers.", "success");
+      await saveVendorProfile(payload);
+      showToast("Profile saved!", "success");
     } catch (err: any) {
-      console.error("❌ SAVE FAILED:", err);
       setError(err.message || "Save failed");
       showToast(err.message || "Save failed", "error");
     } finally {
@@ -189,24 +170,21 @@ const [form, setForm] = useState({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log("🖼️ UPLOADING PROFILE:", file.name);
     setProfileImagePreview(URL.createObjectURL(file));
     setUploadingProfile(true);
 
     try {
       const compressed = await compressImage(file);
       const response = await uploadVendorFile(compressed);
-      console.log("📤 UPLOAD RESPONSE:", response);
 
-      const imageUrl = response.fullUrl || response.url || response.filename ? `/uploads/${response.filename}` : '';
-      console.log("🖼️ SETTING IMAGE URL:", imageUrl);
+      // Cloudinary returns fullUrl (https://...), fallback to url, then /uploads/filename
+      const imageUrl: string = response.fullUrl || response.url
+        || (response.filename ? `/uploads/${response.filename}` : "");
 
-      // OPTIMISTIC UPDATE
-      setForm((prev) => ({ ...prev, profileImage: imageUrl }));
+      setForm(prev => ({ ...prev, profileImage: imageUrl }));
       setProfileImagePreview(resolveImageUrl(imageUrl));
-      showToast("✅ Profile image updated", "success");
+      showToast("Profile image updated", "success");
     } catch (err: any) {
-      console.error("❌ UPLOAD FAILED:", err);
       showToast(err.message || "Upload failed", "error");
     } finally {
       setUploadingProfile(false);
@@ -217,37 +195,56 @@ const [form, setForm] = useState({
     if (!profile?.uid || !event.target.files?.length) return;
 
     const selectedFiles = Array.from(event.target.files);
-    const existingCount = galleryImages.length;
-    if (existingCount + selectedFiles.length > 7) {
-      showToast("Max 7 portfolio images", "error");
+    if (portfolioUrls.length + selectedFiles.length > 7) {
+      showToast(`Can only add ${7 - portfolioUrls.length} more image(s)`, "error");
+      event.target.value = "";
       return;
     }
 
     setUploadingGallery(true);
     try {
-      const compressedFiles = await Promise.all(selectedFiles.map((f) => compressImage(f)));
+      const compressedFiles = await Promise.all(selectedFiles.map(f => compressImage(f)));
       const response = await uploadVendorPortfolioMultiple(compressedFiles);
-      console.log("📤 PORTFOLIO RESPONSE:", response);
 
-      // uploadVendorPortfolioMultiple returns string[], handle both string and object items
       const newUrls: string[] = Array.isArray(response)
-        ? response.map((item: any) => (typeof item === "string" ? item : item.url || item.fullUrl || "")).filter(Boolean)
+        ? response.map((item: any) =>
+            typeof item === "string" ? item : item.url || item.fullUrl || ""
+          ).filter(Boolean)
         : [];
-      showToast(`${newUrls.length} image${newUrls.length !== 1 ? "s" : ""} uploaded`, "success");
 
-      // Merge new images with existing portfolio (don't overwrite)
-      const existingUrls = (typedVendorProfile?.portfolio || [])
-        .map((item: any) => (typeof item === "string" ? item : item.url || ""))
-        .filter(Boolean) as string[];
-      const allUrls = [...existingUrls, ...newUrls].slice(0, 7);
-      const portfolioUpdate = { portfolio: allUrls.map(url => ({ url, caption: "" })) };
-      await saveVendorProfile(portfolioUpdate);
+      if (newUrls.length === 0) {
+        showToast("No images were uploaded", "error");
+        return;
+      }
+
+      const allUrls = [...portfolioUrls, ...newUrls].slice(0, 7);
+      setPortfolioUrls(allUrls);
+
+      // Save immediately so it persists
+      await saveVendorProfile({
+        portfolio: allUrls.map(url => ({ url, caption: "" })),
+      });
+      showToast(`${newUrls.length} image${newUrls.length !== 1 ? "s" : ""} added`, "success");
     } catch (err: any) {
-      console.error("PORTFOLIO FAILED:", err);
       showToast(err.message || "Portfolio upload failed", "error");
     } finally {
       setUploadingGallery(false);
       event.target.value = "";
+    }
+  };
+
+  const removePortfolioImage = async (indexToRemove: number) => {
+    const updated = portfolioUrls.filter((_, i) => i !== indexToRemove);
+    setPortfolioUrls(updated);
+    try {
+      await saveVendorProfile({
+        portfolio: updated.map(url => ({ url, caption: "" })),
+      });
+      showToast("Image removed", "success");
+    } catch {
+      // Revert on failure
+      setPortfolioUrls(portfolioUrls);
+      showToast("Failed to remove image", "error");
     }
   };
 
@@ -256,39 +253,34 @@ const [form, setForm] = useState({
       showToast("Name & price required", "error");
       return;
     }
-
     const newPackage = {
       name: packageForm.name,
       price: Number(packageForm.price),
       description: packageForm.description,
-      servicesIncluded: packageForm.servicesIncluded.split(',').map(item => item.trim()).filter(Boolean),
+      servicesIncluded: packageForm.servicesIncluded.split(",").map(s => s.trim()).filter(Boolean),
     };
-
-    console.log("📦 ADD PACKAGE:", newPackage);
-    setPackages((current) => [...current, newPackage]);
+    setPackages(current => [...current, newPackage]);
     setPackageForm(initialPackage);
-    showToast("Package added", "info");
+    showToast("Package added — click Save Profile to persist", "info");
   };
 
   if (loadingProfile) {
     return (
       <div className="space-y-4 p-8 text-center">
-        <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto" />
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[var(--primary)] rounded-full animate-spin mx-auto" />
         <p>Loading business profile...</p>
       </div>
     );
   }
 
-  console.log("🎨 RENDER - form:", form, "profileImagePreview:", profileImagePreview);
-
   return (
     <div className="space-y-6">
       {typedVendorProfile?.isVerified && <VerifiedVendor />}
-      
-      <div className="flex justify-between">
+
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Business Profile</h1>
-          <p className="text-muted-foreground">Manage your brand and services.</p>
+          <p className="theme-muted text-sm">Manage your brand and services.</p>
         </div>
         <button
           onClick={() => void handleSave()}
@@ -299,180 +291,212 @@ const [form, setForm] = useState({
         </button>
       </div>
 
-      {error && <div className="p-3 bg-destructive/10 border border-destructive rounded-md">{error}</div>}
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+      )}
 
-      <form onSubmit={(e) => handleSave(e)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: Form */}
+      <form onSubmit={e => handleSave(e)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left: Form fields */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="border rounded-xl p-6">
+          <div className="theme-card rounded-xl p-6">
             <h3 className="font-semibold mb-4">Basic Information</h3>
             <div className="space-y-3">
-              <input 
+              <input
                 value={form.businessName}
-                onChange={(e) => onFormChange("businessName", e.target.value)}
+                onChange={e => onFormChange("businessName", e.target.value)}
                 placeholder="Business Name *"
                 className="input"
               />
-              <textarea 
+              <textarea
                 value={form.description}
-                onChange={(e) => onFormChange("description", e.target.value)}
+                onChange={e => onFormChange("description", e.target.value)}
                 placeholder="Business description"
                 rows={3}
                 className="input resize-vertical"
               />
-              <input 
+              <input
                 value={form.category}
-                onChange={(e) => onFormChange("category", e.target.value)}
-                placeholder="Categories (comma separated)"
+                onChange={e => onFormChange("category", e.target.value)}
+                placeholder="Categories (comma separated, e.g. Photography, Catering)"
                 className="input"
               />
-              <input 
+              <input
                 value={form.location}
-                onChange={(e) => onFormChange("location", e.target.value)}
+                onChange={e => onFormChange("location", e.target.value)}
                 placeholder="Location / Service Area"
                 className="input"
               />
-              <input 
+              <input
                 value={form.experience}
-                onChange={(e) => onFormChange("experience", e.target.value)}
+                onChange={e => onFormChange("experience", e.target.value)}
                 placeholder="Years of Experience"
                 className="input"
               />
             </div>
           </div>
 
-          <div className="border rounded-xl p-6">
+          <div className="theme-card rounded-xl p-6">
             <h3 className="font-semibold mb-4">Service Packages</h3>
-            {packages.length === 0 ? (
-              <p className="text-muted-foreground">Add packages to showcase your pricing.</p>
-            ) : (
+            {packages.length > 0 && (
               <div className="space-y-3 mb-4">
                 {packages.map((pkg, index) => (
-                  <div key={index} className="p-4 border rounded-lg bg-muted/50">
-                    <div className="flex justify-between">
-                      <div>
-                        <p className="font-semibold">{pkg.name}</p>
-                        <p className="text-sm text-muted-foreground">₹{pkg.price}</p>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => setPackages(p => p.filter((_, i) => i !== index))}
-                        className="text-destructive hover:text-destructive/80"
-                      >
-                        ×
-                      </button>
+                  <div key={index} className="p-4 theme-surface rounded-xl flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">{pkg.name}</p>
+                      <p className="text-sm theme-muted">₹{pkg.price?.toLocaleString("en-IN")}</p>
+                      {pkg.description && <p className="text-sm mt-1">{pkg.description}</p>}
                     </div>
-                    {pkg.description && <p className="text-sm mt-1">{pkg.description}</p>}
+                    <button
+                      type="button"
+                      onClick={() => setPackages(p => p.filter((_, i) => i !== index))}
+                      className="text-red-400 hover:text-red-600 p-1 rounded transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 ))}
               </div>
             )}
-            <div className="space-y-3 p-4 border rounded-lg bg-muted/20">
-              <input 
+            <div className="space-y-3 p-4 border rounded-xl bg-[var(--surface)]">
+              <p className="text-sm font-medium theme-muted">Add a new package</p>
+              <input
                 value={packageForm.name}
-                onChange={(e) => setPackageForm(prev => ({ ...prev, name: e.target.value }))}
+                onChange={e => setPackageForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Package name"
                 className="input"
               />
-              <input 
+              <input
                 value={packageForm.price}
-                onChange={(e) => setPackageForm(prev => ({ ...prev, price: e.target.value }))}
+                onChange={e => setPackageForm(prev => ({ ...prev, price: e.target.value }))}
                 placeholder="Price (₹)"
+                type="number"
+                min={0}
                 className="input"
               />
-              <textarea 
+              <textarea
                 value={packageForm.description}
-                onChange={(e) => setPackageForm(prev => ({ ...prev, description: e.target.value }))}
+                onChange={e => setPackageForm(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Description"
                 rows={2}
                 className="input"
               />
-              <input 
+              <input
                 value={packageForm.servicesIncluded}
-                onChange={(e) => setPackageForm(prev => ({ ...prev, servicesIncluded: e.target.value }))}
-                placeholder="Services (comma separated)"
+                onChange={e => setPackageForm(prev => ({ ...prev, servicesIncluded: e.target.value }))}
+                placeholder="Services included (comma separated)"
                 className="input"
               />
-              <button 
+              <button
                 type="button"
                 onClick={addPackageLocally}
-                className="theme-button-secondary w-full font-medium"
+                className="w-full rounded-xl border px-4 py-2 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-colors"
               >
-                Add Package
+                + Add Package
               </button>
             </div>
           </div>
         </div>
 
-        {/* Right: Preview & Upload */}
+        {/* Right: Images */}
         <div className="space-y-6">
-          <div className="border rounded-xl p-6">
+          {/* Profile image */}
+          <div className="theme-card rounded-xl p-6">
             <h3 className="font-semibold mb-4">Profile Image</h3>
             <div className="space-y-3">
-              <div className="relative">
-                <img 
-                  src={profileImagePreview || "/placeholder-avatar.jpg"} 
-                  alt="Profile preview"
-                  className="w-24 h-24 mx-auto rounded-full object-cover border-4 border-muted shadow-lg"
+              <div className="relative mx-auto w-24 h-24">
+                <img
+                  src={profileImagePreview || "/placeholder-avatar.jpg"}
+                  alt="Profile"
+                  className="w-24 h-24 rounded-full object-cover border-4 border-[var(--surface)] shadow-lg"
                 />
                 {uploadingProfile && (
-                  <div className="absolute inset-0 bg-primary/20 animate-pulse rounded-full" />
+                  <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  </div>
                 )}
               </div>
-              <input 
-                type="file" 
-                accept="image/*"
-                onChange={handleProfileUpload}
-                className="input file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--primary-light)] file:text-[var(--primary)] hover:file:bg-[var(--primary)] hover:file:text-white file:cursor-pointer file:transition-all"
-              />
-              {uploadingProfile && <p className="text-sm text-muted-foreground text-center">Uploading...</p>}
+              <label className="block w-full cursor-pointer rounded-xl border border-dashed px-4 py-3 text-center text-sm theme-muted hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors">
+                {uploadingProfile ? "Uploading..." : "Click to change photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfileUpload}
+                  className="hidden"
+                  disabled={uploadingProfile}
+                />
+              </label>
             </div>
           </div>
 
-          <div className="border rounded-xl p-6">
-            <h3 className="font-semibold mb-4">Portfolio (Max 7)</h3>
-            <input 
-              type="file" 
-              accept="image/jpeg,image/jpg,image/png"
-              multiple
-              max={7}
-              onChange={handlePortfolioUpload}
-              className="input file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--secondary-soft)] file:text-[var(--secondary)] hover:file:bg-[var(--secondary)] hover:file:text-white file:cursor-pointer file:transition-all"
-            />
-            {uploadingGallery && <p className="text-sm text-muted-foreground text-center">Uploading...</p>}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
-              {galleryImages.slice(0, 7).map((imageUrl, index) => (
-                <div key={index} className="relative group">
-                  <img 
-                    src={imageUrl} 
-                    alt={`Portfolio ${index + 1}`}
-                    className="w-full h-20 object-cover rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                  />
-                  <div className="opacity-0 group-hover:opacity-100 absolute inset-0 bg-black/20 rounded-lg flex items-center justify-center transition-all">
-                    <span className="text-white text-xs font-medium">✓</span>
-                  </div>
-                </div>
-              ))}
+          {/* Portfolio */}
+          <div className="theme-card rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Portfolio</h3>
+              <span className="text-xs theme-muted">{portfolioUrls.length}/7</span>
             </div>
-            {galleryImages.length >= 7 && (
-              <p className="text-xs text-muted-foreground mt-2">Portfolio full (max 7 images)</p>
+
+            {/* Existing images with remove button */}
+            {portfolioUrls.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {portfolioUrls.map((url, index) => (
+                  <div key={index} className="relative group aspect-square">
+                    <img
+                      src={resolveImageUrl(url)}
+                      alt={`Portfolio ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={e => { (e.target as HTMLImageElement).src = "/placeholder-avatar.jpg"; }}
+                    />
+                    {/* Remove button — always visible on mobile, hover on desktop */}
+                    <button
+                      type="button"
+                      onClick={() => void removePortfolioImage(index)}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shadow-lg"
+                      title="Remove image"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {portfolioUrls.length < 7 && (
+              <label className={`block w-full cursor-pointer rounded-xl border border-dashed px-4 py-3 text-center text-sm theme-muted hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors ${uploadingGallery ? "opacity-50 pointer-events-none" : ""}`}>
+                {uploadingGallery
+                  ? "Uploading..."
+                  : `+ Add images (${7 - portfolioUrls.length} remaining)`}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png"
+                  multiple
+                  onChange={handlePortfolioUpload}
+                  className="hidden"
+                  disabled={uploadingGallery}
+                />
+              </label>
+            )}
+
+            {portfolioUrls.length >= 7 && (
+              <p className="text-xs theme-muted text-center">Portfolio full — remove an image to add more</p>
             )}
           </div>
 
-          <div className="border rounded-xl p-6">
+          {/* Live preview */}
+          <div className="theme-card rounded-xl p-6">
             <h3 className="font-semibold mb-4">Live Preview</h3>
             <div className="text-center space-y-2">
-              <div className="mx-auto w-16 h-16 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full flex items-center justify-center p-1">
-                <img 
-                  src={profileImagePreview || "/placeholder-avatar.jpg"} 
-                  className="w-14 h-14 rounded-full object-cover shadow-lg border-2 border-background"
-                />
-              </div>
+              <img
+                src={profileImagePreview || "/placeholder-avatar.jpg"}
+                className="w-14 h-14 rounded-full object-cover shadow-lg border-2 border-[var(--surface)] mx-auto"
+                alt="Preview"
+              />
               <p className="font-semibold">{form.businessName || "Your Business"}</p>
-              <p className="text-sm text-muted-foreground line-clamp-2">{form.description}</p>
-              <p className="text-xs text-muted-foreground">{form.location}</p>
-              <p className="text-xs bg-muted px-2 py-1 rounded-full">{form.experience || "0+"} years</p>
-              <p className="text-xs text-muted-foreground">Packages: {packages.length}</p>
+              <p className="text-sm theme-muted line-clamp-2">{form.description || "Your description"}</p>
+              <p className="text-xs theme-muted">{form.location}</p>
+              {form.experience && (
+                <p className="text-xs bg-[var(--surface)] px-2 py-1 rounded-full inline-block">{form.experience} years exp.</p>
+              )}
+              <p className="text-xs theme-muted">{packages.length} package{packages.length !== 1 ? "s" : ""}</p>
             </div>
           </div>
         </div>
@@ -480,4 +504,3 @@ const [form, setForm] = useState({
     </div>
   );
 }
-
