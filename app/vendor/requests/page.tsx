@@ -111,11 +111,11 @@ export default function Requests() {
       })
       showToast(status === "accepted" ? "Request accepted" : "Request rejected", "success")
       if (status === "accepted") {
+        // Init Firestore chat thread using requestId (not bookingId)
+        await initializeChatThread({ requestId: target.requestId }).catch(() => null)
         const bookingId = String((response as any)?.booking?._id || (response as any)?.booking?.id || "")
         if (bookingId) {
-          // Init Firestore chat thread so both parties can message immediately
-          await initializeChatThread({ bookingId }).catch(() => null)
-          router.push(`/vendor/bookedClientDetails?bookingId=${bookingId}`)
+          router.push(`/vendor/bookedClientDetails?bookingId=${bookingId}&requestId=${target.requestId}`)
         }
       }
       await loadRequests()
@@ -190,8 +190,8 @@ export default function Requests() {
             status={b.status}
             onAccept={b.status === "pending" ? () => void updateBookingStatusHandler(i, "accepted") : undefined}
             onDecline={b.status === "pending" ? () => void updateBookingStatusHandler(i, "rejected") : undefined}
-            onDetails={b.bookingId ? () => router.push(`/vendor/bookedClientDetails?bookingId=${b.bookingId}`) : undefined}
-            onChat={b.bookingId ? () => router.push(`/chat/booking-${b.bookingId}`) : undefined}
+            onDetails={b.bookingId ? () => router.push(`/vendor/bookedClientDetails?bookingId=${b.bookingId}&requestId=${b.requestId}`) : undefined}
+            onChat={() => router.push(`/chat/request-${b.requestId}`)}
             disabled={isMutating}
           />
         ))}
