@@ -5,7 +5,10 @@ import { useAuth } from "@/context/AuthContext";
 import { uploadVendorPortfolioMultiple, uploadVendorFile } from "@/app/lib/vendorApi";
 import { useToast } from "@/context/ToastContext";
 import { useVendorData } from "@/context/VendorContext";
-import { API_URL } from "@/app/lib/api";
+import { API_URL } from "@/app/lib/api"
+
+// Static uploads are served at the backend origin without /api prefix
+const BACKEND_ORIGIN = API_URL.replace(/\/api\/?$/, "");
 import VerifiedVendor from "@/components/vendor/VerifiedVendor";
 
 type VendorProfileData = {
@@ -51,11 +54,38 @@ const initialPackage: PackageInput = {
   servicesIncluded: "",
 };
 
+/** Compress an image file to max 800px wide, JPEG quality 0.75, max ~300KB */
+const compressImage = (file: File, maxPx = 800, quality = 0.75): Promise<File> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return; }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        quality,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image load failed")); };
+    img.src = url;
+  });
+
 const resolveImageUrl = (path?: string) => {
   if (!path) return "";
   if (path.startsWith("http") || path.startsWith("https")) return path;
-  if (path.startsWith("/")) return `${API_URL}${path}`;
-  return `${API_URL}/${path}`;
+  if (path.startsWith("/")) return `${BACKEND_ORIGIN}${path}`;
+  return `${BACKEND_ORIGIN}/${path}`;
 };
 
 export default function BusinessProfile() {
@@ -164,7 +194,8 @@ const [form, setForm] = useState({
     setUploadingProfile(true);
 
     try {
-      const response = await uploadVendorFile(file);
+      const compressed = await compressImage(file);
+      const response = await uploadVendorFile(compressed);
       console.log("📤 UPLOAD RESPONSE:", response);
 
       const imageUrl = response.fullUrl || response.url || response.filename ? `/uploads/${response.filename}` : '';
@@ -194,7 +225,8 @@ const [form, setForm] = useState({
 
     setUploadingGallery(true);
     try {
-      const response = await uploadVendorPortfolioMultiple(selectedFiles);
+      const compressedFiles = await Promise.all(selectedFiles.map((f) => compressImage(f)));
+      const response = await uploadVendorPortfolioMultiple(compressedFiles);
       console.log("📤 PORTFOLIO RESPONSE:", response);
 
       const newUrls = Array.isArray(response) ? response.map((item: any) => item.url || item.fullUrl).filter(Boolean) : [];

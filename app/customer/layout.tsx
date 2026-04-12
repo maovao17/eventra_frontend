@@ -6,6 +6,7 @@ import React, { useEffect, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import type { ReactNode } from "react"
+import { LogOut } from "lucide-react"
 import { ProtectedLayoutLoading } from "@/components/ui/PageState"
 import { useAuth } from "@/context/AuthContext"
 import { getDashboardPathForRole } from "@/lib/routes"
@@ -23,7 +24,7 @@ const links = [
 export default React.memo(function CustomerLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { profile, loading } = useAuth()
+  const { profile, loading, logout } = useAuth()
 
   const hasValidated = useRef(false);
 
@@ -57,7 +58,7 @@ export default React.memo(function CustomerLayout({ children }: { children: Reac
 
   return (
     <div className="flex min-h-screen bg-[var(--background)]">
-      <aside className="theme-card w-64 rounded-none border-y-0 border-l-0 p-6">
+      <aside className="theme-card w-64 rounded-none border-y-0 border-l-0 p-6 flex flex-col">
         <div className="mb-10 flex items-center gap-3">
           <Image
             src="/logo.jpeg"
@@ -91,6 +92,17 @@ export default React.memo(function CustomerLayout({ children }: { children: Reac
             )
           })}
         </nav>
+
+        <div className="mt-auto border-t pt-4">
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="flex w-full items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium theme-muted hover:text-red-500 transition-all"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
+        </div>
       </aside>
 
       <motion.main

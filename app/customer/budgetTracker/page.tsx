@@ -3,14 +3,8 @@
 import { motion } from "framer-motion"
 import { useEvent } from "@/context/EventContext"
 
-const budgetCategories = [
-  { name: "Photography", spent: 20000, limit: 60000 },
-  { name: "Catering", spent: 35000, limit: 200000 },
-  { name: "Decor", spent: 18000, limit: 120000 }
-]
-
 export default function BudgetTrackerPage() {
-  const { currentEvent, formatCurrency } = useEvent()
+  const { currentEvent, formatCurrency, bookings, vendors } = useEvent()
   const event = currentEvent
 
   if (!event) {
@@ -18,6 +12,22 @@ export default function BudgetTrackerPage() {
   }
 
   const remaining = event.budget - event.spent
+
+  // Build category spend from real bookings for this event, matched with vendor categories
+  const eventBookings = bookings.filter((b) => b.eventId === (event.id || (event as any)._id))
+
+  const categorySpendMap: Record<string, number> = {}
+  for (const booking of eventBookings) {
+    const vendor = vendors.find((v) => v.id === booking.vendorId || (v as any)._id === booking.vendorId)
+    const category = vendor?.category || "Other"
+    categorySpendMap[category] = (categorySpendMap[category] || 0) + booking.amount
+  }
+
+  const categorySpend = Object.entries(categorySpendMap)
+    .sort(([, a], [, b]) => b - a)
+    .map(([name, spent]) => ({ name, spent }))
+
+  const budgetPerCategory = categorySpend.length > 0 ? event.budget / categorySpend.length : 0
 
   return (
     <div className="space-y-8">
@@ -58,37 +68,99 @@ export default function BudgetTrackerPage() {
           className="theme-card p-6"
         >
           <p className="theme-muted text-sm">Remaining</p>
-          <p className="theme-secondary mt-3 text-3xl font-bold">
+          <p className={`mt-3 text-3xl font-bold ${remaining < 0 ? "text-red-500" : "theme-secondary"}`}>
             {formatCurrency(remaining)}
           </p>
         </motion.div>
       </div>
 
+      {/* Overall progress */}
+      <div className="theme-card p-6">
+        <div className="mb-3 flex items-center justify-between text-sm">
+          <span className="font-medium">Overall Budget Used</span>
+          <span className="theme-muted">
+            {event.budget > 0 ? Math.round((event.spent / event.budget) * 100) : 0}%
+          </span>
+        </div>
+        <div className="theme-progress-track h-3 w-full rounded-full">
+          <div
+            className={`h-3 rounded-full transition-all ${
+              event.spent > event.budget ? "bg-red-500" : "bg-[var(--primary)]"
+            }`}
+            style={{ width: `${Math.min(event.budget > 0 ? (event.spent / event.budget) * 100 : 0, 100)}%` }}
+          />
+        </div>
+        <p className="theme-muted text-xs mt-2">
+          {formatCurrency(event.spent)} of {formatCurrency(event.budget)} used
+        </p>
+      </div>
+
+      {/* Category Spend */}
       <div className="theme-card p-6">
         <h2 className="text-xl font-semibold mb-4">Category Spend</h2>
-        <div className="space-y-5">
-          {budgetCategories.map((category) => {
-            const progress = Math.min((category.spent / category.limit) * 100, 100)
+        {categorySpend.length === 0 ? (
+          <p className="theme-muted text-sm">
+            No confirmed bookings yet. Category spend will appear once you book vendors for this event.
+          </p>
+        ) : (
+          <div className="space-y-5">
+            {categorySpend.map((category) => {
+              const progress = event.budget > 0
+                ? Math.min((category.spent / event.budget) * 100, 100)
+                : 0
 
-            return (
-              <div key={category.name}>
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span>{category.name}</span>
-                  <span className="theme-muted">
-                    {formatCurrency(category.spent)} / {formatCurrency(category.limit)}
-                  </span>
+              return (
+                <div key={category.name}>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span>{category.name}</span>
+                    <span className="theme-muted">
+                      {formatCurrency(category.spent)}
+                      {budgetPerCategory > 0 && (
+                        <span> of est. {formatCurrency(Math.round(budgetPerCategory))}</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="theme-progress-track h-3 w-full rounded-full">
+                    <div
+                      className="h-3 rounded-full bg-[var(--primary)]"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="theme-progress-track h-3 w-full rounded-full">
-                  <div
-                    className="h-3 rounded-full bg-[var(--primary)]"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Booking breakdown */}
+      {eventBookings.length > 0 && (
+        <div className="theme-card p-6">
+          <h2 className="text-xl font-semibold mb-4">Booking Breakdown</h2>
+          <div className="space-y-3">
+            {eventBookings.map((booking) => {
+              const vendor = vendors.find(
+                (v) => v.id === booking.vendorId || (v as any)._id === booking.vendorId
+              )
+              return (
+                <div
+                  key={booking._id || booking.id}
+                  className="flex items-center justify-between rounded-xl border p-3 text-sm"
+                >
+                  <div>
+                    <p className="font-medium">{vendor?.name || "Vendor"}</p>
+                    <p className="theme-muted text-xs">{vendor?.category || "Service"}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{formatCurrency(booking.amount)}</p>
+                    <p className="theme-muted text-xs capitalize">{booking.status}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

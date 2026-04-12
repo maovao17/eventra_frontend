@@ -3,7 +3,14 @@
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { apiFetch } from "@/app/lib/api"
+import { apiFetch, API_URL } from "@/app/lib/api"
+
+const BACKEND_ORIGIN = API_URL.replace(/\/api\/?$/, "")
+const resolveAssetUrl = (path?: string) => {
+  if (!path) return "/placeholder-avatar.jpg"
+  if (path.startsWith("http")) return path
+  return `${BACKEND_ORIGIN}${path.startsWith("/") ? "" : "/"}${path}`
+}
 import { useEffect, useState } from "react"
 import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
 import { useEvent } from "@/context/EventContext"
@@ -133,9 +140,10 @@ const existingRequest = currentEvent?.id && vendor?._id
         {vendor.profileImage && (
           <div className="relative h-64">
             <img
-              src={vendor.profileImage || '/default-avatar.png'}
+              src={resolveAssetUrl(vendor.profileImage)}
               alt={vendor.name}
               className="h-full w-full rounded-t-xl object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder-avatar.jpg" }}
             />
           </div>
         )}
@@ -144,9 +152,10 @@ const existingRequest = currentEvent?.id && vendor?._id
             {vendor.portfolio.map((img: any, index: number) => (
               <img
                 key={index}
-                src={img.url || img || '/eventra_photos/default-vendor.jpg'}
+                src={resolveAssetUrl(img.url || img)}
                 alt={`${vendor.name} portfolio ${index + 1}`}
                 className="h-48 w-full rounded-xl object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder-avatar.jpg" }}
               />
             ))}
           </div>

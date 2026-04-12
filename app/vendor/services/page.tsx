@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/app/lib/api";
 import { assignVendorServices, getAllServices, getVendorMe } from "@/app/lib/vendorApi";
+import { CheckSquare, Plus, Square, Layers } from "lucide-react";
 
 type ServiceRecord = {
   _id: string;
@@ -13,7 +14,7 @@ type ServiceRecord = {
 };
 
 export default function ServicesPage() {
-const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const userId = user?.uid || profile?.uid;
 
   const [name, setName] = useState("");
@@ -25,13 +26,12 @@ const { user, profile, loading: authLoading } = useAuth();
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
-const [hasFetched, setHasFetched] = useState(false);
-
-const loadServices = async () => {
-  if (!userId || authLoading || !profile || hasFetched) return;
-
-  setHasFetched(true);
+  const loadServices = async () => {
+    if (!userId || authLoading || !profile || hasFetched) return;
+    setHasFetched(true);
 
     const [serviceResponse, vendorResponse] = await Promise.all([
       getAllServices(),
@@ -50,9 +50,9 @@ const loadServices = async () => {
     }
   };
 
-useEffect(() => {
-  void loadServices();
-}, [userId]);
+  useEffect(() => {
+    void loadServices();
+  }, [userId]);
 
   const selectedCount = useMemo(() => selectedServiceIds.length, [selectedServiceIds]);
 
@@ -106,6 +106,8 @@ useEffect(() => {
     setName("");
     setCategory("");
     setPrice("");
+    setShowForm(false);
+    setHasFetched(false);
     await loadServices();
     setLoading(false);
   };
@@ -132,76 +134,160 @@ useEffect(() => {
       return;
     }
 
-    setSuccess("Services updated");
+    setSuccess("Services updated successfully.");
     setAssigning(false);
   };
 
+  // Group by category
+  const categoryGroups = useMemo(() => {
+    const map: Record<string, ServiceRecord[]> = {};
+    services.forEach((s) => {
+      const cat = s.category || "Other";
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(s);
+    });
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+  }, [services]);
+
   return (
-    <div className="theme-card p-8">
-      <h1 className="text-3xl font-bold">Services</h1>
-      <p className="theme-muted mt-2">
-        Service management content will appear here.
-      </p>
-
-      <div className="mt-6 space-y-3">
-        <input
-          value={name}
-          placeholder="Service name"
-          onChange={(e) => setName(e.target.value)}
-          className="w-full border rounded-md p-2"
-        />
-        <input
-          value={category}
-          placeholder="Category"
-          onChange={(e) => setCategory(e.target.value)}
-          className="w-full border rounded-md p-2"
-        />
-        <input
-          value={price}
-          placeholder="Price"
-          onChange={(e) => setPrice(e.target.value)}
-          className="w-full border rounded-md p-2"
-        />
-
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Services</h1>
+          <p className="theme-muted">
+            Select services you offer, or add custom ones. Customers discover you based on your selected services.
+          </p>
+        </div>
         <button
-          onClick={handleCreateService}
-          disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md"
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-white"
         >
-          {loading ? "Creating..." : "Add Service"}
+          <Plus size={16} />
+          Add Custom Service
         </button>
-
-        {error && <p className="text-red-500">{error}</p>}
-        {success && <p className="text-green-500">{success}</p>}
       </div>
 
-      <div className="mt-8 space-y-3">
-        <p className="font-medium">Available Services ({services.length})</p>
-        <p className="text-sm theme-muted">Selected: {selectedCount}</p>
+      {/* Create service form */}
+      {showForm && (
+        <div className="theme-card p-6 space-y-4">
+          <h2 className="font-semibold">New Custom Service</h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            <input
+              value={name}
+              placeholder="Service name"
+              onChange={(e) => setName(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm w-full"
+            />
+            <input
+              value={category}
+              placeholder="Category (e.g. Photography)"
+              onChange={(e) => setCategory(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm w-full"
+            />
+            <input
+              value={price}
+              placeholder="Price (₹)"
+              type="number"
+              min={0}
+              onChange={(e) => setPrice(e.target.value)}
+              className="border rounded-lg px-3 py-2 text-sm w-full"
+            />
+          </div>
 
-        <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
-          {services.map((service) => (
-            <label key={service._id} className="flex items-center justify-between border rounded-md p-2">
-              <span>
-                {service.name} • {service.category}
-                {typeof service.price === "number" ? ` • ₹${service.price}` : ""}
-              </span>
-              <input
-                type="checkbox"
-                checked={selectedServiceIds.includes(service._id)}
-                onChange={() => toggleService(service._id)}
-              />
-            </label>
-          ))}
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {success && <p className="text-green-600 text-sm">{success}</p>}
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleCreateService}
+              disabled={loading}
+              className="rounded-xl bg-[var(--primary)] px-5 py-2 text-sm font-medium text-white disabled:opacity-60"
+            >
+              {loading ? "Creating..." : "Create Service"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); setError(""); setSuccess(""); }}
+              className="rounded-xl border px-5 py-2 text-sm font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Service selection */}
+      <div className="theme-card p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-semibold">Available Services</h2>
+            <p className="theme-muted text-sm mt-0.5">
+              {selectedCount} of {services.length} selected
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAssignServices}
+            disabled={assigning}
+            className="rounded-xl border px-5 py-2 text-sm font-medium disabled:opacity-60"
+          >
+            {assigning ? "Saving..." : "Save Selection"}
+          </button>
         </div>
 
-        <button
-          onClick={handleAssignServices}
-          disabled={assigning}
-          className="border px-4 py-2 rounded-md"
-        >
-          {assigning ? "Saving..." : "Save Selected Services"}
-        </button>
+        {error && !showForm && <p className="text-red-500 text-sm mb-4">{error}</p>}
+        {success && !showForm && <p className="text-green-600 text-sm mb-4">{success}</p>}
+
+        {services.length === 0 ? (
+          <p className="theme-muted text-sm">No services available yet.</p>
+        ) : (
+          <div className="space-y-6">
+            {categoryGroups.map(([cat, catServices]) => (
+              <div key={cat}>
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers size={14} className="text-[var(--primary)]" />
+                  <span className="text-sm font-semibold">{cat}</span>
+                  <span className="text-xs theme-muted">
+                    ({catServices.filter((s) => selectedServiceIds.includes(s._id)).length}/{catServices.length} selected)
+                  </span>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {catServices.map((service) => {
+                    const isSelected = selectedServiceIds.includes(service._id);
+                    return (
+                      <button
+                        key={service._id}
+                        type="button"
+                        onClick={() => toggleService(service._id)}
+                        className={`flex items-center justify-between rounded-xl border p-3 text-left transition-all ${
+                          isSelected
+                            ? "border-[var(--primary)] bg-[var(--primary)]/5"
+                            : "hover:border-gray-400"
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{service.name}</p>
+                          {typeof service.price === "number" && service.price > 0 && (
+                            <p className="theme-muted text-xs">
+                              ₹{service.price.toLocaleString("en-IN")}
+                            </p>
+                          )}
+                        </div>
+                        {isSelected ? (
+                          <CheckSquare size={18} className="text-[var(--primary)] shrink-0" />
+                        ) : (
+                          <Square size={18} className="theme-muted shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,12 @@
 "use client";
 
-import { ArrowLeft, Mail } from "lucide-react";
+import { ArrowLeft, Smartphone } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function ForgotPassword() {
+  const router = useRouter();
+
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-cover bg-center relative"
@@ -30,45 +33,45 @@ export default function ForgotPassword() {
           </h1>
 
           <h2 className="text-2xl font-semibold mt-2">
-            Reset Password
+            Account Access
           </h2>
 
           <p className="text-gray-600 mt-2 text-sm">
-            Enter your email to receive password reset instructions
+            No password needed — we use secure phone verification
           </p>
         </div>
 
-        {/* Reset Card */}
-        <div className="bg-white/80 backdrop-blur-md w-[380px] p-8 rounded-2xl shadow-lg text-left">
-
-          <label className="block text-gray-700 mb-2">
-            Email Address
-          </label>
-
-          <div className="flex items-center border rounded-lg px-3 py-3 mb-6 bg-white">
-            <Mail size={18} className="text-gray-400 mr-2" />
-
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="w-full outline-none"
-            />
+        {/* Card */}
+        <div className="bg-white/80 backdrop-blur-md w-[380px] p-8 rounded-2xl shadow-lg text-left space-y-4">
+          <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-4">
+            <Smartphone size={24} className="text-orange-500 shrink-0" />
+            <div>
+              <p className="font-semibold text-gray-800 text-sm">Phone-based login</p>
+              <p className="text-gray-600 text-xs mt-0.5">
+                Eventra uses one-time codes sent to your phone number. There is no password to reset.
+              </p>
+            </div>
           </div>
 
-          {/* Reset Button */}
-          <button className="w-full bg-orange-400 hover:bg-orange-500 text-white py-3 rounded-xl font-semibold transition">
-            Send Reset Link →
+          <p className="text-gray-600 text-sm">
+            To regain access to your account, simply log in using your registered phone number and verify with the OTP we send you.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => router.push("/login")}
+            className="w-full bg-orange-400 hover:bg-orange-500 text-white py-3 rounded-xl font-semibold transition"
+          >
+            Login with Phone →
           </button>
 
-          {/* Back to login */}
           <Link
             href="/login"
-            className="flex items-center justify-center gap-2 text-orange-500 mt-6 text-sm"
+            className="flex items-center justify-center gap-2 text-orange-500 mt-2 text-sm"
           >
             <ArrowLeft size={16} />
             Back to Login
           </Link>
-
         </div>
 
       </div>

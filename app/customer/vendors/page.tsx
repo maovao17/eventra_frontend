@@ -4,7 +4,10 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useState } from "react"
-import { apiFetch } from "@/app/lib/api"
+import { apiFetch, API_URL } from "@/app/lib/api"
+
+// Static files (uploads) are served at the backend origin, NOT under /api
+const BACKEND_ORIGIN = API_URL.replace(/\/api\/?$/, "")
 import { EmptyState, ErrorState, PageCardSkeleton, PageIntroSkeleton } from "@/components/ui/PageState"
 import { useToast } from "@/context/ToastContext"
 
@@ -29,10 +32,8 @@ function VendorsPageContent() {
 
   const resolveVendorImage = (imagePath?: string): string => {
     if (!imagePath || imagePath === "") return "/placeholder-avatar.jpg";
-    // If already full URL
     if (imagePath.startsWith("http")) return imagePath;
-    // Backend relative path → full URL
-    return `http://localhost:3001${imagePath}`;
+    return `${BACKEND_ORIGIN}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
   };
 
   const loadVendors = async () => {

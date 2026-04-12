@@ -1,9 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function VendorSidebar() {
+  const { logout } = useAuth();
+
   return (
-    <div className="w-64 theme-card theme-border border-r h-screen">
+    <div className="w-64 theme-card theme-border border-r h-screen flex flex-col">
 
       <div className="flex items-center gap-3 p-6">
         <Image
@@ -48,28 +54,34 @@ export default function VendorSidebar() {
           Reviews & Ratings
         </Link>
 
-
       </nav>
 
-      <div className="mt-10">
-
+      <div className="mt-6">
         <p className="px-6 text-xs theme-muted mb-2">
           SETTINGS
         </p>
 
-        <Link href="/vendor/businessProfile" className="block px-6 py-3 hover:theme-surface">
+        <Link href="/vendor/businessProfile" className="block rounded-xl px-5 py-3 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-all">
           Business Profile
         </Link>
 
-        <Link href="/vendor/reminders" className="block px-6 py-3 hover:theme-surface">
-          Notifications
+        <Link href="/vendor/services" className="block rounded-xl px-5 py-3 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-all">
+          Services
         </Link>
 
+        <Link href="/vendor/reminders" className="block rounded-xl px-5 py-3 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-all">
+          Notifications
+        </Link>
       </div>
 
-      <div className="absolute bottom-6 px-6">
-        <button className="border border-[var(--primary)] theme-primary px-4 py-2 rounded-lg">
-          + Add Package
+      <div className="mt-auto border-t p-4">
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="flex w-full items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium theme-muted hover:text-red-500 transition-all"
+        >
+          <LogOut size={16} />
+          Logout
         </button>
       </div>
 
