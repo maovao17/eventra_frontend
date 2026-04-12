@@ -2,128 +2,162 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/app/lib/api";
-import { ErrorState, PageCardSkeleton } from "@/components/ui/PageState";
 import { useToast } from "@/context/ToastContext";
 import { useAuth } from "@/context/AuthContext";
-import Card from "@/components/ui/Card";
-import { Users, UserCheck, Calendar, CreditCard } from "lucide-react";
+import { Users, UserCheck, Calendar } from "lucide-react";
 
+type RecentBooking = {
+  _id: string;
+  customerId?: string;
+  vendorId?: string;
+  eventId?: string;
+  status?: string;
+  amount?: number;
+  createdAt?: string;
+  eventName?: string;
+  customerName?: string;
+};
 
 export default function AdminDashboard() {
   const { showToast } = useToast();
   const { profile, loading: authLoading } = useAuth();
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalVendors: 0,
-    totalBookings: 0,
-    totalPayments: 0,
-  });
+  const [stats, setStats] = useState({ totalVendors: 0, totalUsers: 0, totalEvents: 0 });
+  const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
 
   const loadStats = async () => {
-    setLoading(true);
-    setError("");
-
     try {
-      const [usersRes, vendorsRes, bookingsRes, paymentsRes] = await Promise.all([
+      const [usersRes, vendorsRes, eventsRes, bookingsRes] = await Promise.all([
         apiFetch("/admin/users"),
         apiFetch("/admin/vendors"),
+        apiFetch("/admin/events"),
         apiFetch("/admin/bookings"),
-        apiFetch("/admin/payments"),
       ]);
       setStats({
-        totalUsers: Array.isArray(usersRes) ? usersRes.length : 0,
         totalVendors: Array.isArray(vendorsRes) ? vendorsRes.length : 0,
-        totalBookings: Array.isArray(bookingsRes) ? bookingsRes.length : 0,
-        totalPayments: Array.isArray(paymentsRes) ? paymentsRes.length : 0,
+        totalUsers: Array.isArray(usersRes) ? usersRes.length : 0,
+        totalEvents: Array.isArray(eventsRes) ? eventsRes.length : 0,
       });
-    } catch (fetchError) {
-      const message =
-        fetchError instanceof Error ? fetchError.message : "Could not load dashboard.";
-      setError(message);
-      showToast(message, "error");
+      setRecentBookings(
+        Array.isArray(bookingsRes)
+          ? [...bookingsRes].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 6)
+          : []
+      );
+    } catch {
+      showToast("Could not load dashboard stats.", "error");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (authLoading || !profile) {
-      return;
-    }
-    void loadStats();
+    if (!authLoading && profile) void loadStats();
   }, [authLoading, profile]);
 
-
-  if (loading || authLoading) {
-    return <PageCardSkeleton count={4} className="md:grid-cols-2 xl:grid-cols-4" />;
-  }
-
-
-  if (error) {
-    return (
-      <ErrorState
-        title="We couldn't load the admin dashboard."
-        description="Retry to fetch the latest platform totals."
-        onRetry={() => {
-          if (!authLoading && profile) {
-            void loadStats();
-          }
-        }}
-
-        retryLabel="Retry"
-      />
-    );
-  }
+  const statusColor = (status?: string) => {
+    switch (status) {
+      case "confirmed": return "text-green-600 font-medium";
+      case "pending": return "text-amber-500 font-medium";
+      case "cancelled":
+      case "rejected": return "text-red-500 font-medium";
+      default: return "text-blue-600 font-medium";
+    }
+  };
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-8">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <p className="theme-muted mt-1 text-sm">
+            Here's what's happening in your event management ecosystem today.
+          </p>
+        </div>
+        <button className="theme-button px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2">
+          + New Announcement
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <p className="text-sm font-medium">Total Users</p>
-            <Users className="h-6 w-6 text-muted-foreground" />
+      {/* Stats */}
+      {loading ? (
+        <div className="grid grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="theme-card p-6 animate-pulse h-32 rounded-2xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="theme-card p-6 rounded-2xl flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-[var(--primary-light)] flex items-center justify-center">
+              <UserCheck size={18} className="text-[var(--primary)]" />
+            </div>
+            <div>
+              <p className="text-sm theme-muted">Total Vendors</p>
+              <p className="text-3xl font-bold mt-1">{stats.totalVendors.toLocaleString()}</p>
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+          <div className="theme-card p-6 rounded-2xl flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-[var(--primary-light)] flex items-center justify-center">
+              <Users size={18} className="text-[var(--primary)]" />
+            </div>
+            <div>
+              <p className="text-sm theme-muted">Total Users</p>
+              <p className="text-3xl font-bold mt-1">{stats.totalUsers.toLocaleString()}</p>
+            </div>
           </div>
-        </Card>
+          <div className="theme-card p-6 rounded-2xl flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-[var(--primary-light)] flex items-center justify-center">
+              <Calendar size={18} className="text-[var(--primary)]" />
+            </div>
+            <div>
+              <p className="text-sm theme-muted">Total Events</p>
+              <p className="text-3xl font-bold mt-1">{stats.totalEvents.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
-        <Card>
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <p className="text-sm font-medium">Total Vendors</p>
-            <UserCheck className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{stats.totalVendors}</div>
-          </div>
-        </Card>
+      {/* Recent Activity + Banner */}
+      <div className="grid grid-cols-[1fr_280px] gap-6">
+        <div className="theme-card rounded-2xl p-6">
+          <h2 className="text-lg font-semibold mb-4">Recent Event Activity</h2>
+          {recentBookings.length === 0 ? (
+            <p className="theme-muted text-sm">No activity yet. Bookings will appear here.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b theme-muted text-xs uppercase tracking-wide">
+                  <th className="py-3 text-left font-medium">Event Name</th>
+                  <th className="py-3 text-left font-medium">Customer</th>
+                  <th className="py-3 text-left font-medium">Status</th>
+                  <th className="py-3 text-right font-medium">Revenue</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentBookings.map((booking) => (
+                  <tr key={booking._id} className="border-b last:border-0">
+                    <td className="py-3 font-medium">{booking.eventName || `Event`}</td>
+                    <td className="py-3 theme-muted">{booking.customerName || booking.customerId?.slice(-6) || "—"}</td>
+                    <td className={`py-3 capitalize ${statusColor(booking.status)}`}>
+                      {booking.status || "pending"}
+                    </td>
+                    <td className="py-3 text-right font-medium">
+                      {booking.amount ? `Rs ${Number(booking.amount).toLocaleString("en-IN")}` : "NIL"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
-        <Card>
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <p className="text-sm font-medium">Total Bookings</p>
-            <Calendar className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{stats.totalBookings}</div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <p className="text-sm font-medium">Total Payments</p>
-            <CreditCard className="h-6 w-6 text-muted-foreground" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{stats.totalPayments}</div>
-          </div>
-        </Card>
+        {/* Promo banner */}
+        <div className="rounded-2xl bg-[linear-gradient(135deg,var(--primary),#c45e3e)] p-8 flex items-center justify-center text-white">
+          <p className="text-2xl font-bold leading-snug text-center">
+            Turning plans into performance.
+          </p>
+        </div>
       </div>
     </div>
   );

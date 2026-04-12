@@ -192,22 +192,30 @@ export default function EventsPage() {
                     <p>{Number(event.guestCount || 0)} guests</p>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between">
-                    <p className="text-sm theme-muted">
-                      Owned by
-                      <span className="ml-1 font-medium text-[var(--text-main)]">
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="text-sm theme-muted truncate">
+                      Organised by&nbsp;
+                      <span className="font-medium text-[var(--text-main)]">
                         {event.customerId || "Admin"}
                       </span>
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={() => void removeEvent(String(event._id || event.id))}
-                      disabled={deletingId === String(event._id || event.id)}
-                      className="theme-button px-4 py-2 text-sm"
-                    >
-                      {deletingId === String(event._id || event.id) ? "Removing..." : "Remove"}
-                    </button>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => void removeEvent(String(event._id || event.id))}
+                        disabled={deletingId === String(event._id || event.id)}
+                        className="border rounded-lg px-3 py-1.5 text-xs font-medium theme-muted hover:text-red-500 hover:border-red-300 transition-colors disabled:opacity-40"
+                      >
+                        {deletingId === String(event._id || event.id) ? "Removing..." : "Delete"}
+                      </button>
+                      <button
+                        type="button"
+                        className="theme-button px-3 py-1.5 text-xs font-medium rounded-lg"
+                      >
+                        View Details
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
