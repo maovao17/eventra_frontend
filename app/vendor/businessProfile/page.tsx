@@ -229,9 +229,18 @@ const [form, setForm] = useState({
       const response = await uploadVendorPortfolioMultiple(compressedFiles);
       console.log("📤 PORTFOLIO RESPONSE:", response);
 
-      const newUrls = Array.isArray(response) ? response.map((item: any) => item.url || item.fullUrl).filter(Boolean) : [];
-      showToast(`${newUrls.length} images uploaded`, "success");
-      const portfolioUpdate = { portfolio: newUrls.map(url => ({ url, caption: '' })) };
+      // uploadVendorPortfolioMultiple returns string[], handle both string and object items
+      const newUrls: string[] = Array.isArray(response)
+        ? response.map((item: any) => (typeof item === "string" ? item : item.url || item.fullUrl || "")).filter(Boolean)
+        : [];
+      showToast(`${newUrls.length} image${newUrls.length !== 1 ? "s" : ""} uploaded`, "success");
+
+      // Merge new images with existing portfolio (don't overwrite)
+      const existingUrls = (typedVendorProfile?.portfolio || [])
+        .map((item: any) => (typeof item === "string" ? item : item.url || ""))
+        .filter(Boolean) as string[];
+      const allUrls = [...existingUrls, ...newUrls].slice(0, 7);
+      const portfolioUpdate = { portfolio: allUrls.map(url => ({ url, caption: "" })) };
       await saveVendorProfile(portfolioUpdate);
     } catch (err: any) {
       console.error("PORTFOLIO FAILED:", err);

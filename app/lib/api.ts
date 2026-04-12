@@ -28,10 +28,14 @@ export async function apiFetch(
       ? localStorage.getItem("firebaseToken")
       : null;
 
+  const isFormData = options.body instanceof FormData;
+
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      // Don't set Content-Type for FormData — browser sets it automatically
+      // with the correct multipart boundary. Overriding it breaks file uploads.
+      ...(!isFormData && { "Content-Type": "application/json" }),
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },
