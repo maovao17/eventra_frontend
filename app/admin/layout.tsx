@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useState, useRef } from "react";
-import { CalendarDays, LayoutGrid, LogOut, User, Users, CreditCard, BarChart2, Layers, MapPin, FileText, BookOpen } from "lucide-react";
+import { CalendarDays, LayoutGrid, LogOut, User, Users, CreditCard, BarChart2, BookOpen } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { ProtectedLayoutLoading } from "@/components/ui/PageState";
@@ -30,9 +30,6 @@ export default React.memo(function AdminLayout({
     { name: "Bookings", path: "/admin/bookings", icon: <BookOpen size={18} /> },
     { name: "Payments", path: "/admin/payments", icon: <CreditCard size={18} /> },
     { name: "Analytics", path: "/admin/analytics", icon: <BarChart2 size={18} /> },
-    { name: "Categories", path: "/admin/categories", icon: <Layers size={18} /> },
-    { name: "Locations", path: "/admin/locations", icon: <MapPin size={18} /> },
-    { name: "Reports", path: "/admin/reports", icon: <FileText size={18} /> },
   ];
 
   const hasValidated = useRef(false);

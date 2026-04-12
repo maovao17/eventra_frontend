@@ -8,9 +8,6 @@ import { useAuth } from '@/context/AuthContext';
 import Spinner from '@/components/ui/Spinner';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import RevenueChart from '@/components/vendor/RevenueChart';
-import UpcomingEventsTable from '@/components/vendor/UpcomingEventsTable';
-import QuickActions from '@/components/vendor/QuickActions';
 
 export default function VendorDashboardPage() {
   const pathname = usePathname();
@@ -156,12 +153,6 @@ export default function VendorDashboardPage() {
             </div>
           )}
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_280px]">
-            <RevenueChart />
-            <QuickActions />
-          </div>
-
-          <UpcomingEventsTable />
         </DashboardContainer>
       )}
     </div>

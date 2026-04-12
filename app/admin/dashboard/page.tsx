@@ -67,16 +67,11 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="theme-muted mt-1 text-sm">
-            Here's what's happening in your event management ecosystem today.
-          </p>
-        </div>
-        <button className="theme-button px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2">
-          + New Announcement
-        </button>
+      <div>
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <p className="theme-muted mt-1 text-sm">
+          Here's what's happening in your event management ecosystem today.
+        </p>
       </div>
 
       {/* Stats */}
