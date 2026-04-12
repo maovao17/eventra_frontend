@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { resolveImage } from "@/lib/utils";
 
 type Vendor = {
   id: string;
@@ -27,7 +28,7 @@ export default function VendorCard({
     >
         <div className="relative h-44">
           <Image
-            src={vendor.image}
+            src={resolveImage(vendor.image)}
             alt={vendor.name}
             fill
             className="rounded-t-xl object-cover"
