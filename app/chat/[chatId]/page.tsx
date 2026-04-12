@@ -51,8 +51,11 @@ export default function ChatPage() {
           return
         }
         // Lazy-init the Firestore chat doc if it doesn't exist yet
+        const requestIdMatch = chatId.match(/^request-(.+)$/)
         const bookingIdMatch = chatId.match(/^booking-(.+)$/)
-        if (bookingIdMatch) {
+        if (requestIdMatch) {
+          await initializeChatThread({ requestId: requestIdMatch[1] }).catch(() => null)
+        } else if (bookingIdMatch) {
           await initializeChatThread({ bookingId: bookingIdMatch[1] }).catch(() => null)
         }
         setAccessVerified(true)

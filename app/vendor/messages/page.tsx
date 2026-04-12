@@ -4,22 +4,17 @@ import { Suspense, useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { EmptyState, ErrorState, PageCardSkeleton } from "@/components/ui/PageState"
-import { getChatIdForBooking } from "@/lib/chat"
+import { getChatIdForRequest } from "@/lib/chat"
 import { apiFetch } from "@/app/lib/api"
-
-type EmbeddedBooking = {
-  _id?: string
-  id?: string
-  status?: string
-  amount?: number
-}
 
 type VendorRequest = {
   _id: string
+  id?: string
   status: string
-  booking?: EmbeddedBooking | null
+  booking?: { _id?: string; id?: string; status?: string; amount?: number } | null
   event?: { name?: string; eventType?: string }
   customer?: { name?: string }
+  amount?: number
 }
 
 function MessagesPageContent() {
@@ -37,7 +32,6 @@ function MessagesPageContent() {
       setLoading(true)
       setError(null)
       try {
-        // /requests/vendor returns requests WITH embedded booking (works on current backend)
         const data = await apiFetch("/requests/vendor")
         setRequests(Array.isArray(data) ? data : [])
       } catch (err) {
@@ -51,22 +45,19 @@ function MessagesPageContent() {
     void load()
   }, [profile?.uid])
 
+  // Show a thread for every ACCEPTED request — chat opens as soon as vendor accepts
   const threads = useMemo(
     () =>
       requests
-        .filter(
-          (r) =>
-            r.booking &&
-            (r.booking.status === "accepted" || r.booking.status === "confirmed"),
-        )
+        .filter((r) => r.status === "accepted")
         .map((r) => ({
-          bookingId: String(r.booking!._id ?? r.booking!.id ?? ""),
+          requestId: String(r._id ?? r.id ?? ""),
           customerName: r.customer?.name ?? "Customer",
           eventName: r.event?.name ?? r.event?.eventType ?? "Booked Event",
-          status: r.booking!.status ?? "",
-          amount: Number(r.booking!.amount ?? 0),
+          amount: Number(r.booking?.amount ?? r.amount ?? 0),
+          bookingStatus: r.booking?.status ?? null,
         }))
-        .filter((t) => Boolean(t.bookingId)),
+        .filter((t) => Boolean(t.requestId)),
     [requests],
   )
 
@@ -87,7 +78,7 @@ function MessagesPageContent() {
     return (
       <EmptyState
         title="No chats yet"
-        description="Accepted bookings will appear here for vendor messaging."
+        description="Once you accept a customer request, the chat will appear here."
       />
     )
   }
@@ -97,17 +88,17 @@ function MessagesPageContent() {
       <div>
         <h1 className="text-3xl font-bold">Client Chats</h1>
         <p className="theme-muted mt-2 text-sm">
-          Open a booking to continue chatting with your customer.
+          Chat with customers who have accepted requests.
         </p>
       </div>
 
       <div className="space-y-3">
         {threads.map((thread) => (
           <button
-            key={thread.bookingId}
+            key={thread.requestId}
             type="button"
             onClick={() =>
-              router.push(`/chat/${getChatIdForBooking(thread.bookingId)}`)
+              router.push(`/chat/${getChatIdForRequest(thread.requestId)}`)
             }
             className="theme-card w-full rounded-2xl p-5 text-left transition hover:shadow-md"
           >
@@ -119,16 +110,18 @@ function MessagesPageContent() {
               <div className="text-right space-y-1">
                 <span
                   className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    thread.status === "confirmed"
+                    thread.bookingStatus === "confirmed"
                       ? "bg-green-100 text-green-800"
                       : "bg-amber-100 text-amber-800"
                   }`}
                 >
-                  {thread.status === "confirmed" ? "Confirmed" : "Awaiting Payment"}
+                  {thread.bookingStatus === "confirmed" ? "Confirmed" : "Awaiting Payment"}
                 </span>
-                <p className="theme-muted text-xs">
-                  ₹{thread.amount.toLocaleString("en-IN")}
-                </p>
+                {thread.amount > 0 && (
+                  <p className="theme-muted text-xs">
+                    ₹{thread.amount.toLocaleString("en-IN")}
+                  </p>
+                )}
               </div>
             </div>
           </button>

@@ -18,20 +18,31 @@ export type ChatMessage = {
   timestamp: Date | null
 }
 
+/** Primary: chat keyed by request ID (available as soon as request is accepted) */
+export const getChatIdForRequest = (requestId: string) => `request-${requestId}`
+
+/** Legacy: chat keyed by booking ID (kept for backward compat) */
 export const getChatIdForBooking = (bookingId: string) => `booking-${bookingId}`
 
 export const initializeChatThread = async ({
+  requestId,
   bookingId,
 }: {
-  bookingId: string
+  requestId?: string
+  bookingId?: string
 }) => {
+  const body = requestId ? { requestId } : { bookingId }
+  const fallback = requestId
+    ? getChatIdForRequest(requestId)
+    : getChatIdForBooking(bookingId ?? "")
+
   const response = await apiFetch("/chats/init", {
     method: "POST",
-    body: JSON.stringify({ bookingId }),
+    body: JSON.stringify(body),
   }) as { chatId?: string }
 
   return {
-    chatId: String(response?.chatId || getChatIdForBooking(bookingId)),
+    chatId: String(response?.chatId || fallback),
   }
 }
 
