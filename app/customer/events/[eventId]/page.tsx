@@ -235,6 +235,7 @@ export default function EventDetailPage() {
         }
 
         const normalized = response.map((vendor) => ({
+          _id: vendor._id || vendor.id,
           id: String(vendor._id ?? vendor.id),
           userId: String(vendor.userId ?? ""),
           name: String(vendor.name ?? "Vendor"),

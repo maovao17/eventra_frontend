@@ -196,8 +196,11 @@ const normalizeVendor = (vendor: Record<string, unknown>, reviews: Array<Record<
   const portfolio = Array.from(new Set([...portfolioFromItems, ...portfolioFromGallery]))
   const primaryImage = resolveMediaUrl(vendor.profileImage) || resolveMediaUrl(vendor.image) || portfolio[0] || DEFAULT_VENDOR_IMAGE
 
+  const id = String(getEntityId(vendor));
+
   return {
-    id: vendorId,
+    _id: id,
+    id: id,
     userId: String(vendor.userId ?? ""),
     name: String(vendor.name ?? vendor.businessName ?? "Vendor"),
     category: categories[0] ?? "Vendor Service",
