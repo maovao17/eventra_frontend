@@ -41,10 +41,11 @@ function PaymentsPageContent() {
         const requestData = await apiFetch(`/requests/${requestId}`) as { status?: string }
         setRequest(requestData)
 
-        const bookingResponse = await apiFetch(`/bookings?requestId=${requestId}`)
-        const bookingData = ((bookingResponse as { data?: Booking[] } | null)?.data ?? bookingResponse) as Booking[]
-        if (Array.isArray(bookingData) && bookingData.length > 0) {
-          setBooking(bookingData[0])
+        const bookingResponse = await apiFetch(`/bookings/by-request/${requestId}`)
+        const raw = bookingResponse as (Booking & { _id?: string }) | null
+        if (raw) {
+          // Normalise _id → id so downstream checks on booking.id work
+          setBooking({ ...raw, id: raw.id || raw._id || "" })
         } else {
           setBooking(null)
         }

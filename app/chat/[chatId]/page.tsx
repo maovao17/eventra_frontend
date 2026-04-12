@@ -1,10 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { ChatMessage, subscribeToChatMessages, sendChatMessage } from "@/lib/chat"
-import { useRouter } from "next/navigation"
 import { apiFetch } from "@/app/lib/api"
 import { useToast } from "@/context/ToastContext"
 
@@ -13,17 +12,18 @@ export default function ChatPage() {
   const chatId = String(params.chatId || "")
   const { profile } = useAuth()
   const router = useRouter()
+  const { showToast } = useToast()
+
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState("")
   const [loading, setLoading] = useState(true)
   const [accessVerified, setAccessVerified] = useState<boolean | null>(null)
-  const [error, setError] = useState("")
+  const [accessError, setAccessError] = useState("")
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const senderId = profile?.uid
-  const { showToast } = useToast()
   const fallbackDashboard =
     profile?.role === "vendor"
       ? "/vendor/dashboard"
@@ -31,50 +31,74 @@ export default function ChatPage() {
         ? "/admin/dashboard"
         : "/customer/dashboard"
 
+  // ─── ALL HOOKS MUST BE BEFORE ANY CONDITIONAL RETURNS ───
+
+  // 1. Verify chat access
   useEffect(() => {
-    console.log(`🔍 CHAT DEBUG: ChatPage mounted - uid: ${senderId}, chatId: ${chatId}`);
     if (!senderId) {
-      console.log('🔍 CHAT DEBUG: No senderId, redirecting to login');
       router.push("/login")
       return
     }
+    if (!chatId) return
 
-    const verifyChatAccess = async () => {
-      console.log(`🔍 CHAT DEBUG: Calling /chats/${chatId}/verify`);
+    const verify = async () => {
       try {
-        const response = await apiFetch(`/chats/${chatId}/verify`) as { allowed: boolean }
-        console.log('🔍 CHAT DEBUG: Verify response:', JSON.stringify(response, null, 2));
-        if (response.allowed) {
-          setAccessVerified(true)
-        } else {
-          setAccessVerified(false)
-          setError("You don't have access to this chat")
-        }
-      } catch (error) {
-        console.error('🔍 CHAT DEBUG: Verify error:', error);
+        const res = await apiFetch(`/chats/${chatId}/verify`) as { allowed: boolean }
+        setAccessVerified(res.allowed)
+        if (!res.allowed) setAccessError("You don't have access to this chat")
+      } catch {
         setAccessVerified(false)
-        setError("Unable to verify chat access")
+        setAccessError("Unable to verify chat access")
       }
     }
 
-    if (chatId) {
-      verifyChatAccess()
-    }
+    void verify()
   }, [senderId, chatId, router])
 
+  // 2. Redirect on denied
   useEffect(() => {
     if (accessVerified === false) {
       router.push(`${fallbackDashboard}?error=chat-access-denied`)
     }
   }, [accessVerified, fallbackDashboard, router])
 
-  if (!senderId) return <div>Redirecting to login...</div>
+  // 3. Subscribe to Firestore messages
+  useEffect(() => {
+    if (!chatId || accessVerified !== true) return
+
+    setLoading(true)
+    let unsub: (() => void) | null = null
+
+    try {
+      unsub = subscribeToChatMessages(chatId, (newMessages) => {
+        setMessages(newMessages)
+        setLoading(false)
+      })
+    } catch {
+      setLoading(false)
+    }
+
+    return () => {
+      unsub?.()
+    }
+  }, [chatId, accessVerified])
+
+  // 4. Auto-scroll on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
+  // ─── CONDITIONAL RENDERS ───
+
+  if (!senderId) {
+    return <div className="flex items-center justify-center min-h-screen">Redirecting to login...</div>
+  }
 
   if (accessVerified === null) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
           <p className="mt-4 text-muted">Verifying chat access...</p>
         </div>
       </div>
@@ -86,7 +110,7 @@ export default function ChatPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-red-600">Access Denied</h2>
-          <p className="mt-2 text-gray-600">{error}</p>
+          <p className="mt-2 text-gray-600">{accessError}</p>
           <button
             onClick={() => router.push(fallbackDashboard)}
             className="mt-4 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
@@ -98,87 +122,43 @@ export default function ChatPage() {
     )
   }
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  // ─── HANDLERS ───
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  useEffect(() => {
-    if (!chatId || accessVerified !== true) return
-
-    console.log(`🔍 CHAT DEBUG: Subscribing to Firestore chats/${chatId}/messages (accessVerified: ${accessVerified})`);
-    
-    setLoading(true);
-    
-    try {
-      const unsubscribe = subscribeToChatMessages(chatId, (newMessages) => {
-        console.log(`🔍 CHAT DEBUG: Firestore snapshot received - messages:`, newMessages.length, newMessages);
-        setMessages(newMessages)
-        setLoading(false)
-      })
-  
-      return () => {
-        console.log(`🔍 CHAT DEBUG: Unsubscribing from Firestore`);
-        unsubscribe()
-      }
-    } catch (error) {
-      console.error('🔍 CHAT DEBUG: Firestore subscription error:', error);
-      setLoading(false);
-    }
-  }, [chatId, accessVerified])
-
-  const sendMessage = async (text: string, isRetry = false) => {
+  const sendMessage = async (text: string) => {
     if (!text.trim() || !senderId || !chatId) return
-
     setSending(true)
     setSendError(false)
     try {
-      await sendChatMessage({
-        chatId,
-        senderId,
-        text: text.trim(),
-      })
-
+      await sendChatMessage({ chatId, senderId, text: text.trim() })
       setInputText("")
-      showToast("Message sent", "success")
-    } catch (error: any) {
+    } catch (err: any) {
       setSendError(true)
-
-      if (error.code === 'permission-denied') {
-        showToast("You don't have permission to send messages in this chat", "error")
-        setTimeout(() => {
-          router.push("/customer/dashboard?error=chat-permission-denied")
-        }, 2000)
+      if (err?.code === "permission-denied") {
+        showToast("No permission to send messages in this chat", "error")
+        setTimeout(() => router.push(`${fallbackDashboard}?error=chat-permission-denied`), 2000)
       } else {
-        showToast("Failed to send message. Please try again.", "error")
+        showToast("Failed to send message. Try again.", "error")
       }
     } finally {
       setSending(false)
     }
   }
 
-  const handleSend = () => {
-    void sendMessage(inputText)
-  }
+  const handleSend = () => void sendMessage(inputText)
 
-  const handleRetry = () => {
-    void sendMessage(inputText, true)
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      void handleSend()
+      handleSend()
     }
   }
+
+  // ─── RENDER ───
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p>Loading...</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     )
   }
@@ -186,8 +166,8 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen max-w-4xl mx-auto">
       {/* Header */}
-      <div className="bg-white border-b p-4 flex items-center gap-3 shadow-sm z-10 sticky top-0 backdrop-blur-sm backdrop-bg-opacity-90 backdrop-filter backdrop-blur-lg border-gray-200">
-        <button 
+      <div className="bg-white border-b p-4 flex items-center gap-3 shadow-sm sticky top-0 z-10">
+        <button
           onClick={() => router.back()}
           className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-all"
         >
@@ -195,12 +175,6 @@ export default function ChatPage() {
         </button>
         <h1 className="font-semibold text-lg">Chat</h1>
       </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 mx-4 mt-4 rounded">
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
@@ -216,17 +190,13 @@ export default function ChatPage() {
             >
               <div
                 className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl shadow ${
-                  message.senderId === senderId
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200"
+                  message.senderId === senderId ? "bg-blue-500 text-white" : "bg-gray-200"
                 }`}
               >
                 <p className="text-sm">{message.text}</p>
                 {message.timestamp && (
-                  <p className={`text-xs mt-1 ${
-                    message.senderId === senderId ? "text-blue-100" : "text-gray-500"
-                  }`}>
-                    {(message.timestamp ?? new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  <p className={`text-xs mt-1 ${message.senderId === senderId ? "text-blue-100" : "text-gray-500"}`}>
+                    {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 )}
               </div>
@@ -237,7 +207,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t p-4 shadow-lg z-20">
+      <div className="bg-white border-t p-4 shadow-lg sticky bottom-0 z-20">
         <div className="flex gap-2 max-w-4xl mx-auto">
           <input
             value={inputText}
@@ -245,28 +215,20 @@ export default function ChatPage() {
               setInputText(e.target.value)
               if (sendError) setSendError(false)
             }}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            className="flex-1 px-4 py-3 rounded-2xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={sending}
           />
-          {sendError ? (
-            <button
-              onClick={handleRetry}
-              disabled={sending || !inputText.trim()}
-              className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-2xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-            >
-              {sending ? "Retrying..." : "Retry"}
-            </button>
-          ) : (
-            <button
-              onClick={handleSend}
-              disabled={sending || !inputText.trim()}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-            >
-              {sending ? "Sending..." : "Send"}
-            </button>
-          )}
+          <button
+            onClick={sendError ? () => void sendMessage(inputText) : handleSend}
+            disabled={sending || !inputText.trim()}
+            className={`${
+              sendError ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
+            } text-white px-6 py-3 rounded-2xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
+          >
+            {sending ? (sendError ? "Retrying..." : "Sending...") : sendError ? "Retry" : "Send"}
+          </button>
         </div>
       </div>
     </div>
