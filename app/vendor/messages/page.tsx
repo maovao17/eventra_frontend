@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useMemo, useState, useEffect } from "react"
+import { Suspense, useMemo, useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
@@ -16,12 +16,12 @@ function MessagesPageContent() {
   const searchParams = useSearchParams()
   const bookingId = searchParams.get("bookingId")
 
-  // *** ADDED: Local state for vendor bookings ***
-const [vendorBookings, setVendorBookings] = useState<Booking[]>([])
-  const [vendorLoading, setVendorLoading] = useState(false)
+  // Local state for vendor bookings
+  const [vendorBookings, setVendorBookings] = useState<Booking[]>([])
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const hasFetchedRef = useRef(false);
 
-  // *** UPDATED: Merge context + vendor bookings ***
+  // Merge context + vendor bookings
   const allBookings = useMemo(() => [...contextBookings, ...vendorBookings], [contextBookings, vendorBookings])
 
   const threads = useMemo(
@@ -36,34 +36,30 @@ const [vendorBookings, setVendorBookings] = useState<Booking[]>([])
           amount: Number(booking.amount ?? 0),
         }))
         .filter((thread) => Boolean(thread.bookingId)),
-    [allBookings, events],  // *** CHANGED: Use allBookings ***
+    [allBookings, events]
   )
 
-  // *** ADDED: Fetch vendor bookings on mount ***
+  // FIXED: Fetch ONCE on mount only
   useEffect(() => {
+    if (hasFetchedRef.current || !profile?.uid) return;
+
+    hasFetchedRef.current = true;
+
     const fetchBookings = async () => {
-      if (!profile?.uid || vendorLoading || vendorBookings.length > 0) return
-      
-      setVendorLoading(true)
-      setFetchError(null)
-      
       try {
-        console.log("📡 Fetching vendor bookings for messages page")
-        const fetched = await getVendorBookings()
-        setVendorBookings(fetched)
-      } catch (error) {
-        console.error("Failed to fetch vendor bookings:", error)
-        setFetchError("Failed to load bookings")
-      } finally {
-        setVendorLoading(false)
+        console.log("📡 GET /vendors/bookings");
+        const data = await getVendorBookings();
+        setVendorBookings(Array.isArray(data) ? data : data?.data || []);
+      } catch (err) {
+        console.error("Failed to fetch vendor bookings", err);
+        setFetchError("Failed to load bookings");
       }
-    }
+    };
 
-    fetchBookings()
-  }, [profile?.uid, vendorLoading, vendorBookings.length])
+    fetchBookings();
+  }, []);
 
-  // *** UPDATED: Combined loading state ***
-  if (contextLoading || vendorLoading) {
+  if (contextLoading) {
     return <PageCardSkeleton count={3} className="md:grid-cols-1" />
   }
 
