@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import { EmptyState, PageCardSkeleton } from "@/components/ui/PageState"
+import { apiFetch } from "@/app/lib/api"
 import { getChatIdForBooking } from "@/lib/chat"
 
 function MessagesPageContent() {
@@ -91,7 +92,17 @@ function MessagesPageContent() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     type="button"
-                    onClick={() => router.push(`/chat/${getChatIdForBooking(chat.bookingId)}`)}
+                    onClick={async () => {
+                      try {
+                        const res = await apiFetch("/chats/init", {
+                          method: "POST",
+                          body: JSON.stringify({ bookingId: chat.bookingId }),
+                        });
+                        router.push(`/chat/${res.chatId}`);
+                      } catch (error) {
+                        console.error("Failed to init chat:", error);
+                      }
+                    }}
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-gray-50 transition"
                   >
                     Chat
