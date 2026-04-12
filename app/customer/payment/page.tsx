@@ -118,20 +118,25 @@ function PaymentsPageContent() {
     )
   }
 
-  if (!request || !booking) {
+  if (!request || request.status !== "accepted") {
     return (
       <div className="text-center py-12">
-        <p className="text-muted">
-          {error || "No booking found for this request. Please check status or try again."}
-        </p>
+        <p className="text-muted">Waiting for vendor approval.</p>
       </div>
     )
   }
 
-  if (request.status !== "accepted") {
+  if (!booking) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted">Waiting for vendor approval.</p>
+      <div className="text-center py-12 space-y-4">
+        <p className="text-muted">Your booking is being set up. Please wait a moment and try again.</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="theme-button rounded-xl px-6 py-3"
+        >
+          Refresh
+        </button>
       </div>
     )
   }
