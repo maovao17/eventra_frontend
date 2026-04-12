@@ -86,7 +86,7 @@ const resolveImageUrl = (path?: string) => {
 export default function BusinessProfile() {
   const { profile } = useAuth();
   const { showToast } = useToast();
-  const { vendorProfile, loadingProfile, saveVendorProfile } = useVendorData();
+  const { vendorProfile, loadingProfile, saveVendorProfile, refreshVendorProfile } = useVendorData();
   const typedVendorProfile = vendorProfile as VendorProfileData | null;
 
   const [form, setForm] = useState({
@@ -110,34 +110,32 @@ export default function BusinessProfile() {
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (!typedVendorProfile) return;
+    if (!typedVendorProfile || initialized.current) return;
 
-    // Only initialize form fields once (prevent clobbering in-flight edits)
-    if (!initialized.current) {
-      setForm({
-        businessName: String(typedVendorProfile.businessName || typedVendorProfile.name || ""),
-        description: String(typedVendorProfile.description || ""),
-        category: Array.isArray(typedVendorProfile.category) ? typedVendorProfile.category.join(", ") : "",
-        location: String(typedVendorProfile?.location?.address || ""),
-        experience: String(typedVendorProfile.experience || ""),
-        profileImage: String(typedVendorProfile.profileImage || typedVendorProfile.image || ""),
-      });
-      const existingPortfolio = Array.isArray(typedVendorProfile.portfolio)
-        ? typedVendorProfile.portfolio.map((item: any) => item?.url || "").filter(Boolean)
-        : Array.isArray(typedVendorProfile.gallery)
-        ? typedVendorProfile.gallery
-        : [];
-      setPortfolioUrls(existingPortfolio as string[]);
-      const img = typedVendorProfile.profileImage || typedVendorProfile.image || "";
-      setProfileImagePreview(resolveImageUrl(img));
-      initialized.current = true;
-    }
+    setForm({
+      businessName: String(typedVendorProfile.businessName || typedVendorProfile.name || ""),
+      description: String(typedVendorProfile.description || ""),
+      category: Array.isArray(typedVendorProfile.category) ? typedVendorProfile.category.join(", ") : "",
+      location: String(typedVendorProfile?.location?.address || ""),
+      experience: String(typedVendorProfile.experience || ""),
+      profileImage: String(typedVendorProfile.profileImage || typedVendorProfile.image || ""),
+    });
 
-    // Always sync packages from server (packages are managed via their own endpoints)
     const serverPkgs = Array.isArray(typedVendorProfile.packages)
       ? typedVendorProfile.packages.filter((p: any) => p?.name)
       : [];
     setPackages(serverPkgs);
+
+    const existingPortfolio = Array.isArray(typedVendorProfile.portfolio)
+      ? typedVendorProfile.portfolio.map((item: any) => item?.url || "").filter(Boolean)
+      : Array.isArray(typedVendorProfile.gallery)
+      ? typedVendorProfile.gallery
+      : [];
+    setPortfolioUrls(existingPortfolio as string[]);
+
+    const img = typedVendorProfile.profileImage || typedVendorProfile.image || "";
+    setProfileImagePreview(resolveImageUrl(img));
+    initialized.current = true;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typedVendorProfile]);
 
@@ -284,6 +282,7 @@ export default function BusinessProfile() {
         setPackages(serverPkgs.filter((p) => p?.name));
       }
       showToast("Package saved!", "success");
+      void refreshVendorProfile();
     } catch (err: any) {
       // Revert optimistic add on failure
       setPackages(prev => prev.filter(p => p !== optimistic));
