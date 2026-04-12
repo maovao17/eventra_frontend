@@ -110,8 +110,10 @@ export default function BusinessProfile() {
   const initialized = useRef(false);
 
   useEffect(() => {
-    // Re-run when vendor data arrives (not just when profile.uid changes)
-    if (typedVendorProfile && !initialized.current) {
+    if (!typedVendorProfile) return;
+
+    // Only initialize form fields once (prevent clobbering in-flight edits)
+    if (!initialized.current) {
       setForm({
         businessName: String(typedVendorProfile.businessName || typedVendorProfile.name || ""),
         description: String(typedVendorProfile.description || ""),
@@ -120,26 +122,22 @@ export default function BusinessProfile() {
         experience: String(typedVendorProfile.experience || ""),
         profileImage: String(typedVendorProfile.profileImage || typedVendorProfile.image || ""),
       });
-
-      // Only show packages that have a name (filter out corrupted stub entries)
-      const validPackages = Array.isArray(typedVendorProfile.packages)
-        ? typedVendorProfile.packages.filter((p: any) => p?.name)
-        : [];
-      setPackages(validPackages);
-
-      // Load portfolio into local state
       const existingPortfolio = Array.isArray(typedVendorProfile.portfolio)
         ? typedVendorProfile.portfolio.map((item: any) => item?.url || "").filter(Boolean)
         : Array.isArray(typedVendorProfile.gallery)
         ? typedVendorProfile.gallery
         : [];
       setPortfolioUrls(existingPortfolio as string[]);
-
       const img = typedVendorProfile.profileImage || typedVendorProfile.image || "";
       setProfileImagePreview(resolveImageUrl(img));
       initialized.current = true;
     }
-  // Depend on typedVendorProfile so this runs when data arrives, not just profile.uid
+
+    // Always sync packages from server (packages are managed via their own endpoints)
+    const serverPkgs = Array.isArray(typedVendorProfile.packages)
+      ? typedVendorProfile.packages.filter((p: any) => p?.name)
+      : [];
+    setPackages(serverPkgs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typedVendorProfile]);
 
@@ -263,20 +261,33 @@ export default function BusinessProfile() {
       showToast("Name & price required", "error");
       return;
     }
+    const optimistic: VendorPackage = {
+      name: packageForm.name,
+      price: Number(packageForm.price),
+      description: packageForm.description,
+      servicesIncluded: packageForm.servicesIncluded.split(",").map(s => s.trim()).filter(Boolean),
+    };
+    // Optimistically show the package immediately
+    setPackages(prev => [...prev, optimistic]);
+    setPackageForm(initialPackage);
     setAddingPackage(true);
     try {
       const updated = await addVendorPackage({
-        name: packageForm.name,
-        price: Number(packageForm.price),
-        description: packageForm.description,
-        servicesIncluded: packageForm.servicesIncluded.split(",").map(s => s.trim()).filter(Boolean),
+        name: optimistic.name!,
+        price: optimistic.price!,
+        description: optimistic.description,
+        servicesIncluded: optimistic.servicesIncluded as string[],
       });
-      const savedPackages = (updated as any)?.packages ?? [];
-      setPackages(savedPackages.filter((p: any) => p?.name));
-      setPackageForm(initialPackage);
-      showToast("Package added!", "success");
+      // Replace with server response (which has real _ids) if available
+      const serverPkgs: VendorPackage[] = (updated as any)?.packages ?? [];
+      if (serverPkgs.length > 0) {
+        setPackages(serverPkgs.filter((p) => p?.name));
+      }
+      showToast("Package saved!", "success");
     } catch (err: any) {
-      showToast(err?.message || "Failed to add package", "error");
+      // Revert optimistic add on failure
+      setPackages(prev => prev.filter(p => p !== optimistic));
+      showToast(err?.message || "Failed to save package", "error");
     } finally {
       setAddingPackage(false);
     }
@@ -284,17 +295,25 @@ export default function BusinessProfile() {
 
   const deletePackage = async (pkg: VendorPackage, index: number) => {
     const id = pkg._id;
+    // Optimistically remove
+    setPackages(prev => prev.filter((_, i) => i !== index));
     setRemovingPackageId(id ?? String(index));
     try {
       if (id) {
         const updated = await removeVendorPackage(id);
-        const savedPackages = (updated as any)?.packages ?? [];
-        setPackages(savedPackages.filter((p: any) => p?.name));
-      } else {
-        setPackages(p => p.filter((_, i) => i !== index));
+        const serverPkgs: VendorPackage[] = (updated as any)?.packages ?? [];
+        if (serverPkgs.length > 0 || (updated as any)?.packages !== undefined) {
+          setPackages(serverPkgs.filter((p) => p?.name));
+        }
       }
       showToast("Package removed", "success");
     } catch (err: any) {
+      // Revert on failure
+      setPackages(prev => {
+        const copy = [...prev];
+        copy.splice(index, 0, pkg);
+        return copy;
+      });
       showToast(err?.message || "Failed to remove package", "error");
     } finally {
       setRemovingPackageId(null);
