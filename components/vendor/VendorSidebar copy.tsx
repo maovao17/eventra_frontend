@@ -65,10 +65,6 @@ export default function VendorSidebar() {
           Business Profile
         </Link>
 
-        <Link href="/vendor/services" className="block rounded-xl px-5 py-3 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-all">
-          Services
-        </Link>
-
         <Link href="/vendor/reminders" className="block rounded-xl px-5 py-3 text-sm font-medium hover:bg-[var(--primary-light)] hover:text-[var(--primary)] transition-all">
           Notifications
         </Link>

@@ -107,6 +107,7 @@ export default function BusinessProfile() {
   const initialized = useRef(false);
 
   useEffect(() => {
+    // Re-run when vendor data arrives (not just when profile.uid changes)
     if (typedVendorProfile && !initialized.current) {
       setForm({
         businessName: String(typedVendorProfile.businessName || typedVendorProfile.name || ""),
@@ -116,11 +117,16 @@ export default function BusinessProfile() {
         experience: String(typedVendorProfile.experience || ""),
         profileImage: String(typedVendorProfile.profileImage || typedVendorProfile.image || ""),
       });
-      setPackages(Array.isArray(typedVendorProfile.packages) ? typedVendorProfile.packages : []);
+
+      // Only show packages that have a name (filter out corrupted stub entries)
+      const validPackages = Array.isArray(typedVendorProfile.packages)
+        ? typedVendorProfile.packages.filter((p: any) => p?.name)
+        : [];
+      setPackages(validPackages);
 
       // Load portfolio into local state
       const existingPortfolio = Array.isArray(typedVendorProfile.portfolio)
-        ? typedVendorProfile.portfolio.map(item => item.url || "").filter(Boolean)
+        ? typedVendorProfile.portfolio.map((item: any) => item?.url || "").filter(Boolean)
         : Array.isArray(typedVendorProfile.gallery)
         ? typedVendorProfile.gallery
         : [];
@@ -130,7 +136,9 @@ export default function BusinessProfile() {
       setProfileImagePreview(resolveImageUrl(img));
       initialized.current = true;
     }
-  }, [profile?.uid]);
+  // Depend on typedVendorProfile so this runs when data arrives, not just profile.uid
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typedVendorProfile]);
 
   const onFormChange = (key: keyof typeof form, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
