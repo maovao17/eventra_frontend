@@ -1,73 +1,59 @@
-export default function UpcomingEventsTable(){
-return(
+"use client";
 
-<div className="theme-card p-6 mt-6">
+import Link from "next/link";
+import { useVendorData } from "@/context/VendorContext";
 
-<div className="flex justify-between mb-4">
-<h2 className="text-lg font-semibold">
-Upcoming Events
-</h2>
+export default function UpcomingEventsTable() {
+  const { dashboard } = useVendorData();
+  const events: any[] = dashboard?.upcomingEvents ?? [];
 
-<span className="theme-primary text-sm cursor-pointer">
-View All Events
-</span>
-</div>
+  return (
+    <div className="theme-card p-6 mt-6">
+      <div className="flex justify-between mb-4 items-center">
+        <h2 className="text-lg font-semibold">Upcoming Events</h2>
+        <Link href="/vendor/events" className="theme-primary text-sm hover:underline">
+          View All
+        </Link>
+      </div>
 
-<table className="w-full text-sm">
-
-<thead className="border-b theme-muted">
-<tr>
-<th className="py-3 text-left">Event Name</th>
-<th>Client</th>
-<th>Date</th>
-<th>Location</th>
-<th>Guests</th>
-<th>Status</th>
-</tr>
-</thead>
-
-<tbody>
-
-<tr className="border-b">
-<td className="py-4"><b>Birthday Party</b></td>
-<td>Aiden Fernandes</td>
-<td>12 Dec 2025</td>
-<td>Panaji, North Goa</td>
-<td>120 Guests</td>
-<td className="text-green-600">Confirmed</td>
-</tr>
-
-<tr className="border-b">
-<td className="py-4"><b>Housewarming</b></td>
-<td>Clara Pereira</td>
-<td>20 Dec 2025</td>
-<td>Margao, South Goa</td>
-<td>45 Guests</td>
-<td className="text-yellow-600">Pending Final Payment</td>
-</tr>
-
-<tr className="border-b">
-<td className="py-4"><b>Baptism</b></td>
-<td>Ryan Rodrigues</td>
-<td>05 Jan 2026</td>
-<td>Benaulim, South Goa</td>
-<td>80 Guests</td>
-<td className="theme-secondary">Contract Signed</td>
-</tr>
-
-<tr>
-<td className="py-4"><b>Susegad Corporate Brunch</b></td>
-<td>Goa Tech Hub</td>
-<td>15 Jan 2026</td>
-<td>Candolim</td>
-<td>60 Guests</td>
-<td className="text-green-600">Confirmed</td>
-</tr>
-
-</tbody>
-
-</table>
-
-</div>
-
-)}
+      {events.length === 0 ? (
+        <p className="theme-muted text-sm py-4 text-center">
+          No upcoming events yet. Accepted bookings will appear here.
+        </p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="border-b theme-muted">
+            <tr>
+              <th className="py-3 text-left">Event</th>
+              <th className="py-3 text-left">Date</th>
+              <th className="py-3 text-left">Location</th>
+              <th className="py-3 text-left">Guests</th>
+              <th className="py-3 text-left">Amount</th>
+              <th className="py-3 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((event) => (
+              <tr key={event.id} className="border-b last:border-0">
+                <td className="py-3 font-medium">{event.eventType || "Event"}</td>
+                <td className="py-3 theme-muted">{event.date || "—"}</td>
+                <td className="py-3 theme-muted">{event.location || "—"}</td>
+                <td className="py-3 theme-muted">{event.guests || 0}</td>
+                <td className="py-3">₹{Number(event.amount || 0).toLocaleString("en-IN")}</td>
+                <td className="py-3">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    event.status === "confirmed"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-amber-100 text-amber-800"
+                  }`}>
+                    {event.status === "confirmed" ? "Confirmed" : "Awaiting Payment"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}

@@ -20,6 +20,7 @@ interface Props {
   avatar: string
   status: "pending" | "accepted" | "rejected"
   bookingId?: string
+  packageName?: string
   onAccept?: () => void
   onDecline?: () => void
   onDetails?: () => void
@@ -37,6 +38,7 @@ export default function BookingCard({
   avatar,
   status,
   bookingId,
+  packageName,
   onAccept,
   onDecline,
   onDetails,
@@ -56,10 +58,15 @@ export default function BookingCard({
           <h3 className="font-semibold text-[var(--text-main)]">
             {name}
           </h3>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className="theme-surface text-xs px-2 py-1 rounded-full">
               {event}
             </span>
+            {packageName && (
+              <span className="bg-[var(--primary-light)] text-[var(--primary)] text-xs px-2 py-1 rounded-full">
+                {packageName}
+              </span>
+            )}
             <span className={`text-xs px-2 py-1 rounded-full ${
               status === "accepted"
                 ? "bg-[var(--primary-light)] text-[var(--primary)]"
@@ -124,11 +131,11 @@ export default function BookingCard({
             Details
           </button>
         )}
-        {status === "accepted" && onChat && bookingId && (
-          <button 
+        {status === "accepted" && onChat && (
+          <button
             onClick={onChat}
             disabled={disabled}
-            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm"
+            className="flex items-center gap-2 bg-[var(--primary)] hover:opacity-90 text-white px-4 py-2 rounded-md text-sm"
           >
             <MessageCircle size={16}/>
             Chat

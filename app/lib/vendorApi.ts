@@ -19,6 +19,11 @@ export const getVendorMe = async (): Promise<any> => {
   return (response as any)?.data ?? response;
 }
 
+export const getVendorDashboard = async (): Promise<any> => {
+  const response = await apiFetch(`/vendors/dashboard`);
+  return (response as any)?.data ?? response;
+}
+
 export const saveVendorProfile = async (payload: Record<string, unknown>): Promise<any> => {
   console.log("📡 PATCH /vendors/profile:", payload);
   return apiFetch(`/vendors/profile`, {

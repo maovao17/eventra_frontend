@@ -95,7 +95,10 @@ export default function VendorUpcomingEventsPage() {
             </div>
             <p className="text-sm text-gray-500">{event.eventDetails?.date || "Date pending"} • {event.eventDetails?.time || "Time pending"}</p>
             <p className="text-sm text-gray-500">{event.eventDetails?.location || "Location pending"}</p>
-            <p className="text-sm text-gray-500">Guests: {Number(event.eventDetails?.guests || 0)} • Amount: ₹{Number(event.amount || 0).toLocaleString("en-IN")}</p>
+            <p className="text-sm text-gray-500">
+              Guests: {Number(event.eventDetails?.guests || 0)} •{" "}
+              {event.amount ? `₹${Number(event.amount).toLocaleString("en-IN")}` : "Amount: agreed via chat"}
+            </p>
           </div>
         ))}
       </div>

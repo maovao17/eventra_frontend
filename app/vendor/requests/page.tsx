@@ -45,6 +45,7 @@ type BookingCardItem = {
   price: string
   avatar: string
   status: RequestStatus
+  packageName: string
 }
 
 export default function Requests() {
@@ -84,20 +85,22 @@ export default function Requests() {
   }, [profile?.uid])
 
   const vendorRequests = useMemo<BookingCardItem[]>(() => {
-    return requests.map((request) => ({
-      requestId: String(request._id),
-      bookingId: String(request.booking?._id || ""),
-      name: request.customer?.name || "Customer",
-      event: request.event?.name || request.event?.eventType || "Event",
-      date: request.event?.eventDate || "Date pending",
-      location: request.event?.location?.label || "Location pending",
-      guests: Number(request.event?.guestCount || 0),
-      price: request.booking?.amount
-        ? `₹${Number(request.booking.amount).toLocaleString("en-IN")}`
-        : "TBD",
-      avatar: "/eventra_photos/profile.png",
-      status: request.status as RequestStatus,
-    }))
+    return requests.map((request) => {
+      const amount = (request as any).amount || request.booking?.amount
+      return {
+        requestId: String(request._id),
+        bookingId: String(request.booking?._id || ""),
+        name: request.customer?.name || "Customer",
+        event: request.event?.name || request.event?.eventType || "Event",
+        date: request.event?.eventDate || "Date pending",
+        location: request.event?.location?.label || "Location pending",
+        guests: Number(request.event?.guestCount || 0),
+        price: amount ? `₹${Number(amount).toLocaleString("en-IN")}` : "No package selected",
+        packageName: String((request as any).packageName || ""),
+        avatar: "/eventra_photos/profile.png",
+        status: request.status as RequestStatus,
+      }
+    })
   }, [requests])
 
   const updateBookingStatusHandler = async (index: number, status: "accepted" | "rejected") => {
@@ -187,6 +190,7 @@ export default function Requests() {
             price={b.price}
             avatar={b.avatar}
             bookingId={b.bookingId}
+            packageName={b.packageName}
             status={b.status}
             onAccept={b.status === "pending" ? () => void updateBookingStatusHandler(i, "accepted") : undefined}
             onDecline={b.status === "pending" ? () => void updateBookingStatusHandler(i, "rejected") : undefined}

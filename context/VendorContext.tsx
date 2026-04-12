@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { getVendorMe, saveVendorProfile as apiSaveVendorProfile, updateVendorBookingStatus} from '@/app/lib/vendorApi';
+import { getVendorMe, getVendorDashboard, saveVendorProfile as apiSaveVendorProfile, updateVendorBookingStatus} from '@/app/lib/vendorApi';
 import { getSocket, onSocketConnect, onSocketDisconnect } from '@/app/lib/socket';
 import type { Booking, Notification } from '@/app/types/eventra';
 
@@ -14,8 +14,8 @@ type VendorContextType = {
   vendorProfile: any;
   loadingProfile: boolean;
   isMutating: boolean;
-  dashboard?: any;
-  loadingDashboard?: boolean;
+  dashboard: any;
+  loadingDashboard: boolean;
   refreshVendorProfile: () => Promise<void>;
   saveVendorProfile: (data: any) => Promise<any>;
   updateBookingStatus: (bookingId: string, status: VendorBookingStatus) => Promise<boolean>;
@@ -30,28 +30,33 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
   const [vendorProfile, setVendorProfile] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
-  
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
+
   const hasInitialized = useRef(false);
   const isUpdating = useRef(false);
 
   const refreshVendorProfile = useCallback(async () => {
     if (!profile?.uid || profile.role !== "vendor" || loadingProfile) {
-      console.log("⏳ Skip fetch - loading or invalid");
       return;
     }
 
-    console.log("🔄 REFRESH VENDOR PROFILE");
     setLoadingProfile(true);
+    setLoadingDashboard(true);
     try {
-      const res = await getVendorMe();
-      console.log("PROFILE:", res);
+      const [res, dash] = await Promise.all([
+        getVendorMe(),
+        getVendorDashboard().catch(() => null),
+      ]);
       setVendorProfile(res || null);
+      setDashboard(dash || null);
     } catch (error) {
-      console.error(" PROFILE ERROR:", error);
+      console.error("PROFILE ERROR:", error);
       setVendorProfile(null);
       showToast("Failed to load profile", "error");
     } finally {
       setLoadingProfile(false);
+      setLoadingDashboard(false);
     }
   }, [profile?.uid, profile?.role, loadingProfile, showToast]);
 
@@ -118,8 +123,8 @@ export const VendorProvider = ({ children }: { children: ReactNode }) => {
       vendorProfile,
       loadingProfile,
       isMutating,
-      dashboard: vendorProfile?.dashboard || null,
-      loadingDashboard: loadingProfile,
+      dashboard,
+      loadingDashboard,
       refreshVendorProfile,
       saveVendorProfile,
       updateBookingStatus,

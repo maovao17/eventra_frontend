@@ -293,14 +293,45 @@ function BookingDetailsPageContent() {
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
-            <MapPin size={16} />
-            {booking.location || event?.location?.label || "Location pending"}
-          </div>
+          {(() => {
+            const locationStr = booking.location || event?.location?.label || "";
+            return (
+              <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+                <MapPin size={16} />
+                {locationStr || "Location pending"}
+                {locationStr && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationStr)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-2 text-xs text-[var(--primary)] underline"
+                  >
+                    View on map ↗
+                  </a>
+                )}
+              </div>
+            );
+          })()}
 
-          <div className="mt-4 h-40 rounded-lg bg-gray-200 flex items-center justify-center">
-            Map Preview
-          </div>
+          {(() => {
+            const locationStr = booking.location || event?.location?.label || "";
+            return locationStr ? (
+              <div className="mt-3 h-40 rounded-lg overflow-hidden border">
+                <iframe
+                  title="Event location"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(locationStr)}&output=embed&z=14`}
+                />
+              </div>
+            ) : (
+              <div className="mt-3 h-40 rounded-lg bg-gray-100 flex items-center justify-center text-sm text-gray-400">
+                Location not provided
+              </div>
+            );
+          })()}
         </div>
 
         <div className="bg-white border rounded-xl p-5">
@@ -340,7 +371,11 @@ function BookingDetailsPageContent() {
 
             <div className="flex justify-between">
               <span>Booking Amount</span>
-              <span className="text-green-600">₹{Number(booking.price || booking.amount || 0).toLocaleString("en-IN")}</span>
+              <span className="text-green-600">
+                {(booking.price || booking.amount)
+                  ? `₹${Number(booking.price || booking.amount).toLocaleString("en-IN")}`
+                  : <span className="text-amber-600 text-sm">Agreed via chat</span>}
+              </span>
             </div>
 
             <div className="flex justify-between">

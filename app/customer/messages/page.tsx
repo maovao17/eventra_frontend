@@ -30,13 +30,16 @@ function MessagesPageContent() {
         const booking = bookings.find(
           (b) => b.requestId === requestId || b.requestId === r.id,
         )
+        const bookingId = String((booking as any)?._id || booking?.id || "")
         return {
           requestId,
+          bookingId,
           vendorName: vendor?.name ?? "Vendor",
           amount: Number(booking?.amount ?? (r as any).amount ?? 0),
           bookingStatus: booking?.status ?? null,
           paymentStatus: booking?.paymentStatus ?? null,
           isConfirmed: booking?.status === "confirmed" || booking?.paymentStatus === "paid",
+          isCompleted: booking?.status === "completed",
         }
       })
       .filter((c) => Boolean(c.requestId))
@@ -81,7 +84,9 @@ function MessagesPageContent() {
               >
                 <p className="font-semibold">{chat.vendorName}</p>
                 <p className="theme-muted mt-1 text-sm">
-                  {chat.isConfirmed
+                  {chat.isCompleted
+                    ? "Event completed — leave a review!"
+                    : chat.isConfirmed
                     ? "Booking confirmed"
                     : "Tap to open chat"}{" "}
                   {chat.amount > 0 && `• ${formatCurrency(chat.amount)}`}
@@ -95,18 +100,16 @@ function MessagesPageContent() {
                   onClick={() =>
                     router.push(`/chat/${getChatIdForRequest(chat.requestId)}`)
                   }
-                  className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-gray-50 transition"
+                  className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-[var(--primary-light)] transition"
                 >
                   Chat
                 </button>
 
-                {!chat.isConfirmed && (
+                {!chat.isConfirmed && !chat.isCompleted && (
                   <button
                     type="button"
                     onClick={() =>
-                      router.push(
-                        `/customer/payment?requestId=${chat.requestId}`,
-                      )
+                      router.push(`/customer/payment?requestId=${chat.requestId}`)
                     }
                     className="rounded-xl theme-button px-4 py-2 text-sm font-medium"
                   >
@@ -114,10 +117,22 @@ function MessagesPageContent() {
                   </button>
                 )}
 
-                {chat.isConfirmed && (
+                {chat.isConfirmed && !chat.isCompleted && (
                   <span className="rounded-xl bg-green-100 text-green-800 px-3 py-2 text-sm font-medium">
                     Paid ✓
                   </span>
+                )}
+
+                {chat.isCompleted && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      router.push(`/customer/review?bookingId=${chat.bookingId}`)
+                    }
+                    className="rounded-xl bg-[var(--primary)] text-white px-4 py-2 text-sm font-medium hover:opacity-90 transition"
+                  >
+                    Leave Review ★
+                  </button>
                 )}
               </div>
             </div>
