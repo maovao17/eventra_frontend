@@ -191,16 +191,18 @@ function PaymentsPageContent() {
         
         <div className="mt-6 space-y-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm">Accepted booking</span>
-            <span className="font-medium">{formatCurrency(total)}</span>
+            <span className="text-sm">Vendor service</span>
+            <span className="font-medium">
+              {total > 0 ? formatCurrency(total) : <span className="text-amber-600 text-sm">Agreed via chat</span>}
+            </span>
           </div>
           <div className="border-t pt-4 flex justify-between items-center">
             <span className="font-medium">Subtotal</span>
-            <span className="font-medium">{formatCurrency(total)}</span>
+            <span className="font-medium">{total > 0 ? formatCurrency(total) : "—"}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted">Platform Fee</span>
-            <span className="text-sm text-muted">{formatCurrency(PLATFORM_FEE)}</span>
+            <span className="text-sm theme-muted">Platform Fee</span>
+            <span className="text-sm theme-muted">{formatCurrency(PLATFORM_FEE)}</span>
           </div>
         </div>
 
