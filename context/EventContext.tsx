@@ -607,7 +607,7 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
           vendorId: request.vendorId,
           vendorName: vendor?.name ?? "Vendor",
           category: vendor?.category ?? "Vendor Service",
-          amount: booking?.amount ?? vendor?.price ?? 0,
+          amount: booking?.amount || (request as any)?.amount || vendor?.price || 0,
           bookingStatus: booking?.status,
           paymentStatus: booking?.paymentStatus,
         }

@@ -23,7 +23,7 @@ function PaymentsPageContent() {
   const { formatCurrency, refreshData } = useEvent()
   const { showToast } = useToast()
   const requestId = searchParams.get("requestId")
-  const [request, setRequest] = useState<null | { status?: string }>(null)
+  const [request, setRequest] = useState<null | { status?: string; amount?: number }>(null)
   const [booking, setBooking] = useState<null | Booking>(null)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
@@ -58,7 +58,7 @@ function PaymentsPageContent() {
     void fetchData()
   }, [requestId])
 
-  const total = booking?.amount ?? 0
+  const total = booking?.amount || request?.amount || 0
   const platformFee = calculatePlatformFee(total)
   const finalTotal = total + platformFee
 
@@ -215,7 +215,7 @@ function PaymentsPageContent() {
           </p>
           <p className="mt-4 text-4xl font-bold">{formatCurrency(finalTotal)}</p>
           <p className="mt-3 text-sm text-white/80">
-            Includes booking total and platform coordination fee.
+            Total amount due for this booking.
           </p>
         </div>
 
