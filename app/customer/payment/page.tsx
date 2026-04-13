@@ -23,8 +23,9 @@ function PaymentsPageContent() {
   const { formatCurrency, refreshData } = useEvent()
   const { showToast } = useToast()
   const requestId = searchParams.get("requestId")
-  const [request, setRequest] = useState<null | { status?: string; amount?: number }>(null)
+  const [request, setRequest] = useState<null | { status?: string; amount?: number; vendorId?: string; packageName?: string }>(null)
   const [booking, setBooking] = useState<null | Booking>(null)
+  const [resolvedAmount, setResolvedAmount] = useState(0)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -38,17 +39,33 @@ function PaymentsPageContent() {
       }
 
       try {
-        const requestData = await apiFetch(`/requests/${requestId}`) as { status?: string }
+        const requestData = await apiFetch(`/requests/${requestId}`) as { status?: string; amount?: number; vendorId?: string; packageName?: string }
         setRequest(requestData)
 
         const bookingResponse = await apiFetch(`/bookings/by-request/${requestId}`)
         const raw = bookingResponse as (Booking & { _id?: string }) | null
+        let normalizedBooking: Booking | null = null
         if (raw) {
-          // Normalise _id → id so downstream checks on booking.id work
-          setBooking({ ...raw, id: raw.id || raw._id || "" })
+          normalizedBooking = { ...raw, id: raw.id || raw._id || "" }
+          setBooking(normalizedBooking)
         } else {
           setBooking(null)
         }
+
+        // Resolve amount: booking → request → vendor package fallback
+        let amount = Number(normalizedBooking?.amount ?? 0) || Number(requestData?.amount ?? 0)
+        if (amount === 0 && requestData?.vendorId) {
+          try {
+            const vendorData = await apiFetch(`/vendors/${requestData.vendorId}`) as any
+            const packages: Array<{ name: string; price: number }> = vendorData?.packages ?? []
+            const pkgName = requestData.packageName ?? ""
+            const pkg =
+              (pkgName && packages.find((p) => p.name === pkgName && Number(p.price) > 0)) ||
+              packages.find((p) => Number(p.price) > 0)
+            if (pkg) amount = Number(pkg.price)
+          } catch { /* ignore */ }
+        }
+        setResolvedAmount(amount)
       } catch {
         setError('Could not load payment details')
       } finally {
@@ -58,7 +75,7 @@ function PaymentsPageContent() {
     void fetchData()
   }, [requestId])
 
-  const total = booking?.amount || request?.amount || 0
+  const total = resolvedAmount
   const platformFee = calculatePlatformFee(total)
   const finalTotal = total + platformFee
 
@@ -193,13 +210,11 @@ function PaymentsPageContent() {
         <div className="mt-6 space-y-4">
           <div className="flex justify-between items-center">
             <span className="text-sm">Vendor service</span>
-            <span className="font-medium">
-              {total > 0 ? formatCurrency(total) : <span className="text-amber-600 text-sm">Agreed via chat</span>}
-            </span>
+            <span className="font-medium">{formatCurrency(total)}</span>
           </div>
           <div className="border-t pt-4 flex justify-between items-center">
             <span className="font-medium">Subtotal</span>
-            <span className="font-medium">{total > 0 ? formatCurrency(total) : "—"}</span>
+            <span className="font-medium">{formatCurrency(total)}</span>
           </div>
           {platformFee > 0 && (
             <div className="flex justify-between items-center">
@@ -222,8 +237,8 @@ function PaymentsPageContent() {
         <button
           type="button"
           onClick={handlePayment}
-          disabled={submitting}
-          className="theme-button mt-8 rounded-xl px-6 py-3"
+          disabled={submitting || total === 0}
+          className="theme-button mt-8 rounded-xl px-6 py-3 disabled:opacity-50"
         >
           {submitting ? "Processing..." : "Confirm Payment"}
         </button>

@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useEvent } from "@/context/EventContext"
 import { EmptyState, PageCardSkeleton } from "@/components/ui/PageState"
-import { apiFetch } from "@/app/lib/api"
-import { getChatIdForBooking } from "@/lib/chat"
 
 function VendorMessagesContent() {
   const router = useRouter()
@@ -78,7 +76,7 @@ function VendorMessagesContent() {
               <div className="flex items-center justify-between gap-4">
                 <button
                   type="button"
-                  onClick={() => router.push(`/chat/${getChatIdForBooking(chat.bookingId)}`)}
+                  onClick={() => router.push(`/chat/request-${chat.requestId}`)}
                   className="flex-1 text-left"
                 >
                   <div>
@@ -93,21 +91,7 @@ function VendorMessagesContent() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     type="button"
-                    onClick={async () => {
-                      console.log('CONSOLE LOG: Clicking Chat for booking:', chat.bookingId);
-                      try {
-                        const res = await apiFetch("/chats/init", {
-                          method: "POST",
-                          body: JSON.stringify({ bookingId: chat.bookingId }),
-                        });
-                        console.log('CONSOLE LOG: /chats/init response:', JSON.stringify(res, null, 2));
-                        const chatId = res.chatId || getChatIdForBooking(chat.bookingId);
-                        console.log('CONSOLE LOG: Navigating to chat:', `/chat/${chatId}`);
-                        router.push(`/chat/${chatId}`);
-                      } catch (error) {
-                        console.error("Failed to init chat:", error);
-                      }
-                    }}
+                    onClick={() => router.push(`/chat/request-${chat.requestId}`)}
                     className="rounded-xl border px-3 py-2 text-sm font-medium hover:bg-gray-50 transition"
                   >
                     Chat

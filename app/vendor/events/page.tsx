@@ -93,8 +93,14 @@ export default function VendorUpcomingEventsPage() {
                 {event.status === "confirmed" ? "Confirmed" : "Awaiting Payment"}
               </span>
             </div>
-            <p className="text-sm text-gray-500">{event.eventDetails?.date || "Date pending"} • {event.eventDetails?.time || "Time pending"}</p>
-            <p className="text-sm text-gray-500">{event.eventDetails?.location || "Location pending"}</p>
+            {(event.eventDetails?.date || event.eventDetails?.time) && (
+              <p className="text-sm text-gray-500">
+                {[event.eventDetails?.date, event.eventDetails?.time].filter(Boolean).join(" • ")}
+              </p>
+            )}
+            {event.eventDetails?.location && (
+              <p className="text-sm text-gray-500">{event.eventDetails.location}</p>
+            )}
             <p className="text-sm text-gray-500">
               Guests: {Number(event.eventDetails?.guests || 0)} •{" "}
               {event.amount ? `₹${Number(event.amount).toLocaleString("en-IN")}` : "Amount: agreed via chat"}

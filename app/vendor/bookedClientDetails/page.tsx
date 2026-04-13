@@ -190,9 +190,9 @@ function BookingDetailsPageContent() {
       return;
     }
 
-    // Create chat
+    // Create chat keyed by requestId for consistency
     await initializeChatThread({
-      bookingId: booking._id,
+      requestId: booking.requestId,
     });
 
     setSuccess("Booking accepted and chat created!");
@@ -277,15 +277,19 @@ function BookingDetailsPageContent() {
           </h2>
 
           <div className="grid grid-cols-3 gap-6 text-sm">
-            <div>
-              <p className="text-gray-500">Event Date</p>
-              <p className="font-medium">{booking.date || event?.eventDate || "Date pending"}</p>
-            </div>
+            {(booking.date || event?.eventDate) && (
+              <div>
+                <p className="text-gray-500">Event Date</p>
+                <p className="font-medium">{booking.date || event?.eventDate}</p>
+              </div>
+            )}
 
-            <div>
-              <p className="text-gray-500">Time</p>
-              <p className="font-medium">{booking.time || "Time pending"}</p>
-            </div>
+            {booking.time && (
+              <div>
+                <p className="text-gray-500">Time</p>
+                <p className="font-medium">{booking.time}</p>
+              </div>
+            )}
 
             <div>
               <p className="text-gray-500">Guest Count</p>
@@ -293,45 +297,20 @@ function BookingDetailsPageContent() {
             </div>
           </div>
 
-          {(() => {
-            const locationStr = booking.location || event?.location?.label || "";
-            return (
-              <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
-                <MapPin size={16} />
-                {locationStr || "Location pending"}
-                {locationStr && (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationStr)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-2 text-xs text-[var(--primary)] underline"
-                  >
-                    View on map ↗
-                  </a>
-                )}
-              </div>
-            );
-          })()}
-
-          {(() => {
-            const locationStr = booking.location || event?.location?.label || "";
-            return locationStr ? (
-              <div className="mt-3 h-40 rounded-lg overflow-hidden border">
-                <iframe
-                  title="Event location"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  loading="lazy"
-                  src={`https://maps.google.com/maps?q=${encodeURIComponent(locationStr)}&output=embed&z=14`}
-                />
-              </div>
-            ) : (
-              <div className="mt-3 h-40 rounded-lg bg-gray-100 flex items-center justify-center text-sm text-gray-400">
-                Location not provided
-              </div>
-            );
-          })()}
+          {(booking.location || event?.location?.label) && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+              <MapPin size={16} />
+              <span>{booking.location || event?.location?.label}</span>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.location || event?.location?.label || "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-2 text-xs text-[var(--primary)] underline"
+              >
+                View on map ↗
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="bg-white border rounded-xl p-5">
