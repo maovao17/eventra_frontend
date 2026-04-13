@@ -26,55 +26,57 @@ export default function VendorCard({
       whileHover={{ y: -6, scale: 1.03 }}
       className="theme-card overflow-hidden transition hover:shadow-lg"
     >
-        <div className="relative h-44">
-          <Image
-            src={resolveImage(vendor.image)}
-            alt={vendor.name}
-            fill
-            className="rounded-t-xl object-cover"
-          />
+      <div className="relative h-44">
+        <Image
+          src={resolveImage(vendor.image || "/default.jpg")}
+          alt={vendor.name}
+          fill
+          className="rounded-t-xl object-cover"
+          onError={() => {
+            console.log("Image failed to load");
+          }}
+        />
+      </div>
+
+      <div className="p-4 space-y-2">
+
+        <h3 className="font-semibold">
+          {vendor.name}
+        </h3>
+
+        <p className="theme-muted text-sm">
+          {vendor.category}
+        </p>
+
+        <p className="theme-muted text-xs">
+          {vendor.responseTime}
+        </p>
+
+        <div className="flex justify-between items-center">
+
+          <span className="theme-primary font-bold">
+            ₹{vendor.price.toLocaleString("en-IN")}
+          </span>
         </div>
 
-        <div className="p-4 space-y-2">
+        <div className="mt-4 flex gap-3">
+          <Link
+            href={`/vendors/${vendor.id}`}
+            className="flex-1 rounded-xl border px-4 py-2 text-center text-sm"
+          >
+            View Profile
+          </Link>
 
-          <h3 className="font-semibold">
-            {vendor.name}
-          </h3>
-
-          <p className="theme-muted text-sm">
-            {vendor.category}
-          </p>
-
-          <p className="theme-muted text-xs">
-            {vendor.responseTime}
-          </p>
-
-          <div className="flex justify-between items-center">
-
-            <span className="theme-primary font-bold">
-              ₹{vendor.price.toLocaleString("en-IN")}
-            </span>
-          </div>
-
-          <div className="mt-4 flex gap-3">
-            <Link
-              href={`/vendors/${vendor.id}`}
-              className="flex-1 rounded-xl border px-4 py-2 text-center text-sm"
-            >
-              View Profile
-            </Link>
-
-            <button
-              type="button"
-              onClick={onRequest}
-              className={`flex-1 rounded-xl px-4 py-2 text-sm ${
-                requested ? "bg-[var(--primary-light)] text-[var(--primary)]" : "theme-button"
+          <button
+            type="button"
+            onClick={onRequest}
+            className={`flex-1 rounded-xl px-4 py-2 text-sm ${requested ? "bg-[var(--primary-light)] text-[var(--primary)]" : "theme-button"
               }`}
-            >
-              {requested ? "Request Sent" : "Send Request"}
-            </button>
-          </div>
+          >
+            {requested ? "Request Sent" : "Send Request"}
+          </button>
         </div>
+      </div>
     </motion.div>
   );
 }

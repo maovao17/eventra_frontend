@@ -56,7 +56,6 @@ export default function VendorDetailPage() {
       const packageAmount = selectedPackage?.price ?? 0;
       const packageName = selectedPackage?.name ?? "";
 
-      // Send request with package price as the agreed amount
       const response = await apiFetch("/requests", {
         method: "POST",
         body: JSON.stringify({
@@ -91,7 +90,6 @@ export default function VendorDetailPage() {
       try {
         const data = await apiFetch(`/vendors/${vendorId}`)
         setVendor(data ?? null)
-        // Auto-select first valid package (must have name and price)
         console.log("Raw vendor packages:", data?.packages);
 
         const validPkgs = ((data as any)?.packages ?? []).filter(
