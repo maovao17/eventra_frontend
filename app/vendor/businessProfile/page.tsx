@@ -318,7 +318,7 @@ export default function BusinessProfile() {
     }
   };
 
-  if (loadingProfile) {
+  if (loadingProfile && !typedVendorProfile) {
     return (
       <div className="space-y-4 p-8 text-center">
         <div className="w-8 h-8 border-2 border-gray-200 border-t-[var(--primary)] rounded-full animate-spin mx-auto" />
