@@ -60,7 +60,6 @@ export default function VendorDetailPage() {
       const response = await apiFetch("/requests", {
         method: "POST",
         body: JSON.stringify({
-          customerId: "", // filled by backend from token
           vendorId: String(vendor._id),
           eventId: currentEvent.id,
           amount: packageAmount,
@@ -331,9 +330,7 @@ export default function VendorDetailPage() {
                 ? "Sending..."
                 : existingRequest
                   ? "Request Sent ✓"
-                  : selectedPackage
-                    ? `Book ${selectedPackage.name}`
-                    : "Send Request"}
+                  : "Send Request"}
             </button>
 
             {existingRequest && (
