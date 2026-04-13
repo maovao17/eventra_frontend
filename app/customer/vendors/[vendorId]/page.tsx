@@ -31,7 +31,7 @@ export default function VendorDetailPage() {
     );
   }
 
-  const { currentEvent, getRequestForVendor } = useEvent()
+  const { currentEvent, getRequestForVendor, refreshData } = useEvent()
   const { showToast } = useToast()
   const [vendor, setVendor] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -73,6 +73,7 @@ export default function VendorDetailPage() {
             : "Request sent successfully.",
           "success"
         );
+        await refreshData();
       } else {
         showToast("Could not send vendor request.", "error");
       }
@@ -90,13 +91,12 @@ export default function VendorDetailPage() {
       try {
         const data = await apiFetch(`/vendors/${vendorId}`)
         setVendor(data ?? null)
-        console.log("Raw vendor packages:", data?.packages);
 
-        const validPkgs = ((data as any)?.packages ?? []).filter(
-          (p: any) => p?.name && Number(p?.price) > 0
-        ); if (validPkgs.length > 0) {
-          setSelectedPackage(validPkgs[0])
-        }
+        // Auto-select: prefer first package with a price, else first with any name
+        const allPkgs = ((data as any)?.packages ?? []).filter((p: any) => p?.name)
+        const pricedPkg = allPkgs.find((p: any) => Number(p?.price) > 0)
+        if (pricedPkg) setSelectedPackage(pricedPkg)
+        else if (allPkgs.length > 0) setSelectedPackage(allPkgs[0])
       } catch (fetchError) {
         const message = fetchError instanceof Error ? fetchError.message : "Vendor not found"
         setError(message)
@@ -199,13 +199,13 @@ export default function VendorDetailPage() {
               <p className="theme-muted mt-4 max-w-2xl text-lg">{vendor.description}</p>
             )}
 
-            {/* Packages — only show entries that have a name and price */}
-            {vendor.packages?.filter((p: any) => p?.name && Number(p?.price) > 0).length > 0 && (
+            {/* Packages — show all entries that have a name */}
+            {vendor.packages?.filter((p: any) => p?.name).length > 0 && (
               <div className="mt-8">
                 <h2 className="text-xl font-semibold mb-4">Service Packages</h2>
                 <p className="theme-muted text-sm mb-4">Select a package before sending a request.</p>
                 <div className="space-y-3">
-                  {vendor.packages.filter((p: any) => p?.name && Number(p?.price) > 0).map((pkg: any, index: number) => {
+                  {vendor.packages.filter((p: any) => p?.name).map((pkg: any, index: number) => {
                     const isSelected = selectedPackage?.name === pkg.name && selectedPackage?.price === pkg.price;
                     return (
                       <button
@@ -240,7 +240,9 @@ export default function VendorDetailPage() {
                             </div>
                           </div>
                           <span className="theme-primary font-bold text-lg whitespace-nowrap ml-4">
-                            ₹{Number(pkg.price || 0).toLocaleString("en-IN")}
+                            {Number(pkg.price) > 0
+                              ? `₹${Number(pkg.price).toLocaleString("en-IN")}`
+                              : <span className="text-sm text-amber-600">Contact for pricing</span>}
                           </span>
                         </div>
                       </button>
@@ -305,12 +307,14 @@ export default function VendorDetailPage() {
                 <p className="text-xs theme-muted uppercase tracking-wide mb-1">Selected Package</p>
                 <p className="font-semibold">{selectedPackage.name}</p>
                 <p className="theme-primary font-bold text-xl mt-1">
-                  ₹{Number(selectedPackage.price || 0).toLocaleString("en-IN")}
+                  {Number(selectedPackage.price) > 0
+                    ? `₹${Number(selectedPackage.price).toLocaleString("en-IN")}`
+                    : <span className="text-sm text-amber-600">Contact for pricing</span>}
                 </p>
               </div>
             )}
 
-            {!selectedPackage && vendor.packages?.filter((p: any) => p?.name && Number(p?.price) > 0).length > 0 && (
+            {!selectedPackage && vendor.packages?.filter((p: any) => p?.name).length > 0 && (
               <p className="text-sm text-amber-600">↑ Select a package above to book</p>
             )}
 
@@ -321,7 +325,7 @@ export default function VendorDetailPage() {
                 requesting ||
                 Boolean(existingRequest) ||
                 !currentEvent?.id ||
-                (vendor.packages?.length > 0 && !selectedPackage)
+                (vendor.packages?.filter((p: any) => p?.name).length > 0 && !selectedPackage)
               }
               className="w-full rounded-xl py-3 theme-button disabled:opacity-50"
             >
