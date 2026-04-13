@@ -136,7 +136,6 @@ export default function BusinessProfile() {
     const img = typedVendorProfile.profileImage || typedVendorProfile.image || "";
     setProfileImagePreview(resolveImageUrl(img));
     initialized.current = true;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typedVendorProfile]);
 
   const onFormChange = (key: keyof typeof form, value: string) => {

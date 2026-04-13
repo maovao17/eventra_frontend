@@ -6,7 +6,7 @@ import { Suspense, useState, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { apiFetch } from "@/app/lib/api"
 import { useEvent } from "@/context/EventContext"
-import { openRazorpayCheckout, PLATFORM_FEE } from "@/lib/payment"
+import { openRazorpayCheckout, calculatePlatformFee } from "@/lib/payment"
 import type { Booking } from "@/app/types/eventra"
 import { useToast } from "@/context/ToastContext"
 
@@ -59,7 +59,8 @@ function PaymentsPageContent() {
   }, [requestId])
 
   const total = booking?.amount ?? 0
-  const finalTotal = total + PLATFORM_FEE
+  const platformFee = calculatePlatformFee(total)
+  const finalTotal = total + platformFee
 
   const handlePayment = async () => {
     try {
@@ -200,10 +201,10 @@ function PaymentsPageContent() {
             <span className="font-medium">Subtotal</span>
             <span className="font-medium">{total > 0 ? formatCurrency(total) : "—"}</span>
           </div>
-          {PLATFORM_FEE > 0 && (
+          {platformFee > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-sm theme-muted">Platform Fee</span>
-              <span className="text-sm theme-muted">{formatCurrency(PLATFORM_FEE)}</span>
+              <span className="text-sm theme-muted">Platform Fee (10%)</span>
+              <span className="text-sm theme-muted">{formatCurrency(platformFee)}</span>
             </div>
           )}
         </div>
