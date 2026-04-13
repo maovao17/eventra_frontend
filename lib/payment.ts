@@ -31,7 +31,7 @@ type RazorpayOptions = {
 const RAZORPAY_SCRIPT_ID = 'eventra-razorpay-sdk';
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 export const PLATFORM_FEE = 0;
-export const calculatePlatformFee = (amount: number): number => Math.round(amount * 0.1);
+export const calculatePlatformFee = (_amount: number): number => 0;
 export const RAZORPAY_PUBLIC_KEY =
   process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() || '';
 
