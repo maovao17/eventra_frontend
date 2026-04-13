@@ -10,7 +10,6 @@ import { apiFetch, API_URL } from "@/app/lib/api"
 const BACKEND_ORIGIN = API_URL.replace(/\/api\/?$/, "")
 import { EmptyState, ErrorState, PageCardSkeleton, PageIntroSkeleton } from "@/components/ui/PageState"
 import { useToast } from "@/context/ToastContext"
-import { useEvent } from "@/context/EventContext"
 
 type VendorListItem = {
   _id: string
@@ -25,35 +24,17 @@ type VendorListItem = {
 
 function VendorsPageContent() {
   const { showToast } = useToast()
-  const { currentEvent, sendVendorRequest, getRequestForVendor } = useEvent()
   const searchParams = useSearchParams()
   const serviceFilter = searchParams.get("service")?.toLowerCase().trim() || ""
   const [vendors, setVendors] = useState<VendorListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [requestingVendorId, setRequestingVendorId] = useState<string | null>(null)
 
   const resolveVendorImage = (imagePath?: string): string => {
     if (!imagePath || imagePath === "") return "/placeholder-avatar.jpg";
     if (imagePath.startsWith("http")) return imagePath;
     return `${BACKEND_ORIGIN}${imagePath.startsWith("/") ? "" : "/"}${imagePath}`;
   };
-
-  const handleSendRequest = async (vendorId: string) => {
-    if (!currentEvent?.id) {
-      showToast("Please create or select an event first.", "error")
-      return
-    }
-    setRequestingVendorId(vendorId)
-    try {
-      await sendVendorRequest(currentEvent.id, vendorId)
-      showToast("Request sent!", "success")
-    } catch {
-      showToast("Could not send request.", "error")
-    } finally {
-      setRequestingVendorId(null)
-    }
-  }
 
   const loadVendors = async () => {
     setLoading(true)
@@ -173,28 +154,12 @@ function VendorsPageContent() {
                 <p className="text-sm text-gray-500">⭐ {vendor.rating}</p>
               )}
 
-              <div className="mt-4 flex flex-col gap-2">
-                {(() => {
-                  const existingRequest = currentEvent?.id
-                    ? getRequestForVendor(currentEvent.id, vendor._id)
-                    : undefined
-                  const isSending = requestingVendorId === vendor._id
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => void handleSendRequest(vendor._id)}
-                      disabled={isSending || Boolean(existingRequest)}
-                      className="w-full rounded-xl px-4 py-2 text-sm font-medium theme-button disabled:opacity-60 transition-all duration-200"
-                    >
-                      {isSending ? "Sending..." : existingRequest ? "Request Sent" : "Send Request"}
-                    </button>
-                  )
-                })()}
+              <div className="mt-4">
                 <Link
                   href={`/customer/vendors/${vendor._id}`}
-                  className="block w-full rounded-xl border px-4 py-2 text-center text-sm transition-all duration-300 ease-in-out hover:opacity-90"
+                  className="block w-full rounded-xl theme-button px-4 py-2 text-center text-sm font-medium"
                 >
-                  View Profile
+                  View Profile & Book
                 </Link>
               </div>
             </div>
