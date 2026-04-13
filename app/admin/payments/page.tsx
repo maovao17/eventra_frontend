@@ -21,7 +21,7 @@ export default function AdminPayments() {
 
     try {
       const [res, payoutRes] = await Promise.all([
-        apiFetch("/admin/payments"),
+        apiFetch("api/admin/payments"),
         apiFetch("/payouts"),
       ]);
       const paymentsData = (res as { data?: any[] } | null)?.data ?? res;
