@@ -92,8 +92,11 @@ export default function VendorDetailPage() {
         const data = await apiFetch(`/vendors/${vendorId}`)
         setVendor(data ?? null)
         // Auto-select first valid package (must have name and price)
-        const validPkgs = ((data as any)?.packages ?? []).filter((p: any) => p?.name && p?.price > 0)
-        if (validPkgs.length > 0) {
+        console.log("Raw vendor packages:", data?.packages);
+
+        const validPkgs = ((data as any)?.packages ?? []).filter(
+          (p: any) => p?.name && Number(p?.price) > 0
+        ); if (validPkgs.length > 0) {
           setSelectedPackage(validPkgs[0])
         }
       } catch (fetchError) {
@@ -199,29 +202,27 @@ export default function VendorDetailPage() {
             )}
 
             {/* Packages — only show entries that have a name and price */}
-            {vendor.packages?.filter((p: any) => p?.name && p?.price > 0).length > 0 && (
+            {vendor.packages?.filter((p: any) => p?.name && Number(p?.price) > 0).length > 0 && (
               <div className="mt-8">
                 <h2 className="text-xl font-semibold mb-4">Service Packages</h2>
                 <p className="theme-muted text-sm mb-4">Select a package before sending a request.</p>
                 <div className="space-y-3">
-                  {vendor.packages.filter((p: any) => p?.name && p?.price > 0).map((pkg: any, index: number) => {
+                  {vendor.packages.filter((p: any) => p?.name && Number(p?.price) > 0).map((pkg: any, index: number) => {
                     const isSelected = selectedPackage?.name === pkg.name && selectedPackage?.price === pkg.price;
                     return (
                       <button
                         key={index}
                         type="button"
                         onClick={() => setSelectedPackage(pkg)}
-                        className={`w-full text-left theme-card p-4 border-2 transition-all ${
-                          isSelected
+                        className={`w-full text-left theme-card p-4 border-2 transition-all ${isSelected
                             ? "border-[var(--primary)] bg-[var(--primary)]/5"
                             : "border-transparent hover:border-gray-300"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
-                              isSelected ? "border-[var(--primary)] bg-[var(--primary)]" : "border-gray-300"
-                            }`} />
+                            <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSelected ? "border-[var(--primary)] bg-[var(--primary)]" : "border-gray-300"
+                              }`} />
                             <div>
                               <p className="font-semibold">{pkg.name}</p>
                               {pkg.description && <p className="text-sm theme-muted mt-1">{pkg.description}</p>}
@@ -278,7 +279,7 @@ export default function VendorDetailPage() {
                   {reviews.map((review: any, index: number) => (
                     <div key={index} className="theme-card p-4">
                       <div className="flex items-center mb-2">
-                        {Array.from({length: Math.floor(review.rating || 0)}).map((_, i) => (
+                        {Array.from({ length: Math.floor(review.rating || 0) }).map((_, i) => (
                           <span key={i} className="text-yellow-400">⭐</span>
                         ))}
                         <span className="ml-2 text-sm theme-muted">({review.rating}/5)</span>
@@ -311,7 +312,7 @@ export default function VendorDetailPage() {
               </div>
             )}
 
-            {!selectedPackage && vendor.packages?.filter((p: any) => p?.name && p?.price > 0).length > 0 && (
+            {!selectedPackage && vendor.packages?.filter((p: any) => p?.name && Number(p?.price) > 0).length > 0 && (
               <p className="text-sm text-amber-600">↑ Select a package above to book</p>
             )}
 
